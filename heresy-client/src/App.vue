@@ -1,5 +1,6 @@
 <template>
-  <div class="app">
+  <AdminView v-if="isAdminRoute" />
+  <div v-else class="app">
     <header class="masthead">
       <button class="brand" @click="leaveToHome" aria-label="Heresy Rising home">
         <span class="brand-mark">H</span><span><strong>HERESY RISING</strong><small>A game of accusation and survival</small></span>
@@ -31,11 +32,13 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ensureConnected, emitWithAck, getPlayerCode, setPlayerCode, socket } from './socket';
+import AdminView from './components/AdminView.vue';
 import JoinView from './components/JoinView.vue';
 import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref('');
+const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const channel = ref('public'); const now = ref(Date.now()); let clock; let toastTimer;
 const profile = ref(readJson('heresy-rising:profile', { playerCode: getPlayerCode() }));
@@ -106,6 +109,6 @@ function receiveMessage(payload) { const msg = payload?.message || payload; if (
 function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...game.value, votes:data.votes }; }
 function onConnect() { connected.value = true; reconnecting.value = false; if (game.value?.code) emitWithAck('game:state', { code:game.value.code, playerCode:getPlayerCode() }).then(data => { receiveState(data); return loadHistory(); }).catch(()=>{}); }
 function onDisconnect() { connected.value = false; reconnecting.value = true; }
-onMounted(() => { clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); ensureConnected().catch(() => {}); });
-onBeforeUnmount(() => { clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); });
+onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); ensureConnected().catch(() => {}); });
+onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); });
 </script>

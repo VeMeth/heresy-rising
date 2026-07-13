@@ -16,6 +16,8 @@
 
 Keep production values in an untracked `.env`. Generate a long random admin password if admin routes are enabled. Never publish the SQLite database or mount it into the web client.
 
+The admin UI is served from `/admin` on the client origin. It uses the `ADMIN_PASSWORD` value through the `X-Admin-Password` API header; keep that password out of Git and rotate it if it is exposed.
+
 For internet play, expose the client/reverse proxy, not the Node server directly. The Compose files bind the server port to `127.0.0.1` by default; keep that unless a trusted proxy on another host must reach it.
 
 ## Compose variants
