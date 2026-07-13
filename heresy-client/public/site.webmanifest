@@ -1,0 +1,8 @@
+{
+  "name": "Heresy Rising Online",
+  "short_name": "Heresy Rising",
+  "icons": [],
+  "theme_color": "#090a09",
+  "background_color": "#090a09",
+  "display": "standalone"
+}

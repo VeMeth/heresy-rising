@@ -1,0 +1,20 @@
+{
+  "name": "heresy-rising",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "client:dev": "npm --prefix heresy-client run dev",
+    "server:start": "npm --prefix heresy-server run start",
+    "server:dev": "npm --prefix heresy-server run dev",
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "test:e2e": "node node_modules/playwright/cli.js test -c tests/e2e/playwright.config.js",
+    "docker": "docker compose up --build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:build": "docker compose build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "concurrently": "^10.0.3"
+  }
+}

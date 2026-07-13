@@ -1,0 +1,12 @@
+agent_type = "agent"
+system_prompt_id = "client"
+safety = "neutral"
+
+[enabled_tools]
+bash = "safe"
+read = true
+write = ["heresy-client/src/**", "**"]
+glob = true
+grep = true
+git = true
+docker = true

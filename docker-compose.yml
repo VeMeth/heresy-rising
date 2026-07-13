@@ -1,0 +1,48 @@
+name: heresy-rising
+
+services:
+  heresy-server:
+    build:
+      context: .
+      dockerfile: heresy-server/Dockerfile
+    image: ghcr.io/vemeth/heresy-rising-server:latest
+    environment:
+      - NODE_ENV=production
+      - SERVER_PORT=${SERVER_PORT:-4100}
+      - PORT=${SERVER_PORT:-4100}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me-before-production}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8281}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
+      - GAME_DB_PATH=/usr/src/app/data/heresy-rising.db
+    ports:
+      - "${SERVER_HOST_BIND:-127.0.0.1}:${SERVER_PORT:-4100}:${SERVER_PORT:-4100}"
+    volumes:
+      - ./data:/usr/src/app/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${SERVER_PORT:-4100}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  heresy-client:
+    build: ./heresy-client
+    image: ghcr.io/vemeth/heresy-rising-client:latest
+    environment:
+      - SERVER_PORT=${SERVER_PORT:-4100}
+    depends_on:
+      - heresy-server
+    ports:
+      - "${CLIENT_PORT:-8281}:80"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
