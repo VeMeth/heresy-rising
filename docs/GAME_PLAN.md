@@ -23,7 +23,7 @@ The design is mostly locked. Remaining sub-questions:
 | 4 | High-power action tiering (which actions cost +1, +2, +3 drift) | ✅ **LOCKED 2026-07-06** per loyalist-kit.md / heretic-kit.md |
 | 5 | Role roster (which roles ship in v1) | 🟡 **Open — drafted 2026-07-06:** 11 roles (6 Loyalist + 5 Heretic). Composition table in `data/composition.json` |
 | 6 | Faction hostility predicate semantics | 🟡 Default: `isHostileTo(a,b) = a.faction !== b.faction` (trivial) |
-| 7 | Day-mode vote (do players vote on the *mode* or on the *target*?) | 🟡 Default: vote on mode first, then target |
+| 7 | Day-mode vote (do players vote on the *mode* or on the *target*?) | ✅ **LOCKED 2026-07-13:** target-first, single vote, explicit Skip; see `docs/specs/mechanics/day-phase.md` |
 
 **Additional sub-questions added 2026-07-06 evening session** (defaults locked in HANDOFF.md §13, items 9–16):
 
@@ -55,10 +55,10 @@ Full tracker: `<repo-root>/projects/heresy-rising/OPEN_QUESTIONS.md`.
 | Lobby (create / join / ready / host start) | ✅ | Already wired in scaffold |
 | Role reveal (private to each player) | ✅ | Already wired |
 | Night phase with per-role actions | ✅ | Already wired (placeholder actions) |
-| Day phase with interrogate/lynch mode switch | ✅ NEW | Replaces single-vote mode |
+| Day phase with target-first vote + Skip | ✅ NEW | Mode is inferred from consecutive-day target history per `docs/specs/mechanics/day-phase.md` |
 | Interrogation tiers (1/2/3) with role-tied crippling | ✅ NEW | Per `interrogation.md` |
 | Lynch = cripple-to-max + kill + alignment reveal | ✅ NEW | |
-| Drift meter with four canonical triggers | ✅ NEW | wrong lynch, witnessed violence, high-power action, losing-side vote |
+| Drift meter with canonical triggers | ✅ NEW | sleep, action tier costs, day-phase outcomes, witnessed violence, Priest sermon deltas |
 | Drift visibility = faint hints | ✅ NEW | System cue messages on threshold crossings |
 | Heretical catalyst action (converts max-drift player) | ✅ NEW | Role ability; gated by max drift |
 | Two factions (Loyalist, Heretic) | ✅ | Subfactions deferred. **11 roles total** (6 Loyalist + 5 Heretic). |

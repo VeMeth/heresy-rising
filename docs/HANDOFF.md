@@ -18,7 +18,7 @@
 
 **Heresy Rising** is a chat-based social deduction game in the Warhammer 40,000 universe. It is built on Werewolf's bones but rebuilt around three novel ideas:
 
-1. **Interrogation replaces lynching** — table votes each day: *interrogate* (cripple, no death) or *lynch* (cripple-to-max + kill + alignment reveal). Interrogation is default; lynch is escalation.
+1. **Interrogation replaces lynching as the first escalation step** — table votes each day for a target or Skip. Same target on consecutive days becomes a lynch; otherwise the selected target is interrogated. See `docs/specs/mechanics/day-phase.md` §Core mechanic.
 2. **Drift** — hidden corruption meter per player, 0 to MAX (default 20). Rises from actions, never resets, only flips to Heretic via *heretical catalyst* (a special role ability targeting a Black-zone player).
 3. **Cripple-not-kill** — instead of dying, players lose *capability* (night actions, investigation power, day-vote influence). Death is rare.
 
@@ -89,7 +89,8 @@ Total reading time: ~30 min. **Don't skip.**
 |---|---|---|
 | Wrong lynch | +2 | Lynch target confirmed Loyalist post-reveal |
 | Witnessed violence | +1 | Public execution, night kill |
-| Voted with losing side | +1 | HALT after Day 5 |
+| Wrong interrogation | +1 | Voters for the interrogated Loyalist; see `docs/specs/mechanics/day-phase.md` |
+| Right interrogation | −1 | All living players when the interrogated target is Heretic |
 
 ### Threshold zones (intel noise scales with zone)
 
@@ -158,11 +159,11 @@ Total reading time: ~30 min. **Don't skip.**
 
 ## 6. Interrogation tiers (stat-damage system)
 
-| Tier | Effect | Drift cost |
+| Tier | Effect | Day-vote drift |
 |---|---|---|
-| 1 — Light Scarring | Lose one night action this round; recoverable; witnesses +1 | target **+1**; every living player except target **+1** |
-| 2 — Broken | Lose all night actions; vote weight −1; justify votes publicly | target **+2**; no witness drift |
-| 3 — Crippled | No night actions; **confess role on direct ask**; overflow → auto-conversion | target **+3**; no witness drift |
+| 1 — Light Scarring | Lose one night action this round; recoverable | Per `docs/specs/mechanics/day-phase.md`: wrong interrogation +1 to target voters; right interrogation −1 to all living |
+| 2 — Broken | Lose all night actions; vote weight −1; justify votes publicly | Same day-phase drift table |
+| 3 — Crippled | No night actions; **confess role on direct ask**; overflow → auto-conversion | Lynch jumps here and applies lynch drift/reveal |
 
 **Tier progression** *(default, 2026-07-06 — flag for review)*: same-target repeat auto-escalates 1→2→3. Different target resets to 1. T1 recovers after 1 round of no re-interrogation. T2/T3 permanent.
 
@@ -177,16 +178,15 @@ Full spec: `<repo-root>/projects/heresy-rising/mechanics/interrogation.md`.
 
 ---
 
-## 7. Day-mode voting (default — flag for review)
+## 7. Day vote (locked target-first mechanic)
 
-⚠️ **Sub-question unresolved; default chosen.**
+Q7 is locked as of 2026-07-13. The canonical mechanic is `docs/specs/mechanics/day-phase.md` §Core mechanic:
 
-- **Mode vote first** (interrogate vs lynch), then **target vote**.
-- Plurality wins mode; tie → re-vote.
-- Plurality wins target; tie → re-vote.
-- Subsequent pass has different semantics if needed.
-
-If you implement differently, document in code comments.
+- Players cast one vote per day for a target or Skip. They do not vote on a mode.
+- Majority of living players (>50%) is required for a non-Skip target.
+- Same target voted on consecutive days → lynch: cripple to max, kill, alignment reveal.
+- Different target, Skip, or no target majority → interrogation/skip per the day-phase spec.
+- Ties between top targets resolve to the higher-drift target; if still tied, the round is skipped.
 
 ---
 
@@ -210,10 +210,10 @@ Implement parity + Loyalist elimination. Pyrrhic is a design polish; defer.
 - [ ] 5–12 players can join lobby, ready up, host starts game.
 - [ ] Roles assigned from `data/roles-40k.json` — no hardcoded ROLES object.
 - [ ] Night actions resolve correctly. Recruiter's catalyst only fires on Black-zone target.
-- [ ] Day-mode switch (interrogate/lynch) is selectable and enforced.
+- [ ] Day vote is target-first with explicit Skip; mode is inferred from consecutive-day target history.
 - [ ] Interrogation applies tier-tied crippling per spec.
 - [ ] Lynch applies cripple-to-max + kill + alignment reveal.
-- [ ] Drift rises ONLY on the four canonical triggers (sleep, action tier cost, wrong lynch, voted-with-losing-side, witnessed violence).
+- [ ] Drift mutates only on canonical triggers (sleep, action tier cost, day-phase outcomes, witnessed violence, Priest sermon deltas).
 - [ ] Drift hints sent to drifting player only. Numeric value never exposed to anyone but engine.
 - [ ] Drift MAX configurable (default 20, overridable per game setup).
 - [ ] Nightly sleep = −1 only if action was skipped.
@@ -270,7 +270,7 @@ If something is unclear:
 | # | Question | Default to use | Status |
 |---|---|---|---|
 | 1 | Interrogation vote threshold | Plurality + re-vote on tie | 🟡 Sub-question 1, phase-0 open |
-| 2 | Day-mode mechanics | Vote on mode first, then target | 🟡 Sub-question 7, phase-0 open |
+| 2 | Day-mode mechanics | See `docs/specs/mechanics/day-phase.md` §Core mechanic | ✅ Locked 2026-07-13 |
 | 3 | Interrogator cumulative-bonus cap | 2 nights, must pivot after | 🟡 Open 2026-07-06 |
 | 4 | Saboteur trap frequency | Per-night | 🟡 Open 2026-07-06 |
 | 5 | Conspirator forgery variant | Attribute message to other player | 🟡 Open 2026-07-06 |
