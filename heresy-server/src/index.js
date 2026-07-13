@@ -43,7 +43,7 @@ function constantTimeEquals(a, b) {
 
 export function createHeresyServer({ databasePath, now } = {}) {
   const app=express(), server=http.createServer(app), allowed=config.cors.allowedOrigins;
-  const corsOptions={origin(origin,cb){if(isOriginAllowed(origin,allowed))return cb(null,true);cb(new Error('Origin not allowed'));},credentials:false};
+  const corsOptions=(req,cb)=>cb(null,{origin:isRequestOriginAllowed(req,allowed),credentials:false});
   app.disable('x-powered-by'); app.set('trust proxy',config.trustProxy?1:false); app.use(helmet({crossOriginResourcePolicy:{policy:'same-site'}})); app.use(cors(corsOptions)); app.use(express.json({limit:'32kb'})); app.use(rateLimit({...config.rateLimit,max:config.rateLimit.max||120}));
   const gameManager=new HeresyGameManager({databasePath,now});
   app.get('/api/health',(req,res)=>res.json({status:'ok',time:Date.now()}));

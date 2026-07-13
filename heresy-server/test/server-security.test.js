@@ -29,3 +29,9 @@ test('websocket origin check allows same-origin reverse proxy hosts', () => {
     headers: { origin: 'http://evil.example', host: 'opclw.blockchonk.me:8281' }
   }, ['http://localhost:8281']), false);
 });
+
+test('http origin check allows same-origin admin requests with public host ports', () => {
+  assert.equal(isRequestOriginAllowed({
+    headers: { origin: 'http://opclw.blockchonk.me:8281', host: 'opclw.blockchonk.me:8281' }
+  }, ['http://localhost:8281']), true);
+});
