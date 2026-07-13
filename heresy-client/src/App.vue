@@ -6,7 +6,7 @@
         <span class="brand-mark">H</span><span><strong>HERESY RISING</strong><small>A game of accusation and survival</small></span>
       </button>
       <div class="mast-actions">
-        <span v-if="game" class="game-code">CELL {{ game.code }}</span>
+        <span v-if="game" class="game-code">CONCLAVE {{ game.code }}</span>
         <span class="connection" :class="connectionState"><i></i>{{ connectionLabel }}</span>
         <button v-if="game" class="ghost compact" @click="copyInvite">Copy invite</button>
       </div>
