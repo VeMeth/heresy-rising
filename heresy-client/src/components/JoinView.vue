@@ -2,7 +2,12 @@
   <section class="landing">
     <div class="hero-copy">
       <span class="eyebrow">THE ENEMY IS AMONG US</span>
-      <h1>Trust is a<br><em>fatal weakness.</em></h1>
+      <h1>
+        <span v-for="(line, index) in quoteLines" :key="`${line}-${index}`">
+          <em v-if="index === quoteLines.length - 1">{{ line }}</em>
+          <template v-else>{{ line }}</template><br v-if="index < quoteLines.length - 1">
+        </span>
+      </h1>
       <p>A persistent, chat-driven game of hidden allegiance. Find the heretics before night falls—or ensure the faithful never see another dawn.</p>
       <div class="feature-row"><span>5–12 players</span><span>Live or asynchronous</span><span>Persistent campaigns</span></div>
     </div>
@@ -27,10 +32,36 @@
   </section>
 </template>
 <script setup>
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object });
 const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref('');
+const fallbackQuote = 'Trust is a\nfatal weakness.';
+const quote = ref(fallbackQuote);
+const quoteLines = computed(() => quote.value.split('\n').map(line => line.trim()).filter(Boolean));
 function join(){ if(name.value && code.value) emitJoin(); }
 const emit = defineEmits(['join','create','recover']);
 function emitJoin(){ emit('join',{ name:name.value, roomCode:code.value.toUpperCase() }); }
+function splitQuote(text) {
+  const normalized = text.replace(/\r\n?/g, '\n').trim();
+  if (!normalized) return fallbackQuote;
+  if (normalized.includes('\n')) return normalized;
+  const words = normalized.split(/\s+/);
+  if (words.length < 4) return normalized;
+  const midpoint = Math.ceil(words.length / 2);
+  return `${words.slice(0, midpoint).join(' ')}\n${words.slice(midpoint).join(' ')}`;
+}
+function parseQuotes(text) {
+  return text
+    .split(/\n\s*\n/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+onMounted(async () => {
+  try {
+    const response = await fetch('/quotes.txt', { cache: 'no-cache' });
+    if (!response.ok) return;
+    const quotes = parseQuotes(await response.text());
+    if (quotes.length) quote.value = splitQuote(quotes[Math.floor(Math.random() * quotes.length)]);
+  } catch {}
+});
 </script>

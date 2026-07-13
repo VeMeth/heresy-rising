@@ -32,7 +32,9 @@ services:
       start_period: 5s
 
   heresy-client:
-    build: ./heresy-client
+    build:
+      context: .
+      dockerfile: heresy-client/Dockerfile
     image: ghcr.io/vemeth/heresy-rising-client:latest
     environment:
       - SERVER_PORT=${SERVER_PORT:-4100}
