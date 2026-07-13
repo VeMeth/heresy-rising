@@ -9,12 +9,6 @@ import { config } from './config.js';
 import { HeresyGameManager } from './heresyGameManager.js';
 import { normalizeRoomCode, requirePlayerCode } from './utils.js';
 import { SocketRateLimiter } from './socketRateLimiter.js';
-import {
-  deleteAdminPlayer,
-  getAdminPlayers,
-  mergeAdminPlayers,
-  updateAdminPlayer
-} from './leaderboard.js';
 import { deleteGameLog, getGameLog, listGameLogs } from './gameLogs.js';
 
 export function isOriginAllowed(origin, allowed) {
@@ -49,21 +43,12 @@ export function createHeresyServer({ databasePath, now } = {}) {
   app.get('/api/health',(req,res)=>res.json({status:'ok',time:Date.now()}));
   app.get('/api/game/presets',(req,res)=>{res.set('Cache-Control','no-store').json(publicPresetMetadata(req.query.players));});
   function requireAdmin(req,res,next){res.set('Cache-Control','no-store');if(!constantTimeEquals(req.get('X-Admin-Password'),config.adminPassword))return res.status(401).json({error:'Admin password required'});next();}
-  function adminTotals(players,resumes=[]){return players.reduce((totals,player)=>({
-    players: totals.players,
-    runs: totals.runs + (player.recentRuns?.length || 0),
-    gamesPlayed: totals.gamesPlayed + (player.gamesPlayed || 0),
-    wins: totals.wins + (player.wins || 0),
-    losses: totals.losses + (player.losses || 0),
-    activeResumes: resumes.filter(resume => resume.status === 'active').length
-  }),{players:players.length,runs:0,gamesPlayed:0,wins:0,losses:0,activeResumes:0});}
   app.post('/api/admin/login',requireAdmin,(_req,res)=>res.json({ok:true}));
-  app.get('/api/admin/overview',requireAdmin,(_req,res)=>{try{const players=getAdminPlayers(),resumes=[];res.json({players,resumes,totals:adminTotals(players,resumes)});}catch(e){res.status(500).json({error:e.message});}});
-  app.patch('/api/admin/players/:id',requireAdmin,(req,res)=>{try{res.json({player:updateAdminPlayer(Number(req.params.id),req.body)});}catch(e){res.status(400).json({error:e.message});}});
-  app.delete('/api/admin/players/:id',requireAdmin,(req,res)=>{try{res.json(deleteAdminPlayer(Number(req.params.id)));}catch(e){res.status(400).json({error:e.message});}});
-  app.post('/api/admin/players/merge',requireAdmin,(req,res)=>{try{res.json(mergeAdminPlayers(req.body?.sourcePlayerId,req.body?.targetPlayerId));}catch(e){res.status(400).json({error:e.message});}});
-  app.get('/api/admin/resumes',requireAdmin,(_req,res)=>res.json({resumes:[]}));
-  app.patch('/api/admin/resumes/:code',requireAdmin,(req,res)=>res.status(404).json({error:'Resumes are not available in this game backend'}));
+  app.get('/api/admin/overview',requireAdmin,(_req,res)=>{try{res.json(gameManager.adminOverview());}catch(e){res.status(500).json({error:e.message});}});
+  app.get('/api/admin/games/:code',requireAdmin,(req,res)=>{try{res.json(gameManager.adminGame(normalizeRoomCode(req.params.code)));}catch(e){res.status(404).json({error:e.message});}});
+  app.patch('/api/admin/games/:code/players/:playerCode',requireAdmin,(req,res)=>{try{res.json({player:gameManager.adminUpdatePlayer(normalizeRoomCode(req.params.code),req.params.playerCode,req.body)});}catch(e){res.status(400).json({error:e.message});}});
+  app.post('/api/admin/games/:code/end',requireAdmin,(req,res)=>{try{res.json(gameManager.adminEndGame(normalizeRoomCode(req.params.code),req.body?.winner));}catch(e){res.status(400).json({error:e.message});}});
+  app.delete('/api/admin/games/:code',requireAdmin,(req,res)=>{try{res.json(gameManager.adminDeleteGame(normalizeRoomCode(req.params.code)));}catch(e){res.status(400).json({error:e.message});}});
   app.get('/api/admin/game-logs',requireAdmin,(req,res)=>{try{res.json({logs:listGameLogs({limit:req.query.limit})});}catch(e){res.status(500).json({error:e.message});}});
   app.get('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{const log=getGameLog(req.params.id);if(!log)return res.status(404).json({error:'Game log not found'});res.json({log});}catch(e){res.status(500).json({error:e.message});}});
   app.delete('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{res.json({deleted:deleteGameLog(req.params.id)});}catch(e){res.status(400).json({error:e.message});}});
