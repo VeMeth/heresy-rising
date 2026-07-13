@@ -14,7 +14,7 @@
       <header class="topbar">
         <div>
           <span>ADMIN</span>
-          <h1>Live Cells</h1>
+          <h1>Live Conclaves</h1>
         </div>
         <div class="actions">
           <button type="button" @click="loadOverview" :disabled="loading">Refresh</button>
@@ -25,7 +25,7 @@
       <p v-if="error" class="error">{{ error }}</p>
 
       <div class="metrics">
-        <div><span>Cells</span><strong>{{ totals.games || 0 }}</strong></div>
+        <div><span>Conclaves</span><strong>{{ totals.games || 0 }}</strong></div>
         <div><span>Active</span><strong>{{ totals.active || 0 }}</strong></div>
         <div><span>Lobby</span><strong>{{ totals.lobby || 0 }}</strong></div>
         <div><span>Ended</span><strong>{{ totals.ended || 0 }}</strong></div>
@@ -34,7 +34,7 @@
       </div>
 
       <nav class="tabs">
-        <button type="button" :class="{ active: tab === 'cells' }" @click="tab = 'cells'">Cells</button>
+        <button type="button" :class="{ active: tab === 'cells' }" @click="tab = 'cells'">Conclaves</button>
         <button type="button" :class="{ active: tab === 'logs' }" @click="openLogs">Game Logs</button>
       </nav>
 
@@ -51,13 +51,13 @@
             <span>{{ game.status }} · {{ game.phase }}{{ game.dayStage ? `/${game.dayStage}` : '' }}</span>
             <small>{{ game.playerCount }} players · round {{ game.round }}</small>
           </button>
-          <p v-if="!games.length" class="empty">No cells found.</p>
+          <p v-if="!games.length" class="empty">No conclaves found.</p>
         </aside>
 
         <article v-if="detail" class="detail">
           <header class="detail-head">
             <div>
-              <span>CELL {{ detail.game.code }}</span>
+              <span>CONCLAVE {{ detail.game.code }}</span>
               <h2>{{ detail.game.status }} · {{ detail.game.phase }}{{ detail.game.dayStage ? `/${detail.game.dayStage}` : '' }}</h2>
             </div>
             <div class="actions">
@@ -256,12 +256,12 @@ async function savePlayer(player) {
   Object.assign(player, data.player);
 }
 async function endGame(winner) {
-  if (!selectedCode.value || !confirm(`End cell ${selectedCode.value}?`)) return;
+  if (!selectedCode.value || !confirm(`End conclave ${selectedCode.value}?`)) return;
   detail.value = await adminFetch(`/api/admin/games/${encodeURIComponent(selectedCode.value)}/end`, { method: 'POST', body: JSON.stringify({ winner }) });
   await loadOverview();
 }
 async function deleteGame() {
-  if (!selectedCode.value || !confirm(`Permanently delete cell ${selectedCode.value}?`)) return;
+  if (!selectedCode.value || !confirm(`Permanently delete conclave ${selectedCode.value}?`)) return;
   await adminFetch(`/api/admin/games/${encodeURIComponent(selectedCode.value)}`, { method: 'DELETE' });
   detail.value = null;
   selectedCode.value = '';

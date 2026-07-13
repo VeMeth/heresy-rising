@@ -4,7 +4,7 @@ Heresy Rising is a persistent, server-authoritative social-deduction game for 5�
 
 ## Loop
 
-`lobby → role reveal → night → day mode vote → day target vote → repeat → victory`
+`conclave → role reveal → night → day mode vote → day target vote → repeat → victory`
 
 At night, eligible roles submit a private action or skip to sleep. During the day, living players first choose **Interrogate** or **Lynch**, then choose a target. Ties trigger a re-vote.
 

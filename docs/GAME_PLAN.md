@@ -100,7 +100,7 @@ Full tracker: `<repo-root>/projects/heresy-rising/OPEN_QUESTIONS.md`.
 
 **Trigger to start:** v1 acceptance green + ≥ 1 playtest of v1 with feedback.
 
-Add Puritan and Radical as Loyalist subfactions. Roles gain a `subfaction` field. Puritan vs Radical fight for control of the Loyalist cell; Heretics unaffected mechanically but gain knowledge of the split.
+Add Puritan and Radical as Loyalist subfactions. Roles gain a `subfaction` field. Puritan vs Radical fight for control of the Loyalist conclave; Heretics unaffected mechanically but gain knowledge of the split.
 
 **Acceptance:** Puritan and Radical have separate win conditions; roles can declare subfaction loyalty; the subfaction layer is toggleable per game.
 

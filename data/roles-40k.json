@@ -62,7 +62,7 @@
         "onCripple": "disable-one"
       },
       "ability": "Each night, designate one player to protect. If that player is targeted by a night kill, the kill is prevented. You do not learn whether your protection fired.",
-      "objective": "Keep the cell alive. Standard Doctor slot, drift-priced."
+      "objective": "Keep the conclave alive. Standard Doctor slot, drift-priced."
     },
 
     {
@@ -123,7 +123,7 @@
         "blocks": ["sermon"],
         "onCripple": "disable-all"
       },
-      "ability": "Each night, choose one sermon tier and target. Whisper (−2, daily), Hymn (−5, 2/game), Litany (−10 floored at 0, once/game). Litany rescue: Priest enters Orange, target exits Red. Skilled Priests hold the cell together; militant ones climb drift.",
+      "ability": "Each night, choose one sermon tier and target. Whisper (−2, daily), Hymn (−5, 2/game), Litany (−10 floored at 0, once/game). Litany rescue: Priest enters Orange, target exits Red. Skilled Priests hold the conclave together; militant ones climb drift.",
       "objective": "Cleanse drift. Keep the faithful clean. Don't burn out."
     },
 

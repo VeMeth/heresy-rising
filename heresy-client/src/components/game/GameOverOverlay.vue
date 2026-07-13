@@ -38,7 +38,7 @@
           Copy Result
         </button>
         <button class="primary" @click="$emit('dismiss')">
-          Return to Lobby
+          Return to Conclave
         </button>
       </div>
       <p v-if="copied" class="copied">Copied for Telegram.</p>

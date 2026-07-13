@@ -8,7 +8,7 @@
 
 ## 1. One-paragraph pitch
 
-**Heresy Rising** is a persistent, chat-based social deduction game for **5–12 players**, set in the Warhammer 40,000 universe. Players join a faction-locked cell of the Imperium — **Loyalist** or hidden **Heretic** — and over a series of **Day / Night** phases, they debate, accuse, cripple, and damn one another in pursuit of parity. Each player has a hidden **Drift** meter that rises from *actions* (wrong lynch, witnessing violence, using high-power night actions, voting with the losing side) and only converts to Heretic when a **heretical catalyst** is performed on a maxed player. Day-phase is an **interrogate-or-lynch switch**: the table picks each round whether to **interrogate** (cripple, no death) or **lynch** (cripple-to-max then death, alignment revealed). Drift is **never reset** — it only locks in. Death is meaningful but not the only lever.
+**Heresy Rising** is a persistent, chat-based social deduction game for **5–12 players**, set in the Warhammer 40,000 universe. Players join a faction-locked conclave of the Imperium — **Loyalist** or hidden **Heretic** — and over a series of **Day / Night** phases, they debate, accuse, cripple, and damn one another in pursuit of parity. Each player has a hidden **Drift** meter that rises from *actions* (wrong lynch, witnessing violence, using high-power night actions, voting with the losing side) and only converts to Heretic when a **heretical catalyst** is performed on a maxed player. Day-phase is an **interrogate-or-lynch switch**: the table picks each round whether to **interrogate** (cripple, no death) or **lynch** (cripple-to-max then death, alignment revealed). Drift is **never reset** — it only locks in. Death is meaningful but not the only lever.
 
 ---
 
@@ -169,7 +169,7 @@ Every role must be **data-swap-clean**. Concretely:
 - ❌ Any of the 15 twist mechanics
 - ❌ Mobile native app (web client only)
 - ❌ Persistent accounts / login (player codes are bearer credentials)
-- ❌ Scenario variants (voidship / planet / regiment) — *deferred 2026-07-06; default v1 cell = Imperial Regiment*. Engine architecture must not bake in planetary framing (barracks-agnostic). See `MEMORY.md` decoration #16.
+- ❌ Scenario variants (voidship / planet / regiment) — *deferred 2026-07-06; default v1 conclave = Imperial Regiment*. Engine architecture must not bake in planetary framing (barracks-agnostic). See `MEMORY.md` decoration #16.
 
 ---
 
@@ -195,5 +195,5 @@ Heresy Rising is an **unofficial, non-commercial Warhammer 40,000 fan project**.
 | **Interrogate** | Day-phase vote outcome. Cripples (tiers 1–3), does not kill |
 | **Lynch** | Day-phase vote outcome. Cripples-to-max, then kills, alignment revealed |
 | **Cripple** | Role-tied stat damage. Disables part of a role's power |
-| **Cell** | One game of Heresy Rising |
+| **Conclave** | One game of Heresy Rising |
 | **#graveyard** | Shared dead-player chat (single channel, all factions) |
