@@ -171,7 +171,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 const STORAGE_KEY = 'heresy-rising:adminPassword';
 const passwordInput = ref(sessionStorage.getItem(STORAGE_KEY) || '');
