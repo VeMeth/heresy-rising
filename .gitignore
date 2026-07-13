@@ -28,3 +28,4 @@ trace.zip
 .aider*
 .cache/
 coverage/
+docs/specs/
