@@ -18,7 +18,7 @@ export function loadGameConfig() {
       night.kind = role.faction === 'heretic' ? 'corrupt-sermon' : 'sermon';
       night.variants = Object.keys(role.sermonTiers || {}).map(id => id.replaceAll('_', '-'));
     }
-    if (night?.kind === 'investigate') night.variants = ['story-consistency', 'cross-reference', 'cumulative'];
+    if (night?.kind === 'investigate') night.variants = ['T1', 'T2', 'T3'];
     return { ...role, actions: { ...role.actions, night } };
   });
   const compositionData = read('composition.json');

@@ -42,7 +42,7 @@
         "blocks": ["investigate"],
         "onCripple": "disable-one"
       },
-      "ability": "Each night, investigate one player using one of three modes: (1) story consistency — 'their story holds together / something doesn't add up / you learned nothing'; (2) cross-reference — name a specific claim, get true / false / unverifiable; (3) cumulative bonus — same target two nights in a row yields a sharper hint. Cap at 2 consecutive nights on the same target; must pivot after. Drift output degrades by zone (Green exact → Black 100% noise).",
+      "ability": "Each night, interrogate one player at chosen intensity: T1 Soft (+1 drift, 'story holds / something off / nothing'), T2 Standard (+2 drift, same + zone hint), T3 Brutal (+3 drift, confirmed Heretic or Loyalist). Target's drift zone auto-upgrades effective tier. Effective T2+ vs Orange+ target = Execute on Sight (auto-kill, alignment revealed).",
       "objective": "Find the heretics. Stay clean enough to be believed."
     },
 
