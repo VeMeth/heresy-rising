@@ -4,8 +4,13 @@ export default defineConfig({
   title: 'Heresy Rising',
   description: 'A Game of Hidden Faith',
   base: '/docs/',
-  appearance: 'dark',
+  appearance: 'force-dark',
   outDir: '_site',
+  head: [
+    ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
+    ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap' }],
+  ],
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
