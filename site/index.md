@@ -23,3 +23,7 @@ features:
 Design in progress. This site will host player-facing docs for Heresy Rising once the engine is playable.
 
 Designer notes live at `projects/heresy-rising/`. Coder mirror at `docs/specs/`.
+
+---
+
+[Play the game](/) — return to the game lobby.

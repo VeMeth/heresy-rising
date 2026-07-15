@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'Heresy Rising',
   description: 'A Game of Hidden Faith',
-  base: '/heresy-rising/',
+  base: '/docs/',
   appearance: 'dark',
   outDir: '_site',
   themeConfig: {
