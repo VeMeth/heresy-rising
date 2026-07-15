@@ -26,7 +26,7 @@ COPY heresy-client/nginx/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY --from=docs /app/_site /usr/share/nginx/html/docs
+COPY --from=docs /app/site/_site /usr/share/nginx/html/docs
 
 EXPOSE 80
 ENTRYPOINT ["/entrypoint.sh"]
