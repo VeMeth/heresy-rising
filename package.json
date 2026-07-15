@@ -11,10 +11,14 @@
     "docker": "docker compose up --build",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "docker:build": "docker compose build"
+    "docker:build": "docker compose build",
+    "docs:dev": "vitepress dev site",
+    "docs:build": "vitepress build site",
+    "docs:preview": "vitepress preview site"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
-    "concurrently": "^10.0.3"
+    "concurrently": "^10.0.3",
+    "vitepress": "^1.6.3"
   }
 }

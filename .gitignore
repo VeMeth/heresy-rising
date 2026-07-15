@@ -29,3 +29,7 @@ trace.zip
 .cache/
 coverage/
 docs/specs/
+
+# VitePress
+site/.vitepress/cache/
+site/_site/
