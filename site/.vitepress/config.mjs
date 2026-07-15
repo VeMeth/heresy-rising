@@ -13,7 +13,6 @@ export default defineConfig({
   ],
   themeConfig: {
     nav: [
-      { text: 'Home', link: '/' },
       { text: 'How to Play', link: '/how-to-play' },
     ],
     sidebar: [
