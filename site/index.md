@@ -24,6 +24,4 @@ Design in progress. This site will host player-facing docs for Heresy Rising onc
 
 Designer notes live at `projects/heresy-rising/`. Coder mirror at `docs/specs/`.
 
----
-
-[Play the game](/) — return to the game lobby.
+[Play the game](https://vemeth.github.io/heresy-rising/) — return to the game lobby.
