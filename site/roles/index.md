@@ -19,9 +19,9 @@ In short: **drift cost is the Warp's invoice for what you just did**. Every role
 
 | Role | Power | Drift |
 |---|---|---|
-| [Imperial Citizen](/roles/imperial-citizen) | None | T0 |
+| [Imperial Citizen](/roles/imperial-citizen) | Sleep (silent −1/night) | T0 |
 | [Interrogator](/roles/interrogator) | Interrogate (T1/T2/T3) | T2/night |
-| [Chirurgeon](/roles/chirurgeon) | Protect one player | T1/night |
+| [Chirurgeon](/roles/chirurgeon) | Protect (kill + cripple, silent, rotating) | T1/night |
 | [Arbitrator](/roles/arbitrator) | Bodyguard (sacrificial) | T1/night |
 | [Novice-Psychic](/roles/novice-psychic) | Drift hint | T1/night |
 | [Priest](/roles/priest) | Three sermon tiers | varies |

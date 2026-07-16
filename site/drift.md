@@ -42,6 +42,8 @@ Sleeping has a small effect in the other direction:
 |---|---|
 | **Sleep** (no night action submitted) | **−1** drift |
 
+> *Citizen exception:* Imperial Citizens **auto-sleep each night** (they have no other action to choose). Their sleep is not opt-in. See the [Imperial Citizen](/roles/imperial-citizen) page for the full mechanic.
+
 Drift does *not* reset across rounds. It accumulates.
 
 ## The zone ladder
@@ -111,7 +113,7 @@ Almost every operative has a *Drift cost* on their primary action. Read it as th
 
 | Tier | Cost | Roles that pay it |
 |---|---|---|
-| T0 | None | Imperial Citizen (sleep = −1 only) |
+| T0 | None | Imperial Citizen (auto-sleeps each night, −1; see [role page](/roles/imperial-citizen)) |
 | T1 | +1 | Priest (Whisper), Chirurgeon, Arbitrator, Novice-Psychic, Saboteur, Conspirator |
 | T2 | +2 | Interrogator T2, Priest (Hymn), Heretic Priest (Twisted Hymn), Murderer (variant) |
 | T3 | +3 | Interrogator T3, Priest (Litany), Heretic Priest (Warp Litany), Murderer (variant), Recruiter |

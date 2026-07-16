@@ -11,9 +11,9 @@ You have no night action. You cannot interrogate, protect, divine, or sermonize.
 
 The Citadel is full of people exactly like you — that is its strength and its danger. Eleven conclaves, ten of them won by who noticed first.
 
-**Night action:** None. Sleep if you wish.
+**Night action:** None. Sleep. *(This is auto-applied — you cannot opt out, and you receive no feedback.)*
 
-**Drift cost (Warp-corruption on your soul):** Zero. You climb drift only by witnessing violence, by voting with the losing side, or by being on the wrong end of a Heretic Priest's sermon.
+**Drift cost (Warp-corruption on your soul):** **−1 per night, auto-applied on sleep.** This is the *Citizens rest easy* bonus: a faithful operative who never acts nightly drifts slightly *cleaner* every round. You climb drift only by **witnessing violence**, by **voting with the losing side**, or by being on the wrong end of a Heretic Priest's sermon.
 
 **Play this role if:** you want to be the Loyalist backbone — the one whose votes and observations tip the day.
 

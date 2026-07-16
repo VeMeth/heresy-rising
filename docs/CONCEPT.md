@@ -98,7 +98,7 @@ Drift is a per-player integer, **0 to 20** (MAX=20, locked 2026-07-06). Headroom
 | 🔴 Red (Heretical) | 15–19 | 80% noise | Constant | Obvious |
 | ⬛ Black (Max) | 20 | Unreliable | You know | Convert-vulnerable |
 
-**Nightly sleep = −1 drift** (requires skipping your night action). Sleep is the only passive anti-drift.
+**Nightly sleep = −1 drift** (requires skipping your night action). Sleep is the only passive anti-drift. *For Imperial Citizens, sleep is auto-applied nightly — they have no other night action to choose.*
 
 **Heretic drift cap = 13 by end of Day 3** (else +3 spike). Prevents stealth clean-handed Heretic wins.
 

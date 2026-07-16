@@ -74,9 +74,9 @@ There are **11 roles** in v1: six Loyalist, five Heretic, plus *Imperial Citizen
 Browse the **[full role roster](/roles/)** for blurb and quick-reference on each. The list below is for orientation:
 
 ### Loyalists
-- **[Imperial Citizen](/roles/imperial-citizen)** — no power, just votes.
+- **[Imperial Citizen](/roles/imperial-citizen)** — no power; sleeps nightly (silent −1 drift). Pure voter.
 - **[Interrogator](/roles/interrogator)** — interrogate at T1/T2/T3; T2+ on Orange+ target = execute on sight.
-- **[Chirurgeon](/roles/chirurgeon)** — protect one player per night from night strikes.
+- **[Chirurgeon](/roles/chirurgeon)** — silently blocks a night strike (kill or cripple) on one target per night. Rotation rule: no same target 2 nights in a row (incl. self). No feedback on success.
 - **[Arbitrator](/roles/arbitrator)** — bodyguard; dies in the target's place on a strike they guarded.
 - **[Novice-Psychic](/roles/novice-psychic)** — receives one drift hint per night about a target.
 - **[Priest](/roles/priest)** — sermons that drain or seal drift; limited uses per game.
