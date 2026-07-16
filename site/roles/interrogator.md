@@ -9,7 +9,7 @@ description: The Loyalist's weapon. Three intensities, three truths, one execute
 
 You are the Inquisition's blade. Each night, you pick one operative and interrogate them at an intensity of your choice.
 
-**Night action — Interrogate.** One target. One intensity.
+**Night action — Interrogate.** One target. One intensity. (Drift is the Warp's invoice — see the [How to Play primer](/how-to-play).)
 
 | Intensity | Drift cost (you pay) | What you learn |
 |---|---|---|

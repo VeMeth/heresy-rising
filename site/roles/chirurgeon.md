@@ -11,7 +11,7 @@ You are the Loyalist healer. Each night, you designate one operative to protect.
 
 **Night action — Protect.** One target. They survive the night's strikes.
 
-**Drift cost:** +1 per night you protect.
+**Drift cost (Warp invoice):** +1 per night you protect.
 
 **Coverage rules:**
 - If both you *and* the Arbitrator protect the same target on the same night, the protection *stacks* (two defenders, two strikes absorbed). Do this when you know the Murderer is moving.

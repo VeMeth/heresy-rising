@@ -39,9 +39,13 @@ The day is a vote. You pick someone to accuse. The first consecutive day on a ta
 
 > You can also vote **"Stand down"** to skip the day. Useful when no good target is named.
 
-## Drift
+## Drift — what the Warp leaves on a soul
 
-Drift is the soul-corruption meter. It ranges from `0` (clean) to `20` (lost). Players don't see their own number, but they receive soft *hints* from the system as they climb. Drift is hidden from the table.
+*Drift* is the measure of how much Warp-corruption has settled into an operative's soul. The Warp is the source — the chaos dimension pressing against reality, whispering and pulling. **Drift is what the Warp leaves behind.**
+
+When you commit violence, when you witness it, when you exercise forbidden gifts, when you consort with the wrong — the Warp's weight on you *climbs*. Drift never resets. Every action is a trade-off between what you need *now* and what you'll have to carry *next round*.
+
+Drift is a value from `0` (clean) to `20` (lost). Players don't see their own number, but they receive soft *hints* from the system as they climb. Drift is hidden from the table — you feel it on yourself, the rest of the conclave only sees the consequences.
 
 | Zone | Range | You feel… | Tactical cost |
 |---|---|---|---|
@@ -51,7 +55,7 @@ Drift is the soul-corruption meter. It ranges from `0` (clean) to `20` (lost). P
 | 🔴 Red | 15–19 | A whisper, a hunger | T2 Interrogate = auto-kill |
 | ⬛ Black | 20 | The Warp takes you | A catalyst role may *convert* you into a Heretic |
 
-Drift **never resets**. Once you climb, you stay climbed. That is why every action is a trade-off.
+The Interrogator's scans are gated by your drift zone — a clean target's drift is easy to read; an Orange+ target is *itching* with corruption and a deliberate scan exposes them.
 
 ## Interrogation
 

@@ -11,7 +11,7 @@ You are the Loyalist seer. Each night, the warp grants you a glimpse of one oper
 
 **Night action — Drift Hint.** One target. The system sends you a subjective whisper about their drift zone.
 
-**Drift cost:** +1 per night you hint.
+**Drift cost (Warp invoice):** +1 per night you hint.
 
 **Accuracy:** Hints are gated by the *target's* drift zone — clean targets give exact hints, drifted targets give noisy hints, and very-drifted targets give *very noisy* hints. You will usually be right; sometimes you will not.
 

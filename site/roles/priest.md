@@ -17,7 +17,7 @@ You are the Loyalist priest. Each night, you preach to one operative — a sermo
 | **Hymn** | −5 drift | +3 drift | Twice per game |
 | **Litany** | −10 drift (floored at 0) | +6 drift | Once per game |
 
-**Net drain:** all sermons cost the Priest drift. A Priest who sermons hard climbs their own meter. If the Priest enters Orange zone, the Interrogator reading them gets noisy intel, and T2+ scans against them auto-kill. **Sermon yourself last, and slowly.**
+**Net drain:** all sermons cost the Priest drift (the Warp-invoice for any night action — see [How to Play](/how-to-play)). A Priest who sermons hard climbs their own meter. If the Priest enters Orange zone, the Interrogator reading them gets noisy intel, and T2+ scans against them auto-kill. **Sermon yourself last, and slowly.**
 
 **Litany math:** Litany −10 + Whisper −2 = −12 drain in a single night. Pulling a Red-zone Loyalist back to clean. Save it for that moment.
 

@@ -9,6 +9,12 @@ description: All 11 operatives in Heresy Rising. Faction, role, brief mechanical
 
 Each role below lists the faction, the night power (if any), and what to expect when the role is in play. Roles are sorted by faction — Loyalist first, Heretic second. Imperial Citizen is the fill role.
 
+## What "Drift cost" means
+
+Every night action that touches the Warp is priced in **drift** — the same hidden corruption meter described in the [How to Play](/how-to-play) primer. Drift cost is what *you* pay to act. If your action targets a drifted player, the Warp on them **also** ripples back onto you through the cost.
+
+In short: **drift cost is the Warp's invoice for what you just did**. Every role below lists its cost. Tier 0 (T0) actions cost nothing; T1 a little; T2 a lot; T3 — the *catalyst* — almost unbearable.
+
 ## Loyalist
 
 | Role | Power | Drift |

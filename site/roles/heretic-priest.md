@@ -17,7 +17,7 @@ You are the Heretic's mirror of the Priest — a chaplain of the Warp, speaking 
 | **Twisted Hymn** | +7 drift | +2 drift | 2–3× per game |
 | **Warp Litany** | +12 drift | +4 drift | Once per game |
 
-**Direction:** all Heretic Priest sermons *push* the target higher in drift. They are the cell's drift engine.
+**Direction:** all Heretic Priest sermons *push* the target higher in drift (the Warp's corruption, see [How to Play](/how-to-play)). They are the cell's drift engine.
 
 **Self-sermons:** False Comfort can be self-targeted for +1 to the Heretic Priest in exchange for +3 to themselves — net cost is +1 for +3, but the Heretic Priest spends her own drift cheaply. Useful in a pinch.
 

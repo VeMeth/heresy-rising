@@ -13,7 +13,7 @@ The Citadel is full of people exactly like you — that is its strength and its 
 
 **Night action:** None. Sleep if you wish.
 
-**Drift cost:** Zero. You climb drift only by witnessing violence, by voting with the losing side, or by being on the wrong end of a Heretic Priest's sermon.
+**Drift cost (Warp-corruption on your soul):** Zero. You climb drift only by witnessing violence, by voting with the losing side, or by being on the wrong end of a Heretic Priest's sermon.
 
 **Play this role if:** you want to be the Loyalist backbone — the one whose votes and observations tip the day.
 

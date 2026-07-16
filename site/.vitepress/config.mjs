@@ -12,9 +12,12 @@ export default defineConfig({
     ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap' }],
   ],
   themeConfig: {
+    siteTitle: false,
+    logoLink: { link: '/', target: '_self' },
     nav: [
       { text: 'How to Play', link: '/how-to-play' },
       { text: 'Roles', link: '/roles/' },
+      { text: 'Return to Game', link: '../', target: '_self' },
     ],
     sidebar: [
       {

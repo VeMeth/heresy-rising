@@ -11,7 +11,7 @@ You are the Heretic's executioner. Each night, you pick one operative and end th
 
 **Night action — Kill.** One target. They die. Roll Tier-3 cripple on a Citizen who is not the target's choice.
 
-**Drift cost:** High. T2 or T3 per night, depending on the spec. You climb *fast*.
+**Drift cost (Warp invoice):** High. T2 or T3 per night, depending on the spec. You climb *fast*.
 
 **Your cell keeps you alive by rotating drift.** A Murderer who kills every night is in Orange zone by Night 3. In Orange, an Interrogator T2 scan against you is an auto-kill. Rotate or sleep every other night.
 

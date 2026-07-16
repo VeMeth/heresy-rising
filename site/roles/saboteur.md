@@ -11,7 +11,7 @@ You are the Heretic's trapper. Each night, you place a trap on one operative. If
 
 **Night action — Trap.** One target. The next action against them fizzles, the actor pays an extra +5 drift on top of their chosen tier.
 
-**Drift cost:** +1 per night you trap.
+**Drift cost (Warp invoice):** +1 per night you trap.
 
 **Saboteur intel:** You learn *that* a trap sprung and *who* the actor was. You do not learn what they tried to do.
 

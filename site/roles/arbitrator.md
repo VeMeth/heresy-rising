@@ -13,7 +13,7 @@ This is your power and your cost: protection by martyrdom.
 
 **Night action — Guard.** One target. If they are hit, you die in their place.
 
-**Drift cost:** +1 per night you guard.
+**Drift cost (Warp invoice):** +1 per night you guard.
 
 **Stacking with the Chirurgeon:** if both you and a Chirurgeon protect the same target, the protection *stacks*. Two defenders, two absorptions — useful for high-traffic nights when the Murderer is moving.
 
