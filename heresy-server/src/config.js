@@ -12,6 +12,8 @@ function parseNumber(value, defaultValue) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultValue;
 }
 
+export const DEFAULT_ADMIN_PASSWORD = 'BD-admin-default-7d2f940c9d0a4b0fa3e61b787c6b21a9-change-me';
+
 function parseOrigins(value) {
   if (!value) {
     // No origins configured — fail safe rather than defaulting to permissive localhost
@@ -28,7 +30,7 @@ function parseOrigins(value) {
 
 export const config = {
   port: parseNumber(process.env.SERVER_PORT || process.env.PORT, 4100),
-  adminPassword: process.env.ADMIN_PASSWORD || 'BD-admin-default-7d2f940c9d0a4b0fa3e61b787c6b21a9-change-me',
+  adminPassword: process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD,
   trustProxy: parseBoolean(process.env.TRUST_PROXY, false),
   cors: {
     allowedOrigins: parseOrigins(process.env.ALLOWED_ORIGINS)
@@ -40,3 +42,8 @@ export const config = {
     legacyHeaders: false
   }
 };
+
+// A never-set or still-default admin password must never grant access in production.
+export function isDefaultAdminPassword() {
+  return !process.env.ADMIN_PASSWORD || config.adminPassword === DEFAULT_ADMIN_PASSWORD;
+}

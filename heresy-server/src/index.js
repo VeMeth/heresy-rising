@@ -5,7 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
-import { config } from './config.js';
+import { config, isDefaultAdminPassword } from './config.js';
 import { HeresyGameManager } from './heresyGameManager.js';
 import { normalizeRoomCode, requirePlayerCode } from './utils.js';
 import { SocketRateLimiter } from './socketRateLimiter.js';
@@ -42,8 +42,21 @@ export function createHeresyServer({ databasePath, now } = {}) {
   const gameManager=new HeresyGameManager({databasePath,now});
   app.get('/api/health',(req,res)=>res.json({status:'ok',time:Date.now()}));
   app.get('/api/game/presets',(req,res)=>{res.set('Cache-Control','no-store').json(publicPresetMetadata(req.query.players));});
-  function requireAdmin(req,res,next){res.set('Cache-Control','no-store');if(!constantTimeEquals(req.get('X-Admin-Password'),config.adminPassword))return res.status(401).json({error:'Admin password required'});next();}
-  app.post('/api/admin/login',requireAdmin,(_req,res)=>res.json({ok:true}));
+  // In production, a default/unchanged admin password must never grant access — fail closed.
+  const adminLocked = config.adminPassword && process.env.NODE_ENV === 'production' && isDefaultAdminPassword();
+  if (adminLocked) {
+    console.error('[SECURITY] Refusing admin access: ADMIN_PASSWORD is unset or still the shipped default. Set a strong ADMIN_PASSWORD before exposing the admin panel.');
+  }
+  // Strict, per-IP limiter for admin login attempts to slow brute-forcing of the admin password.
+  const adminLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many admin login attempts. Try again later.' }
+  });
+  function requireAdmin(req,res,next){res.set('Cache-Control','no-store');if(adminLocked)return res.status(503).json({error:'Admin access disabled. The admin password must be set to a non-default value.'});if(!constantTimeEquals(req.get('X-Admin-Password'),config.adminPassword))return res.status(401).json({error:'Admin password required'});next();}
+  app.post('/api/admin/login',adminLoginLimiter,requireAdmin,(_req,res)=>res.json({ok:true}));
   app.get('/api/admin/overview',requireAdmin,(_req,res)=>{try{res.json(gameManager.adminOverview());}catch(e){res.status(500).json({error:e.message});}});
   app.get('/api/admin/games/:code',requireAdmin,(req,res)=>{try{res.json(gameManager.adminGame(normalizeRoomCode(req.params.code)));}catch(e){res.status(404).json({error:e.message});}});
   app.patch('/api/admin/games/:code/players/:playerCode',requireAdmin,(req,res)=>{try{res.json({player:gameManager.adminUpdatePlayer(normalizeRoomCode(req.params.code),req.params.playerCode,req.body)});}catch(e){res.status(400).json({error:e.message});}});
