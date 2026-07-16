@@ -57,6 +57,28 @@ body::before {
   background-size: 32px 32px;
 }
 
+/* Force a single consistent top-nav layout across home and inner pages.
+   VitePress's default makes .VPNavBar.has-sidebar (inner pages) edge-to-edge
+   (max-width:100%, padding:0) while the home page stays centered (max-width
+   constrained, margin auto) — so the brand and menu links jump sideways on
+   navigation. Pin both page types to the same centered, padded layout so
+   nothing moves. */
+.dark .VPNavBar .wrapper,
+.dark .VPNavBar.has-sidebar .wrapper {
+  padding: 0 32px !important;
+}
+.dark .VPNavBar .container,
+.dark .VPNavBar.has-sidebar .container {
+  max-width: calc(var(--vp-layout-max-width) - 64px) !important;
+  margin: 0 auto !important;
+}
+@media (max-width: 767px) {
+  .dark .VPNavBar .wrapper,
+  .dark .VPNavBar.has-sidebar .wrapper {
+    padding: 0 8px 0 24px !important;
+  }
+}
+
 .dark .VPNav {
   background: rgba(9, 10, 9, 0.94);
 }
