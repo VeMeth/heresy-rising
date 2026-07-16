@@ -80,6 +80,7 @@ body::before {
 }
 .dark .VPNavBar.has-sidebar .content {
   padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 @media (max-width: 850px) {
   .dark .VPNavBar .wrapper,
