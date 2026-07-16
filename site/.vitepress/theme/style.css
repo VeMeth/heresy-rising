@@ -1,29 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&display=swap');
-
-/* Heresy Rising — docs theme tokens */
 :root {
-  /* Game palette */
   --vp-c-brand-1: #b69a5c;
   --vp-c-brand-2: #dfc27c;
   --vp-c-brand-3: #8f7543;
-
-  /* Dark theme adjustments — match the game */
+  --vp-c-brand-soft: rgba(182, 154, 92, 0.14);
   --vp-c-bg: #090a09;
   --vp-c-bg-alt: #121411;
   --vp-c-bg-elv: #181a16;
   --vp-c-bg-soft: #1c1f1a;
-
-  --vp-c-text-1: #ddd8c7;
+  --vp-c-text-1: #e8e4d5;
   --vp-c-text-2: #c4c1b5;
-  --vp-c-text-3: #a9aa9e;
+  --vp-c-text-3: #8f9287;
   --vp-c-divider: #34372f;
   --vp-c-border: #43463d;
-  --vp-c-gutter: #1c1f1a;
-
+  --vp-c-gutter: #20221e;
   --vp-c-default-1: #ddd8c7;
   --vp-c-default-2: #c4c1b5;
   --vp-c-default-3: #a9aa9e;
-
   --vp-c-tip-1: #93aa87;
   --vp-c-tip-2: #668a59;
   --vp-c-tip-3: #39452f;
@@ -33,67 +25,424 @@
   --vp-c-danger-1: #d99b95;
   --vp-c-danger-2: #8f2d27;
   --vp-c-danger-3: #70352f;
-
-  /* Fonts */
   --vp-font-family-base: 'Inter', system-ui, sans-serif;
   --vp-font-family-mono: 'Inter', monospace;
-}
-
-/* Cinzel for headings — same font the game uses */
-:root {
   --vp-font-family-heading: 'Cinzel', 'Times New Roman', serif;
+  --vp-nav-height: 74px;
+  --vp-nav-bg-color: rgba(9, 10, 9, 0.94);
+  --vp-sidebar-width: 256px;
+  --vp-sidebar-bg-color: rgba(12, 14, 12, 0.97);
+  --vp-home-hero-name-color: #e8e4d5;
+  --vp-local-search-highlight-bg: #8f2d27;
+  --vp-local-search-highlight-text: #fff;
 }
 
-/* Body background — match the game's parchment-on-black */
+html,
+body {
+  background: #090a09;
+}
+
 .dark body {
   background: radial-gradient(circle at 50% -20%, #303329 0, #11130f 28rem, #080908 70rem);
   background-attachment: fixed;
 }
 
-/* Headings should look like the game */
-.dark .VPNavBarTitle .title,
-.dark h1, .dark h2, .dark h3 {
-  font-family: 'Cinzel', serif;
-  letter-spacing: 0.06em;
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.dark .VPNav {
+  background: rgba(9, 10, 9, 0.94);
+}
+
+.dark .VPNavBar .divider-line {
+  background-color: #34352f;
+}
+
+.dark .VPNavBar:not(.has-sidebar) .wrapper {
+  padding: 0 clamp(18px, 4vw, 60px);
+}
+
+@media (min-width: 768px) {
+  .dark .VPNavBar:not(.has-sidebar) .wrapper {
+    padding: 0 clamp(18px, 4vw, 60px);
+  }
+}
+
+.dark .VPNavBar:not(.has-sidebar) .container {
+  max-width: none;
+}
+
+.dark .VPNavBarTitle .title {
+  border-bottom-color: transparent;
+  color: #e8e4d5;
+  text-transform: none;
+}
+
+.docs-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 100%;
+  padding-left: 6px;
+}
+
+.docs-brand-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #b69a5c;
+  color: #dfc27c;
+  font: 700 24px 'Cinzel', serif;
+  transform: rotate(45deg);
+}
+
+.docs-brand-mark::first-letter {
+  transform: rotate(-45deg);
+}
+
+.docs-brand-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.docs-brand-copy strong {
+  display: block;
+  color: #e8e4d5;
+  font: 700 18px 'Cinzel', serif;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+.docs-brand-copy small {
+  display: block;
+  margin-top: 3px;
+  color: #8f9287;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  line-height: normal;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dark .VPNavBar .content-body {
+  gap: 16px;
+}
+
+.dark .VPNavBarMenuLink {
+  height: auto;
+  margin-left: 12px;
+  padding: 8px 11px;
+  border: 1px solid #43463d;
+  border-radius: 0;
+  background: #171916;
+  color: #b7b6aa;
+  line-height: 1;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-/* Hero block — match game brand */
-.dark .VPHero .name {
-  font-family: 'Cinzel', serif;
-  color: var(--vp-c-text-1);
-}
-.dark .VPHero .text {
-  color: var(--vp-c-brand-2);
-}
-.dark .VPHero .tagline {
-  color: var(--vp-c-text-3);
-  font-style: italic;
-  font-family: 'Inter', sans-serif;
-}
-
-/* Brand button — match .primary in game */
-.dark .VPButton.brand {
-  background: linear-gradient(#9f3931, #72241e);
-  border-color: #b44b42;
-  color: #fff;
-}
-.dark .VPButton.brand:hover {
+.dark .VPNavBarMenuLink:hover,
+.dark .VPNavBarMenuLink.active {
+  border-color: #5b5e53;
+  color: #dfc27c;
   filter: brightness(1.17);
 }
 
-/* Feature cards — match game panels */
+.dark .DocSearch-Button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  height: auto;
+  padding: 8px 11px;
+  border: 1px solid #43463d;
+  border-radius: 0;
+  background: #171916;
+  color: #b7b6aa;
+}
+
+@media (min-width: 768px) {
+  .dark .DocSearch-Button {
+    width: auto;
+    height: auto;
+    padding: 8px 11px;
+  }
+}
+
+.dark .DocSearch-Button:hover {
+  border-color: #5b5e53;
+  background: #171916;
+  filter: brightness(1.17);
+}
+
+.dark .DocSearch-Button .DocSearch-Search-Icon {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  color: #b7b6aa;
+}
+
+@media (min-width: 768px) {
+  .dark .DocSearch-Button .DocSearch-Search-Icon {
+    margin: 0;
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.dark .DocSearch-Button .DocSearch-Button-Placeholder {
+  margin: 0;
+  padding: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #b7b6aa;
+}
+
+.dark .DocSearch-Button .DocSearch-Button-Keys {
+  display: none;
+}
+
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4 {
+  font-family: 'Cinzel', serif;
+  text-transform: uppercase;
+}
+
+.docs-eyebrow {
+  display: block;
+  margin-bottom: 20px;
+  color: #b69a5c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  line-height: normal;
+  text-transform: uppercase;
+}
+
+.dark .VPHero .name,
+.dark .VPHero .text {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(42px, 6vw, 82px) !important;
+  font-weight: 800;
+  line-height: 0.99;
+  letter-spacing: normal;
+  text-transform: uppercase;
+}
+
+.dark .VPHero .name {
+  color: #e8e4d5;
+  -webkit-text-fill-color: #e8e4d5;
+}
+
+.dark .VPHero .text {
+  color: #9b3b32;
+}
+
+.dark .VPHero .tagline {
+  padding-top: 8px;
+  max-width: 620px;
+  color: #a9aa9e;
+  font-family: Georgia, serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.8;
+}
+
+.dark .VPButton.medium,
+.dark .VPButton.big {
+  border-radius: 0;
+}
+
+.dark .VPButton.brand {
+  border-color: #b44b42;
+  background: linear-gradient(#9f3931, #72241e);
+  color: #fff;
+}
+
+.dark .VPButton.alt {
+  border-color: #43463d;
+  background: #171916;
+  color: #b7b6aa;
+}
+
+.dark .VPButton:hover {
+  filter: brightness(1.17);
+}
+
+.dark .VPFeature {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .dark .VPFeature .box {
-  background: linear-gradient(145deg, rgba(27,29,24,.98), rgba(15,17,14,.98));
+  position: relative;
   border: 1px solid #34372f;
+  padding: 30px;
+  background: linear-gradient(145deg, rgba(27, 29, 24, 0.98), rgba(15, 17, 14, 0.98));
   box-shadow: 0 24px 80px #0008;
 }
-.dark .VPFeature .title {
-  font-family: 'Cinzel', serif;
-  color: var(--vp-c-brand-2);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+
+.dark .VPFeature .box::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 1px solid #242620;
+  pointer-events: none;
 }
+
+.dark .VPFeature .title {
+  color: #dfc27c;
+  font: 700 16px/1.4 'Cinzel', serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .dark .VPFeature .details {
-  color: var(--vp-c-text-3);
+  color: #a9aa9e;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.7;
+}
+
+.dark .vp-doc p,
+.dark .vp-doc li {
+  color: #c4c1b5;
+  font-family: Georgia, serif;
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.dark .vp-doc blockquote {
+  border-left: 2px solid #b69a5c;
+  padding: 12px 18px;
+  background: rgba(24, 26, 22, 0.72);
+}
+
+.dark .vp-doc blockquote p {
+  color: #ddd8c7;
+}
+
+.dark .vp-doc a {
+  color: #dfc27c;
+}
+
+.dark .vp-doc code {
+  border: 1px solid #34372f;
+  border-radius: 0;
+  background: #171916;
+  color: #dfc27c;
+}
+
+.dark .VPSidebar {
+  border-right: 1px solid #2c3028;
+  background: rgba(12, 14, 12, 0.97);
+}
+
+.dark .VPSidebarItem.level-0 > .item > .text,
+.dark .VPSidebarItem.level-0 > .item > .link > .text {
+  color: #ddd8c7;
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dark .VPSidebarItem.level-1 > .item > .link > .text {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dark .VPDocFooter .pager-link {
+  border-color: #34372f;
+  border-radius: 0;
+  background: linear-gradient(145deg, rgba(27, 29, 24, 0.8), rgba(15, 17, 14, 0.8));
+}
+
+.dark .VPFooter,
+.dark .VPFooter.has-sidebar {
+  display: block;
+  padding: 18px;
+  text-align: center;
+  color: #5f625a;
+  border-top: 1px solid #20221e;
+  background: transparent;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  line-height: normal;
+  text-transform: uppercase;
+}
+
+.dark .VPFooter .container {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+
+.dark .VPFooter .message,
+.dark .VPFooter .copyright {
+  margin: 0;
+  padding: 0;
+  color: #5f625a;
+  line-height: normal;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dark .VPLocalNav {
+  border-bottom-color: #34352f;
+  background: rgba(9, 10, 9, 0.94);
+}
+
+@media (max-width: 850px) {
+  :root {
+    --vp-nav-height: 62px;
+  }
+
+  .dark .VPNavBar:not(.has-sidebar) .wrapper {
+    padding: 0 15px;
+  }
+
+  .docs-brand-copy small {
+    display: none;
+  }
+}
+
+@media (max-width: 460px) {
+  .docs-brand-mark {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .docs-brand-copy strong {
+    font-size: 14px;
+  }
+
+  .docs-brand {
+    gap: 10px;
+  }
 }

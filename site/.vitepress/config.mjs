@@ -14,6 +14,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'How to Play', link: '/how-to-play' },
+      { text: 'Roles', link: '/roles/' },
     ],
     sidebar: [
       {
@@ -21,6 +22,23 @@ export default defineConfig({
         items: [
           { text: 'Home', link: '/' },
           { text: 'How to Play', link: '/how-to-play' },
+        ],
+      },
+      {
+        text: 'Roles',
+        items: [
+          { text: 'Roster Index', link: '/roles/' },
+          { text: 'Imperial Citizen', link: '/roles/imperial-citizen' },
+          { text: 'Interrogator', link: '/roles/interrogator' },
+          { text: 'Chirurgeon', link: '/roles/chirurgeon' },
+          { text: 'Arbitrator', link: '/roles/arbitrator' },
+          { text: 'Novice-Psychic', link: '/roles/novice-psychic' },
+          { text: 'Priest', link: '/roles/priest' },
+          { text: 'Murderer', link: '/roles/murderer' },
+          { text: 'Saboteur', link: '/roles/saboteur' },
+          { text: 'Heretic Priest', link: '/roles/heretic-priest' },
+          { text: 'Recruiter', link: '/roles/recruiter' },
+          { text: 'Conspirator', link: '/roles/conspirator' },
         ],
       },
     ],
