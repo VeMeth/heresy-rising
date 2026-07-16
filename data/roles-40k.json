@@ -54,7 +54,7 @@
       "driftWeight": 1,
       "tier": "T1",
       "actions": {
-        "night": { "kind": "protect", "target": "other", "driftCost": 1 },
+        "night": { "kind": "protect", "target": "any", "driftCost": 1 },
         "day": null
       },
       "crippleProfile": {
