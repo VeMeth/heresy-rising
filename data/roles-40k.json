@@ -158,7 +158,7 @@
         "day": null
       },
       "sermonTiers": {
-        "false_comfort": { "selfCost": 1, "targetEffect":  3, "appearance": "looks like Whisper to target" },
+        "false_comfort": { "selfCost": 2, "targetEffect":  3, "appearance": "looks like Whisper to target" },
         "twisted_hymn":  { "selfCost": 2, "targetEffect":  7, "appearance": "target feels 'strengthened in faith'" },
         "warp_litany":   { "selfCost": 4, "targetEffect": 12, "appearance": "transcendent sermon" }
       },

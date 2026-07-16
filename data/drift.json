@@ -22,7 +22,7 @@
     "whisper":{"self":1,"target":-2,"limit":null},
     "hymn":{"self":3,"target":-5,"limit":2},
     "litany":{"self":6,"target":-10,"limit":1},
-    "false-comfort":{"self":1,"target":3,"limit":null},
+    "false-comfort":{"self":2,"target":3,"limit":null},
     "twisted-hymn":{"self":2,"target":7,"limit":null},
     "warp-litany":{"self":4,"target":12,"limit":null}
   }
