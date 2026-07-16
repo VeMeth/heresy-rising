@@ -16,8 +16,9 @@ export default defineConfig({
     logoLink: { link: '/', target: '_self' },
     nav: [
       { text: 'How to Play', link: '/how-to-play' },
+      { text: 'Drift', link: '/drift' },
       { text: 'Roles', link: '/roles/' },
-      { text: 'Return to Game', link: '../', target: '_self' },
+      { text: 'Return to Game', link: '../../', target: '_self' },
     ],
     sidebar: [
       {
@@ -25,6 +26,12 @@ export default defineConfig({
         items: [
           { text: 'Home', link: '/' },
           { text: 'How to Play', link: '/how-to-play' },
+        ],
+      },
+      {
+        text: 'Mechanics',
+        items: [
+          { text: 'Drift — the Warp\'s corruption', link: '/drift' },
         ],
       },
       {

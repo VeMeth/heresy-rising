@@ -12,7 +12,6 @@ const Layout = () => h(DefaultTheme.Layout, null, {
       ]),
     ]),
   ],
-  'home-hero-info-before': () => h('span', { class: 'docs-eyebrow' }, 'The enemy is among us'),
 })
 
 export default {

@@ -225,17 +225,6 @@ body::before {
   text-transform: uppercase;
 }
 
-.docs-eyebrow {
-  display: block;
-  margin-bottom: 20px;
-  color: #b69a5c;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.25em;
-  line-height: normal;
-  text-transform: uppercase;
-}
-
 .dark .VPHero .name,
 .dark .VPHero .text {
   font-family: 'Cinzel', serif;

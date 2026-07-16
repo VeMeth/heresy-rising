@@ -7,7 +7,7 @@ description: A five-minute primer for Heresy Rising. What you are, what you do, 
 
 > *The Throne is patient. The conclave is not.*
 
-This page is the five-minute rulebook. If you finish reading it, you can sit down and play. The rest of the manual — the [role roster](/roles/), drift zones, and tribunal math — lives deeper in the docs.
+This page is the five-minute rulebook. If you finish reading it, you can sit down and play. The full mechanic reference lives at **[Drift — the Warp's corruption](/drift)**, and the [role roster](/roles/) breaks down every operative.
 
 ## What kind of game is this?
 
@@ -15,7 +15,7 @@ Heresy Rising is a social deduction game for **5–12 players**, played online i
 
 It is structurally a cousin of Werewolf / Mafia, but the flavour is *Inquisitorial*: the day-game is an Interrogation vote, the night-game is a roster of secret powers, and every action risks drawing your own soul closer to the Warp.
 
-You win by **misdirection, voting, and information control**. You lose by drift, by being turned, or by being outnumbered.
+You win by **misdirection, voting, and information control**. You lose by **the Warp on your soul**, by being turned, or by being outnumbered.
 
 ## Setup
 
@@ -43,8 +43,6 @@ The day is a vote. You pick someone to accuse. The first consecutive day on a ta
 
 *Drift* is the measure of how much Warp-corruption has settled into an operative's soul. The Warp is the source — the chaos dimension pressing against reality, whispering and pulling. **Drift is what the Warp leaves behind.**
 
-When you commit violence, when you witness it, when you exercise forbidden gifts, when you consort with the wrong — the Warp's weight on you *climbs*. Drift never resets. Every action is a trade-off between what you need *now* and what you'll have to carry *next round*.
-
 Drift is a value from `0` (clean) to `20` (lost). Players don't see their own number, but they receive soft *hints* from the system as they climb. Drift is hidden from the table — you feel it on yourself, the rest of the conclave only sees the consequences.
 
 | Zone | Range | You feel… | Tactical cost |
@@ -55,7 +53,7 @@ Drift is a value from `0` (clean) to `20` (lost). Players don't see their own nu
 | 🔴 Red | 15–19 | A whisper, a hunger | T2 Interrogate = auto-kill |
 | ⬛ Black | 20 | The Warp takes you | A catalyst role may *convert* you into a Heretic |
 
-The Interrogator's scans are gated by your drift zone — a clean target's drift is easy to read; an Orange+ target is *itching* with corruption and a deliberate scan exposes them.
+> The full Drift mechanic — the four canonical triggers (wrong lynch, witnessed violence, high-power night action, voted with the losing side), the zone-noise table for the Interrogator's reads, and the *why* this is the engine of the game — is on the **[Drift — the Warp's corruption](/drift)** page. Read that before you play.
 
 ## Interrogation
 
@@ -101,7 +99,7 @@ The game ends immediately when either condition is met.
 
 ## A note on tone
 
-Read this for the rules. Read the [role roster](/roles/) for what each operative can actually do at night. The deeper mechanic write-ups live in the designer-side spec and are not yet mirrored into this Manual.
+Read this for the rules. Read the **[Drift — the Warp's corruption](/drift)** page for the full mechanic. Read the [role roster](/roles/) for what each operative can actually do at night.
 
 The Manual is not the setting. The setting lives in the voice between the lines — what the conclave says to each other, what the Heretics feel when they climb past 14, what a Priest murmurs to a frightened Loyalist before they confess. Play for that.
 

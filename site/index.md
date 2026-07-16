@@ -1,18 +1,6 @@
 ---
 layout: home
 
-hero:
-  name: Heresy Rising
-  text: A Game of Hidden Faith
-  tagline: Hidden roles. Climbing drift. Hidden faith.
-  actions:
-    - theme: brand
-      text: How to Play
-      link: /how-to-play
-    - theme: alt
-      text: Role Roster
-      link: /roles/
-
 features:
   - title: Hidden Identities
     details: You are an Inquisitorial agent in a conclave tainted by the Warp. Some of your allies are Heretics in disguise — and some of them have not realized it yet.
@@ -32,5 +20,3 @@ This is the public Manual for Heresy Rising. Three pages get you the rules:
 | [Role Roster](/roles/) | All 11 operatives in v1: faction, night power, drift cost, tactical hooks. |
 
 ---
-
-<a href="/">Play the game</a> — return to the conclave.
