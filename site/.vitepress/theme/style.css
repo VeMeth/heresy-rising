@@ -65,20 +65,6 @@ body::before {
   background-color: #34352f;
 }
 
-.dark .VPNavBar:not(.has-sidebar) .wrapper {
-  padding: 0 clamp(18px, 4vw, 60px);
-}
-
-@media (min-width: 768px) {
-  .dark .VPNavBar:not(.has-sidebar) .wrapper {
-    padding: 0 clamp(18px, 4vw, 60px);
-  }
-}
-
-.dark .VPNavBar:not(.has-sidebar) .container {
-  max-width: none;
-}
-
 .dark .VPNavBarTitle .title {
   border-bottom-color: transparent;
   color: #e8e4d5;
@@ -408,10 +394,6 @@ body::before {
 @media (max-width: 850px) {
   :root {
     --vp-nav-height: 62px;
-  }
-
-  .dark .VPNavBar:not(.has-sidebar) .wrapper {
-    padding: 0 15px;
   }
 
   .docs-brand-copy small {
