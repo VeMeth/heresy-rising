@@ -17,6 +17,7 @@ This is the public Manual for Heresy Rising. Three pages get you the rules:
 | Page | What |
 |---|---|
 | [How to Play](/how-to-play) | A five-minute primer: setup, the round, drift zones, interrogation math, win conditions. |
+| [Drift — the Warp's corruption](/drift) | The full mechanic: triggers, zone ladder, Interrogator scan math, Black-zone consequences, and why drift is the engine of the game. |
 | [Role Roster](/roles/) | All 11 operatives in v1: faction, night power, drift cost, tactical hooks. |
 
 ---
