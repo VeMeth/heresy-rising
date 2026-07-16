@@ -1,4 +1,4 @@
-name: heresy-rising
+version: '3.8'
 
 services:
   heresy-server:
@@ -12,7 +12,7 @@ services:
       - PORT=${SERVER_PORT:-4100}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me-before-production}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8281}
-      - TRUST_PROXY=${TRUST_PROXY:-false}
+      - TRUST_PROXY=${TRUST_PROXY:-true}
       - GAME_DB_PATH=/usr/src/app/data/heresy-rising.db
     ports:
       - "${SERVER_HOST_BIND:-127.0.0.1}:${SERVER_PORT:-4100}:${SERVER_PORT:-4100}"
