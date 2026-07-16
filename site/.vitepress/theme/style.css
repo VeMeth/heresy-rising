@@ -57,25 +57,34 @@ body::before {
   background-size: 32px 32px;
 }
 
-/* Force a single consistent top-nav layout across home and inner pages.
-   VitePress's default makes .VPNavBar.has-sidebar (inner pages) edge-to-edge
-   (max-width:100%, padding:0) while the home page stays centered (max-width
-   constrained, margin auto) — so the brand and menu links jump sideways on
-   navigation. Pin both page types to the same centered, padded layout so
-   nothing moves. */
+/* Make the docs top-nav match the game SPA masthead (heresy-client
+   .masthead): full-width, brand at the far left, menu at the far right,
+   same fluid horizontal padding (clamp(18px,4vw,60px) desktop, 15px
+   mobile). This kills both the sideways jump between the docs landing
+   page and inner doc pages AND the visual mismatch with the main game
+   section — the brand and right-hand buttons sit at identical x-
+   positions across every page of the site. */
 .dark .VPNavBar .wrapper,
 .dark .VPNavBar.has-sidebar .wrapper {
-  padding: 0 32px !important;
+  padding: 0 clamp(18px, 4vw, 60px) !important;
 }
 .dark .VPNavBar .container,
 .dark .VPNavBar.has-sidebar .container {
-  max-width: calc(var(--vp-layout-max-width) - 64px) !important;
-  margin: 0 auto !important;
+  max-width: none !important;
+  margin: 0 !important;
 }
-@media (max-width: 767px) {
+.dark .VPNavBar.has-sidebar .title {
+  position: static !important;
+  padding-left: 0 !important;
+  width: auto !important;
+}
+.dark .VPNavBar.has-sidebar .content {
+  padding-left: 0 !important;
+}
+@media (max-width: 850px) {
   .dark .VPNavBar .wrapper,
   .dark .VPNavBar.has-sidebar .wrapper {
-    padding: 0 8px 0 24px !important;
+    padding: 0 15px !important;
   }
 }
 
