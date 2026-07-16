@@ -7,13 +7,19 @@ description: The Heretic's forger. Plants messages attributed to other players i
 
 > *A signature in the wrong hand is worth a hundred blades.*
 
-You are the Heretic's forger. Once per day, you may plant a public message in the conclave's chat — attributed to *any other operative* — of your own composition. Up to 500 characters. Once per day.
+You are the Heretic's forger. **Once per day**, you may plant a public message in the conclave's chat — attributed to *any other operative* — of your own composition. Up to 500 characters. Once per day.
 
-**Day action — Forgery.** One forged message per day. The recipient chat seals your authorship but displays the attributed speaker's name.
+**Day action — Forgery.** One forged message per day. The chat seals your authorship but displays the attributed speaker's name.
 
 **Drift cost (Warp invoice):** +1 per forgery. Low — but the *cost to the cell* can be high.
 
+> **🟡 SPEC DESIGNED, NOT DISPATCHED.** Numeric drift curve and per-player-count availability per `data/composition.json`. Conspirator joins the cell at **11p+ only.** Sub-question **Q21 — cell-wide Heretic drift viz** remains open; whether Conspirator sees cell-mate drift or heretic-chat messages is still being resolved. The page above is the design surface — the engine will diverge where Q21 lands.
+
 **Forgery versus interrogation:** a forged message is *attributed* to its fake author. If an Interrogator interrogates them and they confess, the forgery is cleared retroactively; if they *deny* and the conclave believes them, the forgery lands. The Conspirator's value scales with cell pressure on the day-game.
+
+**Detection:** none at the engine level. A Conspirator-only signature leak path (Q21) is the unresolved question.
+
+**When you are crippled** (cripple tier > 0), the engine silently rejects your action — no forgery, no drift cost. (Standard `disable-one` cripple profile.)
 
 **Play this role if:** you want to be the cell's *public voice*. With the Conspirator, the Heretics don't just react — they *propose*.
 
