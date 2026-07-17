@@ -400,7 +400,16 @@ function confirmKick(p) {
 // Lobby chat
 const draft = ref('');
 const feed = ref(null);
-watch(() => props.messages.length, () => nextTick(() => { if (feed.value) feed.value.scrollTop = feed.value.scrollHeight; }));
+// Only auto-scroll to bottom when the user is already near it (new message
+// arrived while reading the latest). If they scrolled up to read history,
+// preserve their position so loading earlier messages doesn't yank them
+// back to the bottom and make the click look like it did nothing.
+watch(() => props.messages.length, () => nextTick(() => {
+  if (!feed.value) return;
+  const el = feed.value;
+  const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+  if (distanceFromBottom < 80) el.scrollTop = el.scrollHeight;
+}));
 function post() {
   if (!draft.value || props.busy) return;
   emit('send', draft.value);
