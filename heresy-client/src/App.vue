@@ -17,7 +17,8 @@
       <JoinView v-if="!game" :busy="busy" :error="error" :initial-room-code="initialCode"
         :profile="profile" @create="createGame" @join="joinGame" @recover="recoverProfile" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
-        @ready="toggleReady" @start="startGame" @configure="configureGame" @leave="leaveGame" />
+        :composition-errors="compositionErrors" @ready="toggleReady" @start="startGame"
+        @clear-errors="clearCompositionErrors" @configure="configureGame" @leave="leaveGame" />
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :busy="busy" :now="now" @channel="changeChannel" @send="sendMessage" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
@@ -38,7 +39,7 @@ import JoinView from './components/JoinView.vue';
 import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 
-const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref('');
+const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const compositionErrors = ref([]);
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const channel = ref('public'); const now = ref(Date.now()); let clock; let toastTimer;
@@ -58,7 +59,8 @@ async function createGame(form) { try { saveProfile({ name: form.name }); const 
 async function joinGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); game.value = normalize(data); history.replaceState({}, '', `?game=${game.value.code || form.roomCode}`); await loadHistory(); } catch {} }
 async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); notify('Identity restored'); }
 async function toggleReady() { try { await command('game:ready', { code: game.value.code, ready: !me.value?.ready }); } catch {} }
-async function startGame() { try { await command('game:start', { code: game.value.code, setup: { maxDrift: game.value.setup?.maxDrift || game.value.maxDrift, dayMs: game.value.setup?.dayMs || game.value.dayMs, nightMs: game.value.setup?.nightMs || game.value.nightMs } }); } catch {} }
+async function startGame(composition) { try { await command('game:start', { code: game.value.code, setup: { maxDrift: game.value.setup?.maxDrift || game.value.maxDrift, dayMs: game.value.setup?.dayMs || game.value.dayMs, nightMs: game.value.setup?.nightMs || game.value.nightMs, ...(composition ? { composition } : {}) } }); compositionErrors.value = []; } catch (e) { if (e.data?.errors) { compositionErrors.value = e.data.errors; error.value = ''; toast.value = ''; } } }
+function clearCompositionErrors() { compositionErrors.value = []; }
 async function configureGame(setup) { game.value = { ...game.value, setup }; notify('Parameters staged for game start'); }
 async function confirmReveal() { try { await command('game:advance-phase', { code: game.value.code }); } catch {} }
 async function advancePhase() { try { await command('game:advance-phase', { code: game.value.code }); } catch {} }
