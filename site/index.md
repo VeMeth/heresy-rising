@@ -1,5 +1,4 @@
 <script setup>
 import { onMounted } from 'vue'
-import { useRouter } from 'vitepress'
-onMounted(() => useRouter().go('/how-to-play'))
+onMounted(() => window.location.replace('/docs/how-to-play'))
 </script>
