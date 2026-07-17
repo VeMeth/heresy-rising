@@ -1,4 +1,6 @@
-<script setup>
-import { onMounted } from 'vue'
-onMounted(() => window.location.replace('/docs/how-to-play'))
-</script>
+---
+head:
+  - - meta
+    - http-equiv: refresh
+      content: '0;url=/docs/how-to-play'
+---
