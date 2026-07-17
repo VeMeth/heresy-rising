@@ -33,10 +33,6 @@
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
 
     <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
-      <div class="manual-bar">
-        <strong>Manual</strong>
-        <button class="ghost compact" @click="closeManual" aria-label="Close manual">Close ✕</button>
-      </div>
       <iframe ref="manualFrame" class="manual-frame" src="/docs/" title="Heresy Rising manual"></iframe>
     </div>
   </div>
@@ -91,6 +87,7 @@ function leaveToHome() { if (!game.value || confirm('Leave this game? You can re
 function openManual() { manualMounted.value = true; showManual.value = true; }
 function closeManual() { showManual.value = false; }
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
+function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
 function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) loadHistory(); }
 function mergeMessages(ch, incoming, prepend = false) { const old = messagesByChannel.value[ch] || []; const map = new Map((prepend ? [...incoming, ...old] : [...old, ...incoming]).map(m => [m.id || m.sequence || `${m.createdAt}-${m.authorName}-${m.body}`, m])); messagesByChannel.value = { ...messagesByChannel.value, [ch]: [...map.values()].sort((a,b) => (a.sequence || Date.parse(a.createdAt)) - (b.sequence || Date.parse(b.createdAt))) }; }
 async function copyInvite() {
@@ -137,8 +134,8 @@ async function maybeAutoJoin() {
   if (!target || !savedName || !savedCode) return;
   await joinGame({ name: savedName, roomCode: target }).catch(() => {});
 }
-onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
-onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); });
+onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
+onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
 </script>
 
 <style scoped>
@@ -150,24 +147,10 @@ onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.o
   display: flex;
   flex-direction: column;
 }
-.manual-bar {
-  flex: 0 0 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 clamp(18px, 4vw, 60px);
-  border-bottom: 1px solid var(--line);
-  background: rgba(9, 10, 9, 0.97);
-}
-.manual-bar strong {
-  font: 700 14px Cinzel, serif;
-  letter-spacing: .14em;
-  color: var(--gold2);
-  text-transform: uppercase;
-}
 .manual-frame {
   flex: 1 1 0;
   width: 100%;
+  height: 100%;
   border: 0;
   background: #090a09;
 }

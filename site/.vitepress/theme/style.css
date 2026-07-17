@@ -466,3 +466,25 @@ body::before {
     gap: 10px;
   }
 }
+
+/* Close button injected into the VitePress navbar when the docs are
+   framed by the SPA's manual overlay. Matches VPNavBarMenuLink look. */
+.docs-close-btn {
+  margin-left: 12px;
+  padding: 8px 11px;
+  border: 1px solid #43463d;
+  border-radius: 0;
+  background: #171916;
+  color: #b7b6aa;
+  font: 700 10px Inter, system-ui, sans-serif;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color .12s ease, color .12s ease, background .12s ease, filter .12s ease;
+}
+.docs-close-btn:hover {
+  border-color: #c46a5d;
+  color: #e2b3ac;
+  background: #1d1413;
+}
