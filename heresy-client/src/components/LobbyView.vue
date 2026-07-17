@@ -29,7 +29,9 @@
           </article>
         </div>
         <form class="composer" @submit.prevent="post">
-          <textarea v-model.trim="draft" maxlength="1000" rows="2" :disabled="busy" placeholder="Address the conclave…"></textarea>
+          <textarea v-model.trim="draft" maxlength="1000" rows="2" :disabled="busy"
+                    placeholder="Address the conclave… (Enter to send, Shift+Enter for newline)"
+                    @keydown.enter.exact.prevent="post"></textarea>
           <button class="primary" :disabled="!draft || busy">Transmit</button>
         </form>
       </section>
