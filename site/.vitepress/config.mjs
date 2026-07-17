@@ -23,7 +23,7 @@ export default defineConfig({
       {
         text: 'Get Started',
         items: [
-          { text: 'Home', link: '/' },
+          { text: 'Home', link: '/how-to-play' },
           { text: 'How to Play', link: '/how-to-play' },
         ],
       },

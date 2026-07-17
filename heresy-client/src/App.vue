@@ -35,7 +35,7 @@
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
 
     <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
-      <iframe ref="manualFrame" class="manual-frame" src="/docs/" title="Heresy Rising manual"></iframe>
+      <iframe ref="manualFrame" class="manual-frame" src="/docs/how-to-play" title="Heresy Rising manual"></iframe>
     </div>
   </div>
 </template>
