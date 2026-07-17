@@ -58,7 +58,7 @@ async function createGame(form) { try { saveProfile({ name: form.name }); const 
 async function joinGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); game.value = normalize(data); history.replaceState({}, '', `?game=${game.value.code || form.roomCode}`); await loadHistory(); } catch {} }
 async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); notify('Identity restored'); }
 async function toggleReady() { try { await command('game:ready', { code: game.value.code, ready: !me.value?.ready }); } catch {} }
-async function startGame() { try { await command('game:start', { code: game.value.code, setup: { maxDrift: game.value.setup?.maxDrift || game.value.maxDrift } }); } catch {} }
+async function startGame() { try { await command('game:start', { code: game.value.code, setup: { maxDrift: game.value.setup?.maxDrift || game.value.maxDrift, dayMs: game.value.setup?.dayMs || game.value.dayMs, nightMs: game.value.setup?.nightMs || game.value.nightMs } }); } catch {} }
 async function configureGame(setup) { game.value = { ...game.value, setup }; notify('Parameters staged for game start'); }
 async function confirmReveal() { try { await command('game:advance-phase', { code: game.value.code }); } catch {} }
 async function advancePhase() { try { await command('game:advance-phase', { code: game.value.code }); } catch {} }
