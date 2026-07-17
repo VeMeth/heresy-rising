@@ -92,7 +92,18 @@ function closeManual() { showManual.value = false; }
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
 function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
 function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) { hasMoreByChannel.value = { ...hasMoreByChannel.value, [next]: true }; loadHistory(); } }
-function mergeMessages(ch, incoming, prepend = false) { const old = messagesByChannel.value[ch] || []; const map = new Map((prepend ? [...incoming, ...old] : [...old, ...incoming]).map(m => [m.id || m.sequence || `${m.createdAt}-${m.authorName}-${m.body}`, m])); messagesByChannel.value = { ...messagesByChannel.value, [ch]: [...map.values()].sort((a,b) => (a.sequence || Date.parse(a.createdAt)) - (b.sequence || Date.parse(b.createdAt))) }; }
+function mergeMessages(ch, incoming, prepend = false) {
+  const old = messagesByChannel.value[ch] || [];
+  // Dedup by id when present (the common path — server always returns ids).
+  // Fall back to a stable counter for synthetic messages without ids so two
+  // distinct broadcasts with the same author/createdAt can't collide.
+  const fallback = (m) => `synthetic:${m.createdAt || Date.now()}:${m.author || ''}:${(m.body || '').length}:${m.keyNonce || ''}`;
+  const map = new Map((prepend ? [...incoming, ...old] : [...old, ...incoming]).map(m => [m.id ?? m.sequence ?? fallback(m), m]));
+  // Sort by numeric createdAt (ms since epoch). Don't use Date.parse() — it
+  // stringifies its argument and Date.parse("1721000000000") is NaN, which
+  // makes the comparator return NaN and the order undefined.
+  messagesByChannel.value = { ...messagesByChannel.value, [ch]: [...map.values()].sort((a, b) => Number(a.createdAt) - Number(b.createdAt)) };
+}
 async function copyInvite() {
   if (!game.value?.code) return;
   const invite = new URL(location.origin);
