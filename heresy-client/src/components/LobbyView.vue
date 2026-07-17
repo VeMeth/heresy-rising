@@ -519,6 +519,40 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   height: 34px;
   align-self: flex-end;
 }
+.params-cell .param-readonly {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+}
+.params-cell .param-readonly > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+.params-cell .param-readonly dt {
+  margin: 0;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+.params-cell .param-readonly dd {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 64px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 4px;
+  color: var(--text);
+}
 
 .chat-panel { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: hidden; }
 .chat-panel > header { display:flex; align-items:center; justify-content:space-between; flex: 0 0 auto; }
