@@ -73,28 +73,27 @@ body::before {
   max-width: none !important;
   margin: 0 !important;
 }
-.dark .VPNavBar.has-sidebar .content {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-/* Pin the search button to a deterministic position right after the brand
-   on both pages and at every width. The default flex-grow:1 and breakpoint-
-   dependent padding-left (24px -> 32px at >=960px) on .VPNavBarSearch let
-   the search button drift horizontally between the landing page and inner
-   pages. Force flex: 0 0 auto + margin-right: auto so the search sits
-   flush left, drop padding-left so there is no width-dependent shift, and
-   push the menu to the far right with margin-left: auto on the menu as
-   an independent anchor. The DocSearch button's own margin-left: 16px
-   then gives a consistent gap from the brand on every page.
 
-   Make the title area consistent on both landing and inner pages, so the
-   search button's left-anchor doesn't change. The has-sidebar override
-   already did this for inner pages; extend it unconditionally. */
-.dark .VPNavBar .title {
-  position: static !important;
-  padding-left: 0 !important;
-  width: auto !important;
+/* Pin the search button to the same x-position on every page.
+   VitePress already uses absolute title + sidebar-width content offset
+   on has-sidebar pages.  Replicate that on the landing page (no sidebar)
+   so the search button never drifts. */
+.dark .VPNavBar:not(.has-sidebar) .title {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 2 !important;
+  width: var(--vp-sidebar-width) !important;
+  height: var(--vp-nav-height) !important;
+  padding-left: clamp(18px, 4vw, 60px) !important;
+  background-color: transparent !important;
 }
+.dark .VPNavBar:not(.has-sidebar) .content {
+  padding-left: var(--vp-sidebar-width) !important;
+}
+
+/* Keep the search button compact (no flex-grow), flush after the sidebar
+   offset, and push the menu to the far right on every page. */
 .dark .VPNavBarSearch {
   flex: 0 0 auto !important;
   margin-right: auto !important;
