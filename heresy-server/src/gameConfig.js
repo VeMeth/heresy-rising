@@ -29,6 +29,7 @@ export function loadGameConfig() {
       ...compositionData.compositions,
       fallbackPriority: ['priest','interrogator','chirurgeon','novice-psychic','arbitrator','murderer','heretic-priest','saboteur','recruiter','conspirator']
     },
+    hardRules: compositionData.hardRules,
     drift: read('drift.json'),
     hintProfiles: { default: read('scenarios/default/hints.json') }
   };
