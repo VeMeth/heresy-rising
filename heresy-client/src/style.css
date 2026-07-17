@@ -52,3 +52,17 @@
   margin: 4px 0 0;
   line-height: 1.4;
 }
+
+/* Vote justification messages get a gold border + accent color so they
+   stand out from regular chatter and nobody misses them. */
+.message.vote p {
+  border-color: var(--gold);
+  background: #1d1a10;
+  color: var(--gold2);
+}
+.message.vote .avatar.mini {
+  color: var(--gold2);
+}
+.message.vote header strong {
+  color: var(--gold2);
+}

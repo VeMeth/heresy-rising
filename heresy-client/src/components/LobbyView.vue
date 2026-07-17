@@ -17,7 +17,7 @@
             <strong>No transmissions recorded</strong>
             <p>Be the first to break the silence.</p>
           </div>
-          <article v-for="m in messages" :key="m.id || (m.createdAt + '-' + m.author)" :class="['message',{system:m.kind==='system'}]">
+          <article v-for="m in messages" :key="m.id || (m.createdAt + '-' + m.author)" :class="['message',{system:m.kind==='system',vote:m.kind==='vote'}]">
             <span v-if="m.kind==='system'" class="system-line">{{ m.body }}</span>
             <template v-else>
               <span class="avatar mini">{{ initial(m.author) }}</span>
