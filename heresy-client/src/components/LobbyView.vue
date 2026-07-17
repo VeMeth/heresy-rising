@@ -47,7 +47,9 @@
             <div><strong>{{ p.name }}</strong><small>{{ p.isHost ? 'Commander' : (liveMode && p.connected === false) ? 'Vox lost' : (p.ready ? 'Ready' : 'Awaiting') }}</small></div>
             <i v-if="liveMode" class="presence" :class="{online:p.connected}" :title="p.connected ? 'Online' : 'Disconnected'"></i>
             <span class="ready" :class="{yes:p.ready}">{{ p.ready?'READY':'…' }}</span>
-            <button v-if="isHost && !p.isHost" class="kick-btn" :title="'Remove ' + p.name" :aria-label="'Remove ' + p.name" @click="confirmKick(p)">×</button>
+            <span class="kick-slot">
+              <button v-if="isHost && !p.isHost" class="kick-btn" :title="'Remove ' + p.name" :aria-label="'Remove ' + p.name" @click="confirmKick(p)">×</button>
+            </span>
           </li>
         </ul>
         <p v-if="players.length<5" class="notice">At least five operatives are required.</p>
@@ -498,10 +500,11 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   background: #5b5e55; margin-right: 4px;
 }
 .ops-cell .presence.online { background: #71905e; box-shadow: 0 0 5px #71905e; }
+.ops-cell .kick-slot { flex: 0 0 26px; display: flex; align-items: center; justify-content: center; }
 .ops-cell .kick-btn {
-  flex: 0 0 22px; height: 22px; padding: 0;
+  width: 22px; height: 22px; padding: 0;
   background: transparent; border: 1px solid #43463d; color: var(--muted);
-  font: 700 14px Inter; line-height: 1; border-radius: 2px; cursor: pointer; margin-left: 4px;
+  font: 700 14px Inter; line-height: 1; border-radius: 2px; cursor: pointer;
 }
 .ops-cell .kick-btn:hover:not(:disabled) { border-color: #c46a5d; color: #e2b3ac; background: #1d1413; }
 .ops-cell .kick-btn:disabled { opacity: .3; cursor: not-allowed; }
