@@ -11,7 +11,7 @@
 
 **Heresy Rising** is a persistent, chat-based social deduction game (Werewolf/Mafia style) for 5–12 players, set in the Warhammer 40,000 universe. Played in Telegram/Discord. Server-authoritative. SQLite persistence.
 
-**v1 scope only.** One loop: lobby → night → day → repeat → faction win. No subfactions, no twists, no alternative win conditions.
+**v1 scope only.** One loop: lobby → day → night → repeat → faction win. No subfactions, no twists, no alternative win conditions.
 
 ---
 
@@ -57,10 +57,10 @@ heresy-rising-site/
 ## Core loop (already wired — verify, don't re-implement)
 
 ```
-lobby → (host starts) → role reveal → night → day → repeat → faction win
+lobby → (host starts) → day 1 → night 1 → day 2 → night 2 → repeat → faction win
 ```
 
-Socket events, lobby state machine, and phase transitions **already exist** in the scaffold. Check `architecture.md` before building new phase logic. The job is to wire the game rules into the existing skeleton.
+The host sealing the chamber drops the conclave straight into Day 1 with a running deadline — no role-reveal pause, no host gating. Phases advance entirely on deadline. Socket events, lobby state machine, and phase transitions **already exist** in the scaffold. Check `architecture.md` before building new phase logic. The job is to wire the game rules into the existing skeleton.
 
 ---
 

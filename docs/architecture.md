@@ -33,9 +33,9 @@ All command acknowledgements use `{ ok: true, data }` or `{ ok: false, error }`.
 
 ## Phase lifecycle
 
-`lobby → role-reveal → night → day → night … → ended`
+`lobby → day → night → day … → ended`
 
-The host configures and starts a lobby. Deadlines or a valid host early-close request advance active phases. The engine validates eligibility at submission and again during resolution. A stable phase identifier prevents duplicate submissions and makes deadline processing idempotent.
+The host configures and starts a lobby. Sealing the chamber drops the conclave straight into Day 1; there is no role-reveal pause. Phases advance entirely on deadline. The engine validates eligibility at submission and again during resolution. A stable phase identifier prevents duplicate submissions and makes deadline processing idempotent.
 
 ## Security and operations
 

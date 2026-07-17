@@ -53,8 +53,10 @@ Puritan and Radical subfactions are **explicitly deferred** to a later phase. Ro
 ### 3b. The phase loop
 
 ```
-lobby → role-reveal → night → day → repeat → faction win
+lobby → day 1 → night 1 → day 2 → night 2 → repeat → faction win
 ```
+
+The first phase after the lobby is **Day 1** — a timed talking round with votes for an accused. There is no separate role-reveal pause; the host sealing the chamber drops the conclave straight into Day 1 with a running deadline.
 
 **Night** — eligible roles submit private actions (kill, investigate, protect, heretical-catalyst).
 **Day** — table debates, then votes. Vote outcome is one of two modes:
