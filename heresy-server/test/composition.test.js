@@ -51,7 +51,7 @@ for (let n = 5; n <= 12; n++) {
     const f = fixture(n);
     try {
       const state = f.manager.start(f.code, 'p0');
-      assert.equal(state.phase, 'role-reveal');
+      assert.equal(state.phase, 'day');
       assert.equal(state.players.length, n);
       const assigned = getAssignedRoles(f.manager, f.code);
       const expected = PRESETS[n].slice().sort();
@@ -74,7 +74,7 @@ test('custom happy path: valid 5p custom roster accepted', () => {
         confirmedWarnings: []
       }
     });
-    assert.equal(state.phase, 'role-reveal');
+    assert.equal(state.phase, 'day');
     assert.equal(state.players.length, 5);
     const assigned = getAssignedRoles(f.manager, f.code);
     assert.deepEqual(assigned, PRESETS[5].slice().sort());
@@ -93,7 +93,7 @@ test('custom happy path: valid 8p custom roster accepted', () => {
         confirmedWarnings: []
       }
     });
-    assert.equal(state.phase, 'role-reveal');
+    assert.equal(state.phase, 'day');
     assert.equal(state.players.length, 8);
     const assigned = getAssignedRoles(f.manager, f.code);
     assert.deepEqual(assigned, PRESETS[8].slice().sort());
@@ -112,7 +112,7 @@ test('custom happy path: valid 11p custom roster accepted', () => {
         confirmedWarnings: []
       }
     });
-    assert.equal(state.phase, 'role-reveal');
+    assert.equal(state.phase, 'day');
     assert.equal(state.players.length, 11);
     const assigned = getAssignedRoles(f.manager, f.code);
     assert.deepEqual(assigned, PRESETS[11].slice().sort());
@@ -284,7 +284,7 @@ test('soft-fail S2: heretic-priest in 5p roster accepted with acknowledgement', 
         confirmedWarnings: ['S2']
       }
     });
-    assert.equal(state.phase, 'role-reveal');
+    assert.equal(state.phase, 'day');
     const assigned = getAssignedRoles(f.manager, f.code);
     assert.ok(assigned.includes('heretic-priest'));
   } finally {
@@ -319,7 +319,7 @@ test('soft-fail S3: recruiter in 5p roster accepted with acknowledgement', () =>
         confirmedWarnings: ['S3']
       }
     });
-    assert.equal(state.phase, 'role-reveal');
+    assert.equal(state.phase, 'day');
     const assigned = getAssignedRoles(f.manager, f.code);
     assert.ok(assigned.includes('recruiter'));
   } finally {
@@ -354,7 +354,7 @@ test('soft-fail S4: conspirator in 5p roster accepted with acknowledgement', () 
         confirmedWarnings: ['S4']
       }
     });
-    assert.equal(state.phase, 'role-reveal');
+    assert.equal(state.phase, 'day');
     const assigned = getAssignedRoles(f.manager, f.code);
     assert.ok(assigned.includes('conspirator'));
   } finally {
@@ -389,7 +389,7 @@ test('soft-fail S5: heretic-priest without priest/chirurgeon accepted with ackno
         confirmedWarnings: ['S5']
       }
     });
-    assert.equal(state.phase, 'role-reveal');
+    assert.equal(state.phase, 'day');
     const assigned = getAssignedRoles(f.manager, f.code);
     assert.ok(assigned.includes('heretic-priest'));
     assert.ok(!assigned.includes('priest'));
@@ -407,7 +407,7 @@ test('preset path skips soft rules: 5p preset accepted without soft-rule checks'
     const state = f.manager.start(f.code, 'p0', {
       composition: { source: 'preset', presetId: '5p' }
     });
-    assert.equal(state.phase, 'role-reveal');
+    assert.equal(state.phase, 'day');
   } finally {
     f.close();
   }
