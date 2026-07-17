@@ -37,12 +37,14 @@
       </section>
 
       <article class="panel roster-card ops-cell">
-        <header><h2>Operatives</h2><span>{{ players.length }}/12</span></header>
+        <header><h2>Operatives</h2><span>{{ onlineCount }}/{{ players.length }} online</span></header>
         <ul class="lobby-players compact">
-          <li v-for="p in players" :key="p.playerCode">
+          <li v-for="p in players" :key="p.playerCode" :class="{offline:!p.connected}">
             <span class="avatar">{{ initial(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><small>{{ p.isHost ? 'Commander' : p.connected === false ? 'Vox lost' : (p.ready ? 'Ready' : 'Awaiting') }}</small></div>
+            <i class="presence" :class="{online:p.connected}" :title="p.connected ? 'Online' : 'Disconnected'"></i>
             <span class="ready" :class="{yes:p.ready}">{{ p.ready?'READY':'…' }}</span>
+            <button v-if="isHost && !p.isHost" class="kick-btn" :title="'Remove ' + p.name" :aria-label="'Remove ' + p.name" @click="confirmKick(p)">×</button>
           </li>
         </ul>
         <p v-if="players.length<5" class="notice">At least five operatives are required.</p>
@@ -216,7 +218,7 @@ const props = defineProps({
   messages: { type: Array, default: () => [] },
   channel: { type: String, default: 'public' },
 });
-const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors', 'send', 'channel-change', 'history']);
+const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors', 'send', 'channel-change', 'history', 'kick']);
 
 const players = computed(() => props.game.players || []);
 const isHost = computed(() => props.me?.isHost);
@@ -382,6 +384,12 @@ function emitStart() {
 }
 
 function initial(name) { return (name || '?').charAt(0).toUpperCase(); }
+const onlineCount = computed(() => players.value.filter(p => p.connected).length);
+function confirmKick(p) {
+  if (!p || p.isHost) return;
+  if (!confirm(`Remove ${p.name} from this conclave?`)) return;
+  emit('kick', p.playerCode);
+}
 
 // Lobby chat
 const draft = ref('');
@@ -470,6 +478,21 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 .ops-cell .lobby-players.compact .avatar { flex: 0 0 32px; height: 32px; font-size:12px; }
 .ops-cell .lobby-players.compact small { font-size: 9px; }
 .ops-cell .ready { font-size: 9px; padding: 2px 7px; }
+.ops-cell .lobby-players.compact li.offline .avatar,
+.ops-cell .lobby-players.compact li.offline strong,
+.ops-cell .lobby-players.compact li.offline small { opacity: .5; }
+.ops-cell .presence {
+  flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%;
+  background: #5b5e55; margin-right: 4px;
+}
+.ops-cell .presence.online { background: #71905e; box-shadow: 0 0 5px #71905e; }
+.ops-cell .kick-btn {
+  flex: 0 0 22px; height: 22px; padding: 0;
+  background: transparent; border: 1px solid #43463d; color: var(--muted);
+  font: 700 14px Inter; line-height: 1; border-radius: 2px; cursor: pointer; margin-left: 4px;
+}
+.ops-cell .kick-btn:hover:not(:disabled) { border-color: #c46a5d; color: #e2b3ac; background: #1d1413; }
+.ops-cell .kick-btn:disabled { opacity: .3; cursor: not-allowed; }
 
 .avatar.mini { flex: 0 0 30px; height: 30px; font-size: 12px; }
 .composition-card { margin-top: 18px; padding: 22px 26px 28px; }

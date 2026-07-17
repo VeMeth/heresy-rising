@@ -74,7 +74,8 @@ export function createHeresyServer({ databasePath, now } = {}) {
     'game:join': { points: 20, duration: 60_000 },
     'chat:send': { points: 12, duration: 10_000 },
     'vote:submit': { points: 20, duration: 10_000 },
-    'action:submit': { points: 20, duration: 10_000 }
+    'action:submit': { points: 20, duration: 10_000 },
+    'game:kick': { points: 6, duration: 60_000 }
   });
   const io=new Server(server,{cors:{origin:allowed==='*'?'*':allowed,methods:['GET','POST'],credentials:false},allowRequest(req,cb){cb(null,isRequestOriginAllowed(req,allowed));},maxHttpBufferSize:32768,transports:['websocket'],pingTimeout:10000,pingInterval:20000});
   function ackWrap(socket,event,fn){socket.on(event,async(payload={},ack=()=>{})=>{try{if(socketLimiter.isRateLimited(socket.id,event))throw new Error('Rate limit exceeded');const data=await fn(payload);ack({ok:true,...(data&&typeof data==='object'?data:{data})});}catch(error){ack({ok:false,error:error.message});}});}
@@ -97,6 +98,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
     ackWrap(socket,'interrogation:respond',p=>{const code=normalizeRoomCode(p.code),state=gameManager.respondInterrogation(code,auth(socket,p),p.response);broadcast(code,'phase:updated');return {state};});
     ackWrap(socket,'confession:ask',p=>{const code=normalizeRoomCode(p.code),state=gameManager.askConfession(code,auth(socket,p),String(p.targetCode||''));broadcast(code,'phase:updated');return {state};});
     ackWrap(socket,'game:leave',p=>{const code=normalizeRoomCode(p.code);auth(socket,p);socket.leave(code);return {};});
+    ackWrap(socket,'game:kick',p=>{const code=normalizeRoomCode(p.code);const hostCode=auth(socket,p);const targetCode=requirePlayerCode(p.targetCode);const state=gameManager.kick(code,hostCode,targetCode);for(const other of io.sockets.sockets.values()){if(other.data.playerCode===targetCode&&other.rooms.has(code)){other.emit('game:kicked',{code});other.disconnect(true);}}broadcast(code);return {state};});
     socket.on('disconnect',()=>{socketLimiter.clear(socket.id);if(socket.data.playerCode){gameManager.disconnect(socket.data.playerCode);for(const room of socket.rooms)broadcast(room);}});
   });
   const timer=setInterval(()=>{for(const code of gameManager.due()){try{gameManager.resolve(code);broadcast(code,'phase:updated');}catch(e){console.error('deadline resolution failed',code,e);}}},1000); timer.unref();

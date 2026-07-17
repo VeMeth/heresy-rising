@@ -20,7 +20,8 @@
         :composition-errors="compositionErrors" :messages="messages" :channel="channel"
         @ready="toggleReady" @start="startGame" @clear-errors="clearCompositionErrors"
         @configure="configureGame" @leave="leaveGame"
-        @send="sendMessage" @channel-change="changeChannel" @history="loadHistory" />
+        @send="sendMessage" @channel-change="changeChannel" @history="loadHistory"
+        @kick="kickPlayer" />
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :busy="busy" :now="now" @channel="changeChannel" @send="sendMessage" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
@@ -61,6 +62,8 @@ async function createGame(form) { try { saveProfile({ name: form.name }); const 
 async function joinGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); game.value = normalize(data); history.replaceState({}, '', `?game=${game.value.code || form.roomCode}`); await loadHistory(); } catch {} }
 async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); notify('Identity restored'); }
 async function toggleReady() { try { await command('game:ready', { code: game.value.code, ready: !me.value?.ready }); } catch {} }
+async function kickPlayer(targetCode) { if (!targetCode || !game.value?.code) return; try { await command('game:kick', { code: game.value.code, targetCode }); } catch (e) { notify(e.message || 'Kick failed'); } }
+function receiveKicked() { notify('You were removed from the conclave.'); leaveGame(); }
 async function startGame(composition) { try { await command('game:start', { code: game.value.code, setup: { maxDrift: game.value.setup?.maxDrift || game.value.maxDrift, dayMs: game.value.setup?.dayMs || game.value.dayMs, nightMs: game.value.setup?.nightMs || game.value.nightMs, ...(composition ? { composition } : {}) } }); compositionErrors.value = []; } catch (e) { if (e.data?.errors) { compositionErrors.value = e.data.errors; error.value = ''; toast.value = ''; } } }
 function clearCompositionErrors() { compositionErrors.value = []; }
 async function configureGame(setup) { game.value = { ...game.value, setup }; notify('Parameters staged for game start'); }
@@ -114,6 +117,6 @@ function receiveMessage(payload) { const msg = payload?.message || payload; if (
 function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...game.value, votes:data.votes }; }
 function onConnect() { connected.value = true; reconnecting.value = false; if (game.value?.code) emitWithAck('game:state', { code:game.value.code, playerCode:getPlayerCode() }).then(data => { receiveState(data); return loadHistory(); }).catch(()=>{}); }
 function onDisconnect() { connected.value = false; reconnecting.value = true; }
-onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); ensureConnected().catch(() => {}); });
-onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); });
+onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:kicked', receiveKicked); ensureConnected().catch(() => {}); });
+onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:kicked', receiveKicked); });
 </script>

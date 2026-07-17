@@ -53,6 +53,7 @@ export class HeresyGameManager {
   }
   join({code,playerCode,name}){const g=this.requireGame(code);let p=this.player(code,playerCode);if(!p){if(g.phase!=='lobby')throw new Error('Game already started');const count=this.players(code).length;if(count>=12)throw new Error('Game is full');this.db.prepare('INSERT INTO hr_players(game_code,player_code,name,seat,joined_at) VALUES(?,?,?,?,?)').run(code,playerCode,sanitizePlayerName(name),count,this.now());}else this.db.prepare('UPDATE hr_players SET connected=1 WHERE game_code=? AND player_code=?').run(code,playerCode);return this.state(code,playerCode);}
   disconnect(playerCode){this.db.prepare('UPDATE hr_players SET connected=0 WHERE player_code=?').run(playerCode);}
+  kick(c,hostCode,targetCode){const g=this.requireHost(c,hostCode);const target=this.requirePlayer(c,targetCode);if(target.player_code===hostCode)throw new Error('Host cannot kick themselves');if(g.phase!=='lobby')throw new Error('Kick is only allowed in the lobby');this.db.prepare('DELETE FROM hr_players WHERE game_code=? AND player_code=?').run(c,targetCode);return this.state(c,hostCode);}
   ready(c,p,value){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET ready=? WHERE game_code=? AND player_code=?').run(value===undefined?1:+!!value,c,p);return this.state(c,p);}
   start(c,p,{maxDrift,dayMs,nightMs,composition}={}){
     const g=this.requireHost(c,p),players=this.players(c);
