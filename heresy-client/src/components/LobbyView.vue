@@ -257,11 +257,9 @@ function addRole(id) {
 function removeRole(id) {
   const idx = customRoster.value.indexOf(id);
   if (idx !== -1) customRoster.value.splice(idx, 1);
-  pruneConfirmed();
 }
 function removeRoleAt(i) {
   customRoster.value.splice(i, 1);
-  pruneConfirmed();
 }
 function clearRoster() {
   customRoster.value = [];
@@ -314,11 +312,14 @@ const softUnacked = computed(() => localValidation.value.errors.filter(e => e.ki
 const localWarnings = computed(() => localValidation.value.warnings);
 const serverErrors = computed(() => props.compositionErrors);
 
-function pruneConfirmed() {
-  const live = new Set(localWarnings.value.map(w => w.rule));
-  confirmedWarnings.value = confirmedWarnings.value.filter(r => live.has(r));
-}
-watch(localWarnings, pruneConfirmed);
+// Stale ack IDs in `confirmedWarnings` are harmless: the validator only
+// checks `confirmedWarnings.includes(w.rule)` against the *current*
+// warning set, and ack marks iterate current `localWarnings`. So we do
+// NOT prune on every localWarnings change — that would recompute
+// localValidation (fresh warnings array ref each time) and mutate
+// confirmedWarnings (fresh array ref), forming an infinite reactivity
+// loop that hangs the tab. Acknowledgements simply grow the set; clearing
+// the roster or reseeding resets it explicitly.
 
 const compositionValid = computed(() => {
   if (compositionMode.value === 'preset') {
