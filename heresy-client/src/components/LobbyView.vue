@@ -37,12 +37,15 @@
       </section>
 
       <article class="panel roster-card ops-cell">
-        <header><h2>Operatives</h2><span>{{ onlineCount }}/{{ players.length }} online</span></header>
+        <header><h2>Operatives</h2>
+          <span v-if="liveMode">{{ onlineCount }}/{{ players.length }} online</span>
+          <span v-else>{{ players.length }}/12</span>
+        </header>
         <ul class="lobby-players compact">
-          <li v-for="p in players" :key="p.playerCode" :class="{offline:!p.connected}">
+          <li v-for="p in players" :key="p.playerCode" :class="{offline:liveMode && !p.connected}">
             <span class="avatar">{{ initial(p.name) }}</span>
-            <div><strong>{{ p.name }}</strong><small>{{ p.isHost ? 'Commander' : p.connected === false ? 'Vox lost' : (p.ready ? 'Ready' : 'Awaiting') }}</small></div>
-            <i class="presence" :class="{online:p.connected}" :title="p.connected ? 'Online' : 'Disconnected'"></i>
+            <div><strong>{{ p.name }}</strong><small>{{ p.isHost ? 'Commander' : (liveMode && p.connected === false) ? 'Vox lost' : (p.ready ? 'Ready' : 'Awaiting') }}</small></div>
+            <i v-if="liveMode" class="presence" :class="{online:p.connected}" :title="p.connected ? 'Online' : 'Disconnected'"></i>
             <span class="ready" :class="{yes:p.ready}">{{ p.ready?'READY':'…' }}</span>
             <button v-if="isHost && !p.isHost" class="kick-btn" :title="'Remove ' + p.name" :aria-label="'Remove ' + p.name" @click="confirmKick(p)">×</button>
           </li>
@@ -384,7 +387,8 @@ function emitStart() {
 }
 
 function initial(name) { return (name || '?').charAt(0).toUpperCase(); }
-const onlineCount = computed(() => players.value.filter(p => p.connected).length);
+const liveMode = computed(() => props.game.mode !== 'async');
+const onlineCount = computed(() => liveMode.value ? players.value.filter(p => p.connected).length : 0);
 function confirmKick(p) {
   if (!p || p.isHost) return;
   if (!confirm(`Remove ${p.name} from this conclave?`)) return;
