@@ -420,9 +420,16 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   grid-template-columns: minmax(0, 1fr) 320px;
   grid-template-areas: "chat ops" "params params";
   gap: 22px;
-  align-items: stretch;
+  align-items: start;
 }
-:deep(.chat-cell) { grid-area: chat; min-height: 460px; max-height: 70vh; }
+:deep(.chat-cell) {
+  grid-area: chat;
+  height: clamp(480px, 64vh, 680px);
+  min-height: 0;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+}
 :deep(.ops-cell)  { grid-area: ops; }
 :deep(.params-cell){ grid-area: params; }
 
@@ -431,7 +438,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
     grid-template-columns: 1fr;
     grid-template-areas: "chat" "ops" "params";
   }
-  :deep(.chat-cell) { min-height: 340px; max-height: none; }
+  :deep(.chat-cell) { height: clamp(360px, 60vh, 520px); }
 }
 
 .params-cell .params-row {
@@ -473,9 +480,10 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   align-self: flex-end;
 }
 
-.chat-panel { display: flex; flex-direction: column; }
-.chat-panel > header { display:flex; align-items:center; justify-content:space-between; }
-.chat-panel .message-feed { flex: 1; min-height: 0; }
+.chat-panel { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: hidden; }
+.chat-panel > header { display:flex; align-items:center; justify-content:space-between; flex: 0 0 auto; }
+.chat-panel .message-feed { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+.chat-panel .composer { flex: 0 0 auto; }
 .chat-panel .composer textarea { resize: none; }
 
 .ops-cell .lobby-players.compact li { padding: 10px 0; }
