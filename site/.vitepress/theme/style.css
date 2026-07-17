@@ -73,11 +73,6 @@ body::before {
   max-width: none !important;
   margin: 0 !important;
 }
-.dark .VPNavBar.has-sidebar .title {
-  position: static !important;
-  padding-left: 0 !important;
-  width: auto !important;
-}
 .dark .VPNavBar.has-sidebar .content {
   padding-left: 0 !important;
   padding-right: 0 !important;
@@ -90,7 +85,16 @@ body::before {
    flush left, drop padding-left so there is no width-dependent shift, and
    push the menu to the far right with margin-left: auto on the menu as
    an independent anchor. The DocSearch button's own margin-left: 16px
-   then gives a consistent gap from the brand on every page. */
+   then gives a consistent gap from the brand on every page.
+
+   Make the title area consistent on both landing and inner pages, so the
+   search button's left-anchor doesn't change. The has-sidebar override
+   already did this for inner pages; extend it unconditionally. */
+.dark .VPNavBar .title {
+  position: static !important;
+  padding-left: 0 !important;
+  width: auto !important;
+}
 .dark .VPNavBarSearch {
   flex: 0 0 auto !important;
   margin-right: auto !important;
