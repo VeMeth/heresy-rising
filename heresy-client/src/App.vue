@@ -32,6 +32,7 @@
     </main>
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
+    <AnnouncementOverlay :announcement="announcement" />
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
 
     <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
@@ -44,11 +45,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ensureConnected, emitWithAck, getPlayerCode, setPlayerCode, socket } from './socket';
 import AdminView from './components/AdminView.vue';
+import AnnouncementOverlay from './components/AnnouncementOverlay.vue';
 import JoinView from './components/JoinView.vue';
 import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 
-const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const compositionErrors = ref([]);
+const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
 const showManual = ref(false); const manualMounted = ref(false); const manualFrame = ref(null);
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
@@ -137,6 +139,14 @@ async function copyText(text) {
 function receiveState(data) { const state = normalize(data); if (state) { game.value = state; saveGameCode(state.code); } }
 function receiveMessage(payload) { const msg = payload?.message || payload; if (msg) mergeMessages(msg.channel || 'public', [msg]); }
 function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...game.value, votes:data.votes }; }
+function receiveAnnouncement(payload) {
+  const a = payload?.announcement || payload;
+  if (!a) return;
+  announcement.value = a;
+  clearTimeout(announcementTimer);
+  const duration = a.type === 'gameover' ? 8000 : 5000;
+  announcementTimer = setTimeout(() => { announcement.value = null; }, duration);
+}
 function onConnect() { connected.value = true; reconnecting.value = false; const code=game.value?.code||readJson('heresy-rising:game'); if(code) emitWithAck('game:state', { code, playerCode:getPlayerCode() }).then(data=>{ receiveState(data); return loadHistory(); }).catch(()=>{}); }
 function onDisconnect() { connected.value = false; reconnecting.value = true; }
 async function maybeAutoJoin() {
@@ -147,8 +157,8 @@ async function maybeAutoJoin() {
   if (!target || !savedName || !savedCode) return;
   await joinGame({ name: savedName, roomCode: target }).catch(() => {});
 }
-onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
-onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
+onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
+onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
 </script>
 
 <style scoped>
