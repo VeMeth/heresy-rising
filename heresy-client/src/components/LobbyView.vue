@@ -11,7 +11,7 @@
     <div class="lobby-grid">
       <section class="panel chat-panel chat-cell">
         <header><h2>Lobby vox</h2><span>{{ messages.length }} transmission{{ messages.length===1?'':'s' }}</span></header>
-        <button v-if="messages.length" class="load-history" @click="$emit('history', messages[0]?.id)">Load earlier transmissions</button>
+        <button v-if="messages.length && hasMore" class="load-history" @click="$emit('history', messages[0]?.id)">Load earlier transmissions</button>
         <div ref="feed" class="message-feed">
           <div v-if="!messages.length" class="empty-chat">
             <strong>No transmissions recorded</strong>
@@ -222,6 +222,7 @@ const props = defineProps({
   compositionErrors: { type: Array, default: () => [] },
   messages: { type: Array, default: () => [] },
   channel: { type: String, default: 'public' },
+  hasMore: { type: Boolean, default: true },
 });
 const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors', 'send', 'channel-change', 'history', 'kick']);
 
@@ -400,16 +401,32 @@ function confirmKick(p) {
 // Lobby chat
 const draft = ref('');
 const feed = ref(null);
-// Only auto-scroll to bottom when the user is already near it (new message
-// arrived while reading the latest). If they scrolled up to read history,
-// preserve their position so loading earlier messages doesn't yank them
-// back to the bottom and make the click look like it did nothing.
-watch(() => props.messages.length, () => nextTick(() => {
-  if (!feed.value) return;
+let preChangeHeight = 0;
+let preChangeScrollTop = 0;
+// Capture scroll metrics BEFORE the next render so we can anchor the view
+// when older messages get prepended: shift scrollTop by the amount of new
+// content so the same content stays visible at the same offset.
+watch(() => props.messages.length, () => {
   const el = feed.value;
-  const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-  if (distanceFromBottom < 80) el.scrollTop = el.scrollHeight;
-}));
+  if (el) {
+    preChangeHeight = el.scrollHeight;
+    preChangeScrollTop = el.scrollTop;
+  }
+});
+// After the DOM updates, decide whether to anchor (prepend) or follow
+// (append): if the user was near the bottom, treat as append and snap to
+// the new bottom; otherwise treat as prepend and preserve their position.
+watch(() => props.messages, () => nextTick(() => {
+  const el = feed.value;
+  if (!el) return;
+  const heightDelta = el.scrollHeight - preChangeHeight;
+  const wasNearBottom = preChangeHeight - preChangeScrollTop - el.clientHeight < 80;
+  if (wasNearBottom) {
+    el.scrollTop = el.scrollHeight;
+  } else if (heightDelta > 0) {
+    el.scrollTop = preChangeScrollTop + heightDelta;
+  }
+}), { deep: false });
 function post() {
   if (!draft.value || props.busy) return;
   emit('send', draft.value);

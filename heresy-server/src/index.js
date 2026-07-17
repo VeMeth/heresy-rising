@@ -67,7 +67,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
   app.delete('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{res.json({deleted:deleteGameLog(req.params.id)});}catch(e){res.status(400).json({error:e.message});}});
   function requestPlayerCode(req){return requirePlayerCode(req.get('X-Player-Code')||req.query.playerCode);}
   app.get('/api/game/:code',(req,res)=>{try{res.set('Cache-Control','no-store').json({state:gameManager.state(normalizeRoomCode(req.params.code),requestPlayerCode(req))});}catch(e){res.status(400).json({error:e.message});}});
-  app.get('/api/game/:code/chat',(req,res)=>{try{res.set('Cache-Control','no-store').json({messages:gameManager.historyMessages(normalizeRoomCode(req.params.code),requestPlayerCode(req),req.query.channel,req.query.before,req.query.limit)});}catch(e){res.status(400).json({error:e.message});}});
+  app.get('/api/game/:code/chat',(req,res)=>{try{res.set('Cache-Control','no-store').json(gameManager.historyMessages(normalizeRoomCode(req.params.code),requestPlayerCode(req),req.query.channel,req.query.before,req.query.limit));}catch(e){res.status(400).json({error:e.message});}});
   app.use((err,req,res,next)=>{if(err?.message==='Origin not allowed')return res.status(403).json({error:'Origin not allowed'});next(err);});
   const socketLimiter=new SocketRateLimiter({
     'game:create': { points: 5, duration: 60_000 },
@@ -89,7 +89,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
     ackWrap(socket,'game:ready',p=>{const code=normalizeRoomCode(p.code),state=gameManager.ready(code,auth(socket,p),p.ready);broadcast(code);return {state};});
     ackWrap(socket,'game:start',p=>{const code=normalizeRoomCode(p.code);const result=gameManager.start(code,auth(socket,p),p.setup);if(result&&result.ok===false)return result;broadcast(code,'phase:updated');return{state:result};});
     ackWrap(socket,'game:advance-phase',p=>{const code=normalizeRoomCode(p.code);gameManager.advance(code,auth(socket,p),true);broadcast(code,'phase:updated');return {state:gameManager.state(code,socket.data.playerCode)};});
-    ackWrap(socket,'chat:history',p=>({messages:gameManager.historyMessages(normalizeRoomCode(p.code),auth(socket,p),p.channel,p.before,p.limit)}));
+    ackWrap(socket,'chat:history',p=>(gameManager.historyMessages(normalizeRoomCode(p.code),auth(socket,p),p.channel,p.before,p.limit)));
     ackWrap(socket,'chat:send',p=>{const code=normalizeRoomCode(p.code),message=gameManager.sendMessage(code,auth(socket,p),p.channel||'public',p.body);broadcastMessage(code,message);return {message};});
     ackWrap(socket,'vote:submit',p=>{const code=normalizeRoomCode(p.code),votes=gameManager.vote(code,auth(socket,p),String(p.targetCode||''),p.justification);io.to(code).emit('vote:state',{votes});return {votes};});
     ackWrap(socket,'vote:retract',p=>{const code=normalizeRoomCode(p.code),votes=gameManager.retractVote(code,auth(socket,p));io.to(code).emit('vote:state',{votes});return {votes};});

@@ -18,11 +18,13 @@
         :profile="profile" @create="createGame" @join="joinGame" @recover="recoverProfile" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
         :composition-errors="compositionErrors" :messages="messages" :channel="channel"
+        :has-more="hasMoreByChannel[channel]"
         @ready="toggleReady" @start="startGame" @clear-errors="clearCompositionErrors"
         @configure="configureGame" @leave="leaveGame"
         @send="sendMessage" @channel-change="changeChannel" @history="loadHistory"
         @kick="kickPlayer" />
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
+        :has-more="hasMoreByChannel[channel]"
         :busy="busy" :now="now" @channel="changeChannel" @send="sendMessage" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
         @retract-action="retractAction" @respond="respondInterrogation" @ask-confession="askConfession"
@@ -50,6 +52,7 @@ const game = ref(null); const busy = ref(false); const error = ref(''); const to
 const showManual = ref(false); const manualMounted = ref(false); const manualFrame = ref(null);
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
+const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
 const channel = ref('public'); const now = ref(Date.now()); let clock; let toastTimer;
 const profile = ref(readJson('heresy-rising:profile', { playerCode: getPlayerCode() }));
 const params = new URLSearchParams(location.search); const initialCode = ref((params.get('game') || params.get('room') || '').toUpperCase());
@@ -75,7 +78,7 @@ async function configureGame(setup) { game.value = { ...game.value, setup }; not
 async function confirmReveal() { try { await command('game:advance-phase', { code: game.value.code }); } catch {} }
 async function advancePhase() { try { await command('game:advance-phase', { code: game.value.code }); } catch {} }
 async function sendMessage(body) { try { await command('chat:send', { code: game.value.code, channel: channel.value, body }); } catch {} }
-async function loadHistory(before) { try { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before, limit: 50 }); mergeMessages(channel.value, data?.messages || [], true); } catch {} }
+async function loadHistory(before) { try { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before, limit: 50 }); mergeMessages(channel.value, data?.messages || [], true); hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: !!data?.hasMore }; } catch {} }
 async function submitVote(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
 async function retractVote() { try { await command('vote:retract', { code: game.value.code }); } catch {} }
 async function submitAction(payload) { try { const data=await command('action:submit', { code: game.value.code, ...(typeof payload==='string'?{targetCode:payload}:payload) }); if(data?.action) game.value={...game.value,myAction:data.action}; } catch {} }
@@ -88,7 +91,7 @@ function openManual() { manualMounted.value = true; showManual.value = true; }
 function closeManual() { showManual.value = false; }
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
 function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
-function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) loadHistory(); }
+function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) { hasMoreByChannel.value = { ...hasMoreByChannel.value, [next]: true }; loadHistory(); } }
 function mergeMessages(ch, incoming, prepend = false) { const old = messagesByChannel.value[ch] || []; const map = new Map((prepend ? [...incoming, ...old] : [...old, ...incoming]).map(m => [m.id || m.sequence || `${m.createdAt}-${m.authorName}-${m.body}`, m])); messagesByChannel.value = { ...messagesByChannel.value, [ch]: [...map.values()].sort((a,b) => (a.sequence || Date.parse(a.createdAt)) - (b.sequence || Date.parse(b.createdAt))) }; }
 async function copyInvite() {
   if (!game.value?.code) return;
