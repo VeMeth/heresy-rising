@@ -280,3 +280,33 @@ npm run test:e2e     # runs Playwright suite
 ## Who to ask
 
 If anything in these docs is unclear, ambiguous, or seems to contradict another section — **stop and ask**. Do not guess. The design is detailed enough that ambiguity is a signal something needs a decision, not a cue to improvise.
+
+---
+
+## Changelog
+
+### 2026-07-18 — Online status tracking & vote chat visibility
+
+**Online status fixes** (`heresy-server/src/`):
+
+| Change | File | Why |
+|---|---|---|
+| `'disconnect'` → `'disconnecting'` | `index.js:102` | Socket.IO clears `socket.rooms` *before* `disconnect` fires, so peer broadcasts silently did nothing. `disconnecting` fires while rooms are still populated. |
+| `game:leave` now sets `connected=0` and broadcasts | `index.js:100` | Leave was a silent no-op — remaining players never learned the player left. |
+| `disconnect()` accepts optional `gameCode` | `heresyGameManager.js:55` | `WHERE game_code=? AND player_code=?` when scoped, `WHERE player_code=?` when unscoped. Prevents leaving one game from marking the player offline in all games. |
+
+**Client reconnect fix** (`heresy-client/src/App.vue`):
+
+| Change | Why |
+|---|---|
+| `saveGameCode()` persists game code to `localStorage` | After a page reload Vue `game.value` is null, so `onConnect` never called `game:state`. The player was stuck with `connected=0` ("Vox lost") forever. Now `onConnect` falls back to the persisted code. |
+| All `game.value` mutations (command, createGame, joinGame, receiveState, leaveGame) call `saveGameCode` | Keeps localStorage in sync with current game. |
+
+**Vote messages in chat** (`heresy-server/src/`, `heresy-client/src/`):
+
+| Change | Why |
+|---|---|
+| Vote justifications use `kind='vote'` instead of `kind='player'` | Distinguishes votes from regular chatter, enabling distinct styling. |
+| `vote()` returns `{votes, message}` instead of raw vote array | Socket handler can now broadcast the justification live via `broadcastMessage()`. Previously justifications were only persisted to DB and never pushed to clients — players had to load chat history to see them. |
+| `vote:submit` handler calls `broadcastMessage()` | Real-time delivery to all players. |
+| CSS: `.message.vote p` gets gold border, `#1d1a10` background, `var(--gold2)` text | Gold visual treatment stands out from the default grey chat bubbles so nobody misses a vote. |
