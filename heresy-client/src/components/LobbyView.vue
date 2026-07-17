@@ -59,12 +59,17 @@
         <header><h2>Operation parameters</h2><span>{{ game.mode==='async'?'ASYNC':'LIVE' }}</span></header>
         <div class="params-row">
           <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>Sealed at launch; revealed privately per dossier.</p></div>
-          <div class="param-fields">
-            <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100" :disabled="!isHost"></label>
-            <label>Day min<input v-model.number="dayMinutes" type="number" min="1" max="1440" :disabled="!isHost"></label>
-            <label>Night min<input v-model.number="nightMinutes" type="number" min="1" max="1440" :disabled="!isHost"></label>
-            <button v-if="isHost" class="secondary" @click="$emit('configure',{...setup})">Use parameters</button>
+          <div v-if="isHost" class="param-fields">
+            <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100"></label>
+            <label>Day min<input v-model.number="dayMinutes" type="number" min="1" max="1440"></label>
+            <label>Night min<input v-model.number="nightMinutes" type="number" min="1" max="1440"></label>
+            <button class="secondary" @click="$emit('configure',{...setup})">Use parameters</button>
           </div>
+          <dl v-else class="param-readonly">
+            <div><dt>Drift</dt><dd>{{ setup.maxDrift }}</dd></div>
+            <div><dt>Day</dt><dd>{{ dayMinutes }} min</dd></div>
+            <div><dt>Night</dt><dd>{{ nightMinutes }} min</dd></div>
+          </dl>
         </div>
       </article>
     </div>
