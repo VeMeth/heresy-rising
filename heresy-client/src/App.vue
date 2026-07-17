@@ -117,6 +117,14 @@ function receiveMessage(payload) { const msg = payload?.message || payload; if (
 function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...game.value, votes:data.votes }; }
 function onConnect() { connected.value = true; reconnecting.value = false; if (game.value?.code) emitWithAck('game:state', { code:game.value.code, playerCode:getPlayerCode() }).then(data => { receiveState(data); return loadHistory(); }).catch(()=>{}); }
 function onDisconnect() { connected.value = false; reconnecting.value = true; }
-onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:kicked', receiveKicked); ensureConnected().catch(() => {}); });
+async function maybeAutoJoin() {
+  if (game.value) return;
+  const savedName = profile.value?.name;
+  const savedCode = profile.value?.playerCode;
+  const target = initialCode.value;
+  if (!target || !savedName || !savedCode) return;
+  await joinGame({ name: savedName, roomCode: target }).catch(() => {});
+}
+onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:kicked', receiveKicked); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
 onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:kicked', receiveKicked); });
 </script>
