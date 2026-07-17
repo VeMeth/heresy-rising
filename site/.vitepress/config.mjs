@@ -18,7 +18,6 @@ export default defineConfig({
       { text: 'How to Play', link: '/how-to-play' },
       { text: 'Drift', link: '/drift' },
       { text: 'Roles', link: '/roles/' },
-      { text: 'Return to Game', link: '../../', target: '_self' },
     ],
     sidebar: [
       {

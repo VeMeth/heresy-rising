@@ -6,7 +6,7 @@
         <span class="brand-mark">H</span><span><strong>HERESY RISING</strong><small>A game of accusation and survival</small></span>
       </button>
       <div class="mast-actions">
-        <a href="/docs/" class="ghost compact">Manual</a>
+        <button class="ghost compact" @click="openManual" aria-haspopup="dialog">Manual</button>
         <span v-if="game" class="game-code">CONCLAVE {{ game.code }}</span>
         <span class="connection" :class="connectionState"><i></i>{{ connectionLabel }}</span>
         <button v-if="game" class="ghost compact" @click="copyInvite">Copy invite</button>
@@ -31,6 +31,14 @@
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
+
+    <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
+      <div class="manual-bar">
+        <strong>Manual</strong>
+        <button class="ghost compact" @click="closeManual" aria-label="Close manual">Close ✕</button>
+      </div>
+      <iframe ref="manualFrame" class="manual-frame" src="/docs/" title="Heresy Rising manual"></iframe>
+    </div>
   </div>
 </template>
 
@@ -43,6 +51,7 @@ import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const compositionErrors = ref([]);
+const showManual = ref(false); const manualMounted = ref(false); const manualFrame = ref(null);
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const channel = ref('public'); const now = ref(Date.now()); let clock; let toastTimer;
@@ -79,6 +88,9 @@ async function respondInterrogation(response) { try { await command('interrogati
 async function askConfession(targetCode) { try { await command('confession:ask', { code: game.value.code, targetCode }); } catch {} }
 async function leaveGame() { try { if (game.value) await command('game:leave', { code: game.value.code }); } catch {} game.value = null; messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
 function leaveToHome() { if (!game.value || confirm('Leave this game? You can return with the same player code.')) leaveGame(); }
+function openManual() { manualMounted.value = true; showManual.value = true; }
+function closeManual() { showManual.value = false; }
+function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
 function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) loadHistory(); }
 function mergeMessages(ch, incoming, prepend = false) { const old = messagesByChannel.value[ch] || []; const map = new Map((prepend ? [...incoming, ...old] : [...old, ...incoming]).map(m => [m.id || m.sequence || `${m.createdAt}-${m.authorName}-${m.body}`, m])); messagesByChannel.value = { ...messagesByChannel.value, [ch]: [...map.values()].sort((a,b) => (a.sequence || Date.parse(a.createdAt)) - (b.sequence || Date.parse(b.createdAt))) }; }
 async function copyInvite() {
@@ -125,6 +137,38 @@ async function maybeAutoJoin() {
   if (!target || !savedName || !savedCode) return;
   await joinGame({ name: savedName, roomCode: target }).catch(() => {});
 }
-onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:kicked', receiveKicked); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
-onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:kicked', receiveKicked); });
+onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
+onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); });
 </script>
+
+<style scoped>
+.manual-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(6, 7, 6, 0.96);
+  display: flex;
+  flex-direction: column;
+}
+.manual-bar {
+  flex: 0 0 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(18px, 4vw, 60px);
+  border-bottom: 1px solid var(--line);
+  background: rgba(9, 10, 9, 0.97);
+}
+.manual-bar strong {
+  font: 700 14px Cinzel, serif;
+  letter-spacing: .14em;
+  color: var(--gold2);
+  text-transform: uppercase;
+}
+.manual-frame {
+  flex: 1 1 0;
+  width: 100%;
+  border: 0;
+  background: #090a09;
+}
+</style>
