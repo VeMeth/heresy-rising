@@ -29,7 +29,7 @@
           </article>
         </div>
         <form class="composer" @submit.prevent="post">
-          <textarea v-model.trim="draft" maxlength="1000" rows="2" :disabled="busy"
+          <textarea ref="composer" v-model.trim="draft" maxlength="1000" rows="2"
                     placeholder="Address the conclave… (Enter to send, Shift+Enter for newline)"
                     @keydown.enter.exact.prevent="post"></textarea>
           <button class="primary" :disabled="!draft || busy">Transmit</button>
@@ -400,6 +400,7 @@ function confirmKick(p) {
 
 // Lobby chat
 const draft = ref('');
+const composer = ref(null);
 const feed = ref(null);
 let preChangeHeight = 0;
 let preChangeScrollTop = 0;
@@ -431,6 +432,12 @@ function post() {
   if (!draft.value || props.busy) return;
   emit('send', draft.value);
   draft.value = '';
+  // Keep the cursor in the textarea so the player can immediately type
+  // the next message. Vue updates the v-model synchronously, but a few
+  // browsers can move focus during the same tick when adjacent nodes
+  // re-render; nextTick + a tiny restore guarantees we stay where the
+  // player expects to be.
+  nextTick(() => { composer.value?.focus(); });
 }
 function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''; }
 </script>
