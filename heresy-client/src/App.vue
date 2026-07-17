@@ -57,7 +57,7 @@ const channel = ref('public'); const now = ref(Date.now()); let clock; let toast
 const profile = ref(readJson('heresy-rising:profile', { playerCode: getPlayerCode() }));
 const params = new URLSearchParams(location.search); const initialCode = ref((params.get('game') || params.get('room') || '').toUpperCase());
 const messages = computed(() => messagesByChannel.value[channel.value] || []);
-const me = computed(() => game.value?.players?.find(p => p.isYou || p.id === game.value.you || p.id === game.value.youId) || game.value?.me || null);
+const me = computed(() => { const g = game.value; if (!g) return null; const myCode = getPlayerCode(); const found = g.players?.find(p => p.playerCode === myCode || p.isYou || (p.id != null && (p.id === g.you || p.id === g.youId))); return found || g.me || null; });
 const connectionState = computed(() => connected.value ? 'online' : reconnecting.value ? 'reconnecting' : 'offline');
 const connectionLabel = computed(() => connected.value ? 'Vox online' : reconnecting.value ? 'Reconnecting' : 'Vox offline');
 
