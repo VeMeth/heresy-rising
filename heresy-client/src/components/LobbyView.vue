@@ -48,11 +48,15 @@
 
       <article class="panel setup-card params-cell">
         <header><h2>Operation parameters</h2><span>{{ game.mode==='async'?'ASYNC':'LIVE' }}</span></header>
-        <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>The roster is sealed at launch and revealed privately per dossier.</p></div>
-        <label>Maximum Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100" :disabled="!isHost"></label>
-        <label>Day phase (minutes)<input v-model.number="dayMinutes" type="number" min="1" max="1440" :disabled="!isHost"></label>
-        <label>Night phase (minutes)<input v-model.number="nightMinutes" type="number" min="1" max="1440" :disabled="!isHost"></label>
-        <button v-if="isHost" class="secondary wide" @click="$emit('configure',{...setup})">Use these parameters</button>
+        <div class="params-row">
+          <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>Sealed at launch; revealed privately per dossier.</p></div>
+          <div class="param-fields">
+            <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100" :disabled="!isHost"></label>
+            <label>Day min<input v-model.number="dayMinutes" type="number" min="1" max="1440" :disabled="!isHost"></label>
+            <label>Night min<input v-model.number="nightMinutes" type="number" min="1" max="1440" :disabled="!isHost"></label>
+            <button v-if="isHost" class="secondary" @click="$emit('configure',{...setup})">Use parameters</button>
+          </div>
+        </div>
       </article>
     </div>
 
@@ -406,7 +410,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 }
 :deep(.chat-cell) { grid-area: chat; min-height: 460px; max-height: 70vh; }
 :deep(.ops-cell)  { grid-area: ops; }
-:deep(.params-cell){ grid-area: params; max-width: 760px; }
+:deep(.params-cell){ grid-area: params; }
 
 @media (max-width: 900px) {
   :deep(.lobby-grid) {
@@ -414,6 +418,45 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
     grid-template-areas: "chat" "ops" "params";
   }
   :deep(.chat-cell) { min-height: 340px; max-height: none; }
+}
+
+.params-cell .params-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 25px 22px;
+  flex-wrap: wrap;
+}
+.params-cell .preset { flex: 1 1 260px; min-width: 0; }
+.params-cell .preset p { font-size: 11px; }
+.params-cell .param-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.params-cell .param-fields label {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.params-cell .param-fields input {
+  width: 64px;
+  padding: 8px 10px;
+  font-size: 13px;
+  text-align: center;
+}
+.params-cell .param-fields button {
+  padding: 9px 14px;
+  font-size: 9.5px;
+  height: 34px;
+  align-self: flex-end;
 }
 
 .chat-panel { display: flex; flex-direction: column; }
