@@ -43,3 +43,12 @@
   flex: 0 0 30px;
   margin-top: 18px;
 }
+
+/* Tighter message bubble padding so single-line transmissions don't take
+   so much vertical space. Was 10px top/bottom + 13/1.5 line-height;
+   drop to 7px top/bottom and tighten line-height to 1.4. */
+.message p {
+  padding: 7px 12px;
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
