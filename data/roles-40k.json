@@ -6,7 +6,6 @@
   "owner": "Heretic",
   "origin": "Locked roster from ROSTER.md + loyalist-kit.md + heretic-kit.md. 11 roles total (6 Loyalist, 5 Heretic). Composition table in composition.json.",
   "notes": "All role IDs are kebab-case. Citizen role ID is the noise-floor and may appear multiple times in a game (see composition.json). All other role IDs are unique per game.",
-
   "roles": [
     {
       "id": "imperial-citizen",
@@ -16,17 +15,24 @@
       "driftWeight": 0,
       "tier": "T0",
       "actions": {
-        "night": { "kind": "sleep", "target": "self", "driftCost": -1 },
-        "day": { "kind": "vote" }
+        "night": {
+          "kind": "sleep",
+          "target": "self",
+          "driftCost": -1
+        },
+        "day": {
+          "kind": "vote"
+        }
       },
       "crippleProfile": {
-        "blocks": ["vote"],
+        "blocks": [
+          "vote"
+        ],
         "onCripple": "disable-one"
       },
       "ability": "You have no night power. Discuss, vote, read the table, and survive on wit. Sleep (−1 drift) by default.",
       "objective": "Loyalist win: reduce Heretic living count to below parity."
     },
-
     {
       "id": "interrogator",
       "displayName": "Interrogator",
@@ -35,17 +41,22 @@
       "driftWeight": 2,
       "tier": "T2",
       "actions": {
-        "night": { "kind": "investigate", "target": "other", "driftCost": 2 },
+        "night": {
+          "kind": "investigate",
+          "target": "other",
+          "driftCost": 2
+        },
         "day": null
       },
       "crippleProfile": {
-        "blocks": ["investigate"],
+        "blocks": [
+          "investigate"
+        ],
         "onCripple": "disable-one"
       },
       "ability": "Each night, interrogate one player at chosen intensity: T1 Soft (+1 drift, 'story holds / something off / nothing'), T2 Standard (+2 drift, same + zone hint), T3 Brutal (+3 drift, confirmed Heretic or Loyalist). Target's drift zone auto-upgrades effective tier. Effective T2+ vs Orange+ target = Execute on Sight (auto-kill, alignment revealed).",
       "objective": "Find the heretics. Stay clean enough to be believed."
     },
-
     {
       "id": "chirurgeon",
       "displayName": "Chirurgeon",
@@ -54,17 +65,22 @@
       "driftWeight": 1,
       "tier": "T1",
       "actions": {
-        "night": { "kind": "protect", "target": "any", "driftCost": 1 },
+        "night": {
+          "kind": "protect",
+          "target": "any",
+          "driftCost": 1
+        },
         "day": null
       },
       "crippleProfile": {
-        "blocks": ["protect"],
+        "blocks": [
+          "protect"
+        ],
         "onCripple": "disable-one"
       },
       "ability": "Each night, designate one player to protect. If that player is targeted by a night kill, the kill is prevented. You do not learn whether your protection fired.",
       "objective": "Keep the conclave alive. Standard Doctor slot, drift-priced."
     },
-
     {
       "id": "novice-psychic",
       "displayName": "Novice-Psychic",
@@ -73,17 +89,22 @@
       "driftWeight": 1,
       "tier": "T1",
       "actions": {
-        "night": { "kind": "watch", "target": "other", "driftCost": 1 },
+        "night": {
+          "kind": "watch",
+          "target": "other",
+          "driftCost": 1
+        },
         "day": null
       },
       "crippleProfile": {
-        "blocks": ["watch"],
+        "blocks": [
+          "watch"
+        ],
         "onCripple": "disable-one"
       },
       "ability": "Each night, receive a qualitative drift hint about one target. Reads drift, not alignment. Cannot catch Heretics who haven't drifted yet. Drift hints carry zone-based noise (T1 = half zone rate).",
       "objective": "Sense the warp on people. Punish action, not stealth."
     },
-
     {
       "id": "arbitrator",
       "displayName": "Arbitrator",
@@ -92,17 +113,22 @@
       "driftWeight": 1,
       "tier": "T1",
       "actions": {
-        "night": { "kind": "shield", "target": "other", "driftCost": 1 },
+        "night": {
+          "kind": "shield",
+          "target": "other",
+          "driftCost": 1
+        },
         "day": null
       },
       "crippleProfile": {
-        "blocks": ["shield"],
+        "blocks": [
+          "shield"
+        ],
         "onCripple": "disable-one"
       },
       "ability": "Each night, bodyguard-proxy one player: take the hit for them if they're attacked. The kill lands on you instead. You survive. You and the protected player both learn next day that the proxy fired.",
       "objective": "Soak the bullet. Marks you as 'worth attacking' — durable defender slot."
     },
-
     {
       "id": "priest",
       "displayName": "Priest (Loyalist)",
@@ -111,116 +137,170 @@
       "driftWeight": 0,
       "tier": "T0_special",
       "actions": {
-        "night": { "kind": "sermon", "target": "other", "driftCost": 0 },
+        "night": {
+          "kind": "sermon",
+          "target": "other",
+          "driftCost": 0
+        },
         "day": null
       },
       "sermonTiers": {
-        "whisper":  { "selfCost": 1, "targetEffect": -2, "frequency": "unlimited_daily" },
-        "hymn":     { "selfCost": 3, "targetEffect": -5, "frequency": "2_per_game" },
-        "litany":   { "selfCost": 6, "targetEffect": -10, "effectFloor": 0, "frequency": "1_per_game" }
+        "whisper": {
+          "selfCost": 1,
+          "targetEffect": -2,
+          "frequency": "unlimited_daily"
+        },
+        "hymn": {
+          "selfCost": 3,
+          "targetEffect": -5,
+          "frequency": "2_per_game"
+        },
+        "litany": {
+          "selfCost": 6,
+          "targetEffect": -10,
+          "effectFloor": 0,
+          "frequency": "1_per_game"
+        }
       },
       "crippleProfile": {
-        "blocks": ["sermon"],
+        "blocks": [
+          "sermon"
+        ],
         "onCripple": "disable-all"
       },
       "ability": "Each night, choose one sermon tier and target. Whisper (−2, daily), Hymn (−5, 2/game), Litany (−10 floored at 0, once/game). Litany rescue: Priest enters Orange, target exits Red. Skilled Priests hold the conclave together; militant ones climb drift.",
       "objective": "Cleanse drift. Keep the faithful clean. Don't burn out."
     },
-
     {
       "id": "murderer",
       "displayName": "Murderer",
       "faction": "heretic",
-      "claim": "Imperial Citizen",
       "driftWeight": 2,
       "tier": "T2",
       "actions": {
-        "night": { "kind": "kill", "target": "other", "driftCost": 2 },
+        "night": {
+          "kind": "kill",
+          "target": "other",
+          "driftCost": 2
+        },
         "day": null
       },
       "crippleProfile": {
-        "blocks": ["kill"],
+        "blocks": [
+          "kill"
+        ],
         "onCripple": "disable-one"
       },
       "ability": "Each night, kill one player. Traditional hidden-killer role. Full Heretic chat access. Sees other Heretics' plans.",
       "objective": "Heretic win: achieve parity (Heretic living count ≥ Loyalist living count)."
     },
-
     {
       "id": "heretic-priest",
       "displayName": "Heretic Priest",
       "faction": "heretic",
-      "claim": "Priest (claims-matching with Loyalist Priest)",
       "driftWeight": 0,
       "tier": "T0_special",
       "actions": {
-        "night": { "kind": "sermon", "target": "other", "driftCost": 0 },
+        "night": {
+          "kind": "sermon",
+          "target": "other",
+          "driftCost": 0
+        },
         "day": null
       },
       "sermonTiers": {
-        "false_comfort": { "selfCost": 2, "targetEffect":  3, "appearance": "looks like Whisper to target" },
-        "twisted_hymn":  { "selfCost": 2, "targetEffect":  7, "appearance": "target feels 'strengthened in faith'" },
-        "warp_litany":   { "selfCost": 4, "targetEffect": 12, "appearance": "transcendent sermon" }
+        "false_comfort": {
+          "selfCost": 2,
+          "targetEffect": 3,
+          "appearance": "looks like Whisper to target"
+        },
+        "twisted_hymn": {
+          "selfCost": 2,
+          "targetEffect": 7,
+          "appearance": "target feels 'strengthened in faith'"
+        },
+        "warp_litany": {
+          "selfCost": 4,
+          "targetEffect": 12,
+          "appearance": "transcendent sermon"
+        }
       },
       "crippleProfile": {
-        "blocks": ["sermon"],
+        "blocks": [
+          "sermon"
+        ],
         "onCripple": "disable-all"
       },
       "ability": "Same UI as Loyalist Priest. Effects inverted: target drift rises instead of falls. Detection requires drift-delta tracking across Priest interventions. Anti-Priest framing rejected 2026-07-06 — replaced with claim-disguise framing.",
       "objective": "Hide in the Priest slot. Drift up the table without being seen. Conversion of max-drift players happens via Recruiter, not via sermons."
     },
-
     {
       "id": "conspirator",
       "displayName": "Conspirator",
       "faction": "heretic",
-      "claim": "Imperial Citizen",
       "driftWeight": 1,
       "tier": "T1",
       "actions": {
         "night": null,
-        "day": { "kind": "forgery", "driftCost": 1, "limit": "once_per_day" }
+        "day": {
+          "kind": "forgery",
+          "driftCost": 1,
+          "limit": "once_per_day"
+        }
       },
       "crippleProfile": {
-        "blocks": ["forgery"],
+        "blocks": [
+          "forgery"
+        ],
         "onCripple": "disable-one"
       },
       "ability": "Once per day, post a message in day chat that the system attributes to a different player of your choice. The forged sender sees the message and must decide whether to publicly correct it (admitting they're the source) or let it stand (lying).",
       "objective": "Seed chaos in table-talk. Frame the Loyalist Interrogator. Survive day-phase."
     },
-
     {
       "id": "saboteur",
       "displayName": "Saboteur",
       "faction": "heretic",
-      "claim": "Imperial Citizen",
       "driftWeight": 2,
       "tier": "T2",
       "actions": {
-        "night": { "kind": "booby-trap", "target": "other", "driftCost": 2, "limit": "once_per_night" },
+        "night": {
+          "kind": "booby-trap",
+          "target": "other",
+          "driftCost": 2,
+          "limit": "once_per_night"
+        },
         "day": null
       },
       "crippleProfile": {
-        "blocks": ["booby-trap"],
+        "blocks": [
+          "booby-trap"
+        ],
         "onCripple": "disable-one"
       },
       "ability": "Each night, choose one player to booby-trap (trap expires at sunrise). Any night action performed on the trapped player: actor takes +5 drift extra; action returns false / no result; you get private notification that trap sprung. Silent detection — trapped player doesn't know.",
       "objective": "Counter investigators. Read who pokes whom. Survive without acting."
     },
-
     {
       "id": "recruiter",
       "displayName": "Recruiter",
       "faction": "heretic",
-      "claim": "Imperial Citizen",
       "driftWeight": 3,
       "tier": "T3",
       "actions": {
-        "night": { "kind": "heretical-catalyst", "target": "other", "driftCost": 3, "limit": "once_per_night", "requires": "target_zone_black" },
+        "night": {
+          "kind": "heretical-catalyst",
+          "target": "other",
+          "driftCost": 3,
+          "limit": "once_per_night",
+          "requires": "target_zone_black"
+        },
         "day": null
       },
       "crippleProfile": {
-        "blocks": ["heretical-catalyst"],
+        "blocks": [
+          "heretical-catalyst"
+        ],
         "onCripple": "disable-one"
       },
       "ability": "Each night, target one player at Black zone (drift 20) to perform the heretical catalyst. Flip is silent and immediate — victim wakes as Heretic. Failure (target not at Black): silent fail. If Saboteur trapped the target tonight: flip still resolves, but you take +5 drift extra (= +8 total).",
