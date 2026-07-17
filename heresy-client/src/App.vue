@@ -17,8 +17,10 @@
       <JoinView v-if="!game" :busy="busy" :error="error" :initial-room-code="initialCode"
         :profile="profile" @create="createGame" @join="joinGame" @recover="recoverProfile" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
-        :composition-errors="compositionErrors" @ready="toggleReady" @start="startGame"
-        @clear-errors="clearCompositionErrors" @configure="configureGame" @leave="leaveGame" />
+        :composition-errors="compositionErrors" :messages="messages" :channel="channel"
+        @ready="toggleReady" @start="startGame" @clear-errors="clearCompositionErrors"
+        @configure="configureGame" @leave="leaveGame"
+        @send="sendMessage" @channel-change="changeChannel" @history="loadHistory" />
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :busy="busy" :now="now" @channel="changeChannel" @send="sendMessage" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"

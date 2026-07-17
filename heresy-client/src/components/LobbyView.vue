@@ -9,18 +9,44 @@
       <button class="ghost" @click="$emit('leave')">Leave conclave</button>
     </div>
     <div class="lobby-grid">
-      <article class="panel roster-card">
+      <section class="panel chat-panel chat-cell">
+        <header><h2>Lobby vox</h2><span>{{ messages.length }} transmission{{ messages.length===1?'':'s' }}</span></header>
+        <button v-if="messages.length" class="load-history" @click="$emit('history', messages[0]?.id)">Load earlier transmissions</button>
+        <div ref="feed" class="message-feed">
+          <div v-if="!messages.length" class="empty-chat">
+            <strong>No transmissions recorded</strong>
+            <p>Be the first to break the silence.</p>
+          </div>
+          <article v-for="m in messages" :key="m.id || (m.createdAt + '-' + m.author)" :class="['message',{system:m.kind==='system'}]">
+            <span v-if="m.kind==='system'" class="system-line">{{ m.body }}</span>
+            <template v-else>
+              <span class="avatar mini">{{ initial(m.author) }}</span>
+              <div>
+                <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
+                <p>{{ m.body }}</p>
+              </div>
+            </template>
+          </article>
+        </div>
+        <form class="composer" @submit.prevent="post">
+          <textarea v-model.trim="draft" maxlength="1000" rows="2" :disabled="busy" placeholder="Address the conclave…"></textarea>
+          <button class="primary" :disabled="!draft || busy">Transmit</button>
+        </form>
+      </section>
+
+      <article class="panel roster-card ops-cell">
         <header><h2>Operatives</h2><span>{{ players.length }}/12</span></header>
-        <ul class="lobby-players">
+        <ul class="lobby-players compact">
           <li v-for="p in players" :key="p.playerCode">
             <span class="avatar">{{ initial(p.name) }}</span>
-            <div><strong>{{ p.name }}</strong><small>{{ p.isHost ? 'Conclave commander' : p.connected === false ? 'Disconnected' : 'Awaiting orders' }}</small></div>
-            <span class="ready" :class="{yes:p.ready}">{{ p.ready?'READY':'NOT READY' }}</span>
+            <div><strong>{{ p.name }}</strong><small>{{ p.isHost ? 'Commander' : p.connected === false ? 'Vox lost' : (p.ready ? 'Ready' : 'Awaiting') }}</small></div>
+            <span class="ready" :class="{yes:p.ready}">{{ p.ready?'READY':'…' }}</span>
           </li>
         </ul>
         <p v-if="players.length<5" class="notice">At least five operatives are required.</p>
       </article>
-      <article class="panel setup-card">
+
+      <article class="panel setup-card params-cell">
         <header><h2>Operation parameters</h2><span>{{ game.mode==='async'?'ASYNC':'LIVE' }}</span></header>
         <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>The roster is sealed at launch and revealed privately per dossier.</p></div>
         <label>Maximum Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100" :disabled="!isHost"></label>
@@ -172,12 +198,19 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
 import { validateComposition } from '../server-composition-validator.js';
 import { validRoles, hardRules, presetFlavor, roleThresholds } from '../compositionData.js';
 
-const props = defineProps({ game: { type: Object, required: true }, me: Object, busy: Boolean, compositionErrors: { type: Array, default: () => [] } });
-const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors']);
+const props = defineProps({
+  game: { type: Object, required: true },
+  me: Object,
+  busy: Boolean,
+  compositionErrors: { type: Array, default: () => [] },
+  messages: { type: Array, default: () => [] },
+  channel: { type: String, default: 'public' },
+});
+const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors', 'send', 'channel-change', 'history']);
 
 const players = computed(() => props.game.players || []);
 const isHost = computed(() => props.me?.isHost);
@@ -343,9 +376,57 @@ function emitStart() {
 }
 
 function initial(name) { return (name || '?').charAt(0).toUpperCase(); }
+
+// Lobby chat
+const draft = ref('');
+const feed = ref(null);
+watch(() => props.messages.length, () => nextTick(() => { if (feed.value) feed.value.scrollTop = feed.value.scrollHeight; }));
+function post() {
+  if (!draft.value || props.busy) return;
+  emit('send', draft.value);
+  draft.value = '';
+}
+function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''; }
 </script>
 
 <style scoped>
+/* Lobby layout:
+   ┌──────────────┬──────────┐
+   │  Chat (big)  │  Ops     │
+   ├──────────────┴──────────┤
+   │  Operation parameters    │
+   └─────────────────────────┘
+   Composition sits on its own row below. */
+:deep(.lobby-grid) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas: "chat ops" "params params";
+  gap: 22px;
+  align-items: stretch;
+}
+:deep(.chat-cell) { grid-area: chat; min-height: 460px; max-height: 70vh; }
+:deep(.ops-cell)  { grid-area: ops; }
+:deep(.params-cell){ grid-area: params; max-width: 760px; }
+
+@media (max-width: 900px) {
+  :deep(.lobby-grid) {
+    grid-template-columns: 1fr;
+    grid-template-areas: "chat" "ops" "params";
+  }
+  :deep(.chat-cell) { min-height: 340px; max-height: none; }
+}
+
+.chat-panel { display: flex; flex-direction: column; }
+.chat-panel > header { display:flex; align-items:center; justify-content:space-between; }
+.chat-panel .message-feed { flex: 1; min-height: 0; }
+.chat-panel .composer textarea { resize: none; }
+
+.ops-cell .lobby-players.compact li { padding: 10px 0; }
+.ops-cell .lobby-players.compact .avatar { flex: 0 0 32px; height: 32px; font-size:12px; }
+.ops-cell .lobby-players.compact small { font-size: 9px; }
+.ops-cell .ready { font-size: 9px; padding: 2px 7px; }
+
+.avatar.mini { flex: 0 0 30px; height: 30px; font-size: 12px; }
 .composition-card { margin-top: 18px; padding: 22px 26px 28px; }
 .composition-card header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
 .composition-card header h2 { font:700 19px Cinzel; letter-spacing:.05em; margin:0; }
