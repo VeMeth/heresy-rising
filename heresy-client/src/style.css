@@ -29,3 +29,17 @@
   background: #1d1b13;
 }
 .load-history:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Chat message alignment.
+   .message is a flex row with the avatar on the left and the content
+   (header + bubble) on the right. Default align-items: stretch made the
+   avatar box grow to match the content height, which pushed the letter
+   below the bubble's top edge and looked misaligned. Pin both items to
+   the row top, then nudge the avatar down so its centre lines up with
+   the top of the message bubble (after the header line). Also stop the
+   avatar from being squeezed when the author name wraps. */
+.message { align-items: flex-start; }
+.avatar.mini {
+  flex: 0 0 30px;
+  margin-top: 18px;
+}
