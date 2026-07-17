@@ -28,7 +28,7 @@
         :busy="busy" :now="now" @channel="changeChannel" @send="sendMessage" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
         @retract-action="retractAction" @respond="respondInterrogation" @ask-confession="askConfession"
-        @reveal="confirmReveal" @advance="advancePhase" @leave="leaveGame" />
+        @leave="leaveGame" />
     </main>
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
@@ -75,8 +75,6 @@ function receiveKicked() { notify('You were removed from the conclave.'); leaveG
 async function startGame(composition) { try { await command('game:start', { code: game.value.code, setup: { maxDrift: game.value.setup?.maxDrift || game.value.maxDrift, dayMs: game.value.setup?.dayMs || game.value.dayMs, nightMs: game.value.setup?.nightMs || game.value.nightMs, ...(composition ? { composition } : {}) } }); compositionErrors.value = []; } catch (e) { if (e.data?.errors) { compositionErrors.value = e.data.errors; error.value = ''; toast.value = ''; } } }
 function clearCompositionErrors() { compositionErrors.value = []; }
 async function configureGame(setup) { game.value = { ...game.value, setup }; notify('Parameters staged for game start'); }
-async function confirmReveal() { try { await command('game:advance-phase', { code: game.value.code }); } catch {} }
-async function advancePhase() { try { await command('game:advance-phase', { code: game.value.code }); } catch {} }
 async function sendMessage(body) { try { await command('chat:send', { code: game.value.code, channel: channel.value, body }); } catch {} }
 async function loadHistory(before) { try { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before, limit: 50 }); mergeMessages(channel.value, data?.messages || [], true); hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: !!data?.hasMore }; } catch {} }
 async function submitVote(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
