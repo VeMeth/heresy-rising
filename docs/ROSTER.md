@@ -45,9 +45,11 @@ type Role = {
 
 ---
 
-## 2. Roster — v1 target: 11 roles (6 Loyalist + 5 Heretic)
+## 2. Roster — v1 target: 12 roles (7 Loyalist + 5 Heretic)
 
 > ⚠️ **2026-07-06:** Roster expanded from 10 → 11. Original target was 5 Loyalist + 5 Heretic. Priest (L6) added because Priest sermons were locked in `HANDOFF.md` §4 but no Priest slot existed. Composition table per player count lives in `data/composition.json`.
+>
+> ⚠️ **2026-07-18:** Roster expanded to 12. Sanctioned Psyker (L7) added as mirrored-killer slot on Loyalist side. Ships at ≥7p, max 1 per game. Composition table updated.
 
 > **Approach:** Map Werewolf/Mafia archetypes to 40k equivalents first. Get the basic kit shipping. Expand with Imperial / Heretic-flavored roles in later phases.
 
@@ -61,7 +63,7 @@ type Role = {
 | Doctor | Protects one player/night from the kill. | Same protection ability, 40k-flavored |
 | Detective / Bodyguard | The "smart" villager with extra info or protection | 40k-flavored specialist |
 
-### 2b. Loyalist kit — implementation default: 6 roles
+### 2b. Loyalist kit — implementation default: 7 roles
 
 See `projects/heresy-rising/mechanics/loyalist-kit.md` for full spec. Summary:
 
@@ -73,8 +75,9 @@ See `projects/heresy-rising/mechanics/loyalist-kit.md` for full spec. Summary:
 | **L4** | `novice-psychic` | Novice-Psychic | Novice-Psychic (self) | Drift-hint on one player (qualitative, zone-bounded) | None | T1 (+1) |
 | **L5** | `arbitrator` | Arbitrator | Arbitrator (self) | Bodyguard-proxy — absorb hit for one player | None | T1 (+1) |
 | **L6** | `priest` | Priest (Loyalist) | Priest (self) | Sermon — Whisper −2 daily / Hymn −5 2×/game / Litany −10 once | None | T0_special |
+| **L7** | `sanctioned-psyker` | Sanctioned Psyker | *(none — hidden)* | One-shot warp-kill (+15 self-drift, lands Red zone) | None | T2 (+15) |
 
-L6 is the claim-matching surface for Heretic Priest. This is an implementation default pending playtest lock.
+L6 is the claim-matching surface for Heretic Priest. L7 ships at ≥7p, max 1 per game.
 
 **Note on L2 vs L4 split:** L2 (Interrogator) is the *political* investigator — uses conversation and contradiction. L4 (Novice-Psychic) is the *warp-impression* investigator — uses qualitative drift hints. Distinct mechanisms, not overlap.
 
@@ -82,6 +85,7 @@ L6 is the claim-matching surface for Heretic Priest. This is an implementation d
 - **Interrogator intel degrades by zone:** Green exact → Black 100% noise. Power = risk.
 - **Novice-Psychic reads drift, not alignment.** Blind to clean Heretics. Punishes action.
 - **Chirurgeon (protect) and Arbitrator (bodyguard-proxy) are distinct roles** with different mechanics.
+- **Sanctioned Psyker** is a mirrored-killer slot on the Loyalist side. Visibility identical to Murderer: no role marker, same drift accumulation curve at night. Once the Psyker fires, they sit at Red zone (15–19) and become vulnerable to Execute on Sight (T2+ Interrogator scan auto-kills). Cripple profile `blocks: ["kill"]` / `onCripple: "disable-one"` — crippled Psyker cannot fire the kill.
 
 **Removed from v1 (deferred):** Daemonhunter, Sister of Battle, Confessor, Sister Hospitaller — see legacy notes below.
 

@@ -42,6 +42,7 @@ export default defineConfig({
           { text: 'Arbitrator', link: '/roles/arbitrator' },
           { text: 'Novice-Psychic', link: '/roles/novice-psychic' },
           { text: 'Priest', link: '/roles/priest' },
+          { text: 'Sanctioned Psyker', link: '/roles/sanctioned-psyker' },
           { text: 'Murderer', link: '/roles/murderer' },
           { text: 'Saboteur', link: '/roles/saboteur' },
           { text: 'Heretic Priest', link: '/roles/heretic-priest' },

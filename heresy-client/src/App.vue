@@ -136,7 +136,7 @@ async function copyText(text) {
     document.body.removeChild(textarea);
   }
 }
-function receiveState(data) { const state = normalize(data); if (state) { game.value = state; saveGameCode(state.code); } }
+function receiveState(data) { const state = normalize(data); if (state) { game.value = state; saveGameCode(state.code); if (state.privateMessages?.length) mergeMessages('private', state.privateMessages); } }
 function receiveMessage(payload) { const msg = payload?.message || payload; if (msg) mergeMessages(msg.channel || 'public', [msg]); }
 function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...game.value, votes:data.votes }; }
 function receiveAnnouncement(payload) {

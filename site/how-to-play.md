@@ -69,7 +69,7 @@ A target *accused* of wrongdoing for two consecutive days is **lynched** (Tier 3
 
 ## The Roles
 
-There are **11 roles** in v1: six Loyalist, five Heretic, plus *Imperial Citizen* (a fill role that exists to balance parity).
+There are **12 roles** in v1: seven Loyalist, five Heretic, plus *Imperial Citizen* (a fill role that exists to balance parity).
 
 Browse the **[full role roster](/roles/)** for blurb and quick-reference on each. The list below is for orientation:
 
@@ -80,6 +80,7 @@ Browse the **[full role roster](/roles/)** for blurb and quick-reference on each
 - **[Arbitrator](/roles/arbitrator)** — bodyguard; dies in the target's place on a strike they guarded.
 - **[Novice-Psychic](/roles/novice-psychic)** — receives one drift hint per night about a target.
 - **[Priest](/roles/priest)** — sermons that drain or seal drift; limited uses per game.
+- **[Sanctioned Psyker](/roles/sanctioned-psyker)** — one-shot warp-kill. Looks like Murderer from outside. *Ships at ≥7p.*
 
 ### Heretics
 - **[Murderer](/roles/murderer)** — kills a player each night.

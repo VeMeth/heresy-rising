@@ -1,11 +1,11 @@
 ---
 title: Role Roster
-description: All 11 operatives in Heresy Rising. Faction, role, brief mechanical summary.
+description: All 12 operatives in Heresy Rising. Faction, role, brief mechanical summary.
 ---
 
 # Role Roster
 
-> *Eleven secrets, one conclave.*
+> *Twelve secrets, one conclave.*
 
 Each role below lists the faction, the night power (if any), and what to expect when the role is in play. Roles are sorted by faction — Loyalist first, Heretic second. Imperial Citizen is the fill role.
 
@@ -25,6 +25,7 @@ In short: **drift cost is the Warp's invoice for what you just did**. Every role
 | [Arbitrator](/roles/arbitrator) | Bodyguard (sacrificial) | T1/night |
 | [Novice-Psychic](/roles/novice-psychic) | Drift hint | T1/night |
 | [Priest](/roles/priest) | Three sermon tiers | varies |
+| [Sanctioned Psyker](/roles/sanctioned-psyker) | One-shot warp-kill (1×/game) | **T2 (+15) on fire** |
 
 ## Heretic
 
@@ -43,7 +44,7 @@ Roles are not freely assignable. The conclave uses a deterministic composition p
 | Players | H / L | Setup |
 |---|---|---|
 | 5 | 1 / 3 + 1 Citizen | Murderer + Priest + Interrogator + Chirurgeon + Citizen |
-| 6–9 | 2–3 / 4–5 | Heretic Priest joins at 6p, Novice-Psychic at 6p, Saboteur at 8p |
+| 6–9 | 2–3 / 5–6 | Heretic Priest joins at 6p, Novice-Psychic at 6p, Saboteur at 8p, Sanctioned Psyker at 7p |
 | 10–11 | 4–5 / 5–6 | Recruiter joins at 10p, Conspirator at 11p |
 | 12 | 5 / 6 + 2 Citizens | Full roster |
 
