@@ -11,6 +11,10 @@ You are the Heretic's forger. **Once per day**, you may plant a public message i
 
 **Day action — Forgery.** One forged message per day. The chat seals your authorship but displays the attributed speaker's name.
 
+| Action | Effect | Cost (you) | Uses |
+|---|---|---|---|
+| **Forgery** | One message attributed to a player of your choice appears in public chat | +1 drift | Once per day, when not crippled |
+
 **Drift cost (Warp invoice):** +1 per forgery. Low — but the *cost to the cell* can be high.
 
 > **🟡 SPEC DESIGNED, NOT DISPATCHED.** Numeric drift curve and per-player-count availability per `data/composition.json`. Conspirator joins the cell at **11p+ only.** Sub-question **Q21 — cell-wide Heretic drift viz** remains open; whether Conspirator sees cell-mate drift or heretic-chat messages is still being resolved. The page above is the design surface — the engine will diverge where Q21 lands.

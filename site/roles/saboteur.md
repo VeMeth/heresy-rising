@@ -11,6 +11,10 @@ You are the Heretic's trapper. Each night, you place a booby-trap on one operati
 
 **Night action — Booby-trap.** One target. The trap expires at sunrise.
 
+| Action | Effect (target) | Cost (you) | Uses |
+|---|---|---|---|
+| **Booby-trap** | Trap sits on target until sunrise. If any night action targets them, the action returns false and the actor pays +5 extra drift (see table below). You get a private notification if the trap springs. | +2 drift | Nightly, when not crippled |
+
 **Drift cost (Warp invoice):** **+2 per night you trap.** T2 is steep — you climb fast.
 
 > **🟠 Spec status:** v1 spec is finalized (drift cost +2, trigger +5, specific effects per action listed below). Q19 (fail-cost refund) was superseded by Execute on Sight mechanics — Saboteur's climb is its own deterrent.

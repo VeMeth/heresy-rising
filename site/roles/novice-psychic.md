@@ -7,7 +7,17 @@ description: The Loyalist's psyker. Each night reads the warp on one target — 
 
 > *You feel the warp as a pressure on the eyes. You cannot shape it. You can only witness.*
 
-You are the Loyalist's thinnest psyker. Each night, the warp grants you a glimpse of one operative's drift. You receive a *qualitative hint* — a sensation, an impression — but never a number, a zone name, a faction. The hint is one of five zone-bounded whispers:
+You are the Loyalist's thinnest psyker. Each night, the warp grants you a glimpse of one operative's drift. You receive a *qualitative hint* — a sensation, an impression — but never a number, a zone name, a faction.
+
+**Night action — Drift Hint.** One target. The system sends you one of the zone-bounded whispers listed below, based on the target's drift zone.
+
+| Action | Effect | Cost (you) | Uses |
+|---|---|---|---|
+| **Drift Hint** | You receive a qualitative whisper about the target's drift zone (see table below). No number, no faction. | +1 drift | Nightly, when not crippled. Self-investigate NOT allowed. |
+
+**Drift cost (Warp invoice):** +1 per night you hint.
+
+The hint is one of five zone-bounded whispers:
 
 | Target's drift zone | What you sense |
 |---|---|
@@ -16,10 +26,6 @@ You are the Loyalist's thinnest psyker. Each night, the warp grants you a glimps
 | 🟠 Orange (10–14) | The warp presses close to them. The Emperor's light is dimmer when they're near. |
 | 🔴 Red (15–19) | They are half-lost already. The warp sings when it sees them. |
 | ⬛ Black (20) | They are not one soul anymore. There are voices behind their eyes. |
-
-**Night action — Drift Hint.** One target. The system sends you one of those five whispers, based on the target's drift zone.
-
-**Drift cost (Warp invoice):** +1 per night you hint.
 
 **Noise and adjacencies:** the hint isn't perfect. As the target climbs out of Green, the noise rate climbs — and the warp flips you toward a *neighboring* zone's whisper on bad rolls. For a T1 Novice-Psychic:
 

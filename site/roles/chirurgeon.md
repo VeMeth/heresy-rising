@@ -11,6 +11,10 @@ You are the Loyalist healer. Each night, you designate one operative to protect 
 
 **Night action — Protect.** One target (self is allowed). Their protection-blocks kill **and** cripple that night, silently.
 
+| Action | Effect (target) | Cost (you) | Uses |
+|---|---|---|---|
+| **Protect** | Kill and cripple on this target fail silently (you learn nothing) | +1 drift | Nightly, when not crippled. Rotation rule: no same target (incl. self) on two consecutive nights. |
+
 **Drift cost (Warp invoice):** +1 per night you protect.
 
 ## The rotation rule

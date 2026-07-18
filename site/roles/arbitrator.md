@@ -13,6 +13,10 @@ This is your power and your cost: **protection by martyrdom.**
 
 **Night action — Guard (bodyguard-proxy).** One target. If they are struck, *you* take the killing blow and they survive.
 
+| Action | Effect (target) | Cost (you) | Uses |
+|---|---|---|---|
+| **Guard (bodyguard)** | If a kill strikes your target, you die instead. They live. | +1 drift | Nightly, when not crippled. Rotation rule: no same target on two consecutive nights. Self-targeting NOT allowed. |
+
 **Drift cost (Warp invoice):** +1 per night you guard. Same as the Chirurgeon.
 
 **Self-targeting:** ❌ **You may not guard yourself.** This is the one rule every Arbitrator knows by heart. Self-proxy would make the sacrifice meaningless.

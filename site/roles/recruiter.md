@@ -11,6 +11,10 @@ You are the Heretic's recruiter. Each night, you perform the *catalyst* — a ri
 
 **Night action — Catalyst.** One target. If their drift is at the maximum, they become a Heretic immediately. If they are *not* at max, the catalyst fails silently. You drift either way.
 
+| Action | Effect (target) | Cost (you) | Uses |
+|---|---|---|---|
+| **Catalyst** | If target is at Black zone (drift 20), they become a Heretic immediately. Otherwise, silent fail. | +3 drift | Nightly, when not crippled. Most expensive single night action in v1. |
+
 **Drift cost (Warp invoice):** +3 per night you catalyze. The single most expensive night action in v1.
 
 **Why you're expensive:** the Recruiter's whole point is *only* a Black-zone target. Lesser targets mean wasted drift. Save the catalyst for the right moment.

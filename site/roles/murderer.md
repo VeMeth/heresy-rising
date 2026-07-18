@@ -11,6 +11,10 @@ You are the Heretic's executioner. Each night, you pick one operative and end th
 
 **Night action — Kill.** One target. They die.
 
+| Action | Effect (target) | Cost (you) | Uses |
+|---|---|---|---|
+| **Kill** | Target dies | +2 drift | Nightly, when not crippled |
+
 **Drift cost (Warp invoice):** **+2 per night you kill.** T2 is high — you climb fast.
 
 **When you are crippled** (cripple tier > 0), the engine silently rejects your action — no kill, no drift cost. Mirrors Chirurgeon/Arbitrator/Novice-Psychic behavior.

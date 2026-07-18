@@ -11,11 +11,11 @@ You are the Inquisition's blade. Each night, you pick one operative and interrog
 
 **Night action — Interrogate.** One target. One intensity. (Drift is the Warp's invoice — see the [How to Play primer](/how-to-play).)
 
-| Intensity | Drift cost (you pay) | What you learn |
-|---|---|---|
-| **T1 — Soft** | +1 | A binary check: *Tainted* (yellow zone or above) or *Clean* (green). 70% true, 30% flipped. |
-| **T2 — Standard** | +2 | The operative's drift **zone** (Green / Yellow / Orange / Red / Black). |
-| **T3 — Brutal** | +3 | Confirmed faction: *Loyalist* or *Heretic*. No ambiguity. |
+| Action | Effect (target) | Cost (you) | Uses |
+|---|---|---|---|
+| **Interrogate — T1 (Soft)** | Binary check: *Tainted* (yellow zone or above) or *Clean* (green). 70% true, 30% flipped. | +1 drift | Nightly, when not crippled |
+| **Interrogate — T2 (Standard)** | The operative's drift **zone** (Green / Yellow / Orange / Red / Black). | +2 drift | Nightly, when not crippled |
+| **Interrogate — T3 (Brutal)** | Confirmed faction: *Loyalist* or *Heretic*. No ambiguity. | +3 drift | Nightly, when not crippled |
 
 The target's drift zone **auto-upgrades** the effective scan intensity:
 
