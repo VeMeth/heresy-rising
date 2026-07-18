@@ -580,7 +580,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 }
 .ops-cell .kick-btn:hover:not(:disabled) { border-color: #c46a5d; color: #e2b3ac; background: #1d1413; }
 .ops-cell .kick-btn:disabled { opacity: .3; cursor: not-allowed; }
-.ops-cell .ready-in-ops { margin-top: 14px; }
+.ops-cell .ready-in-ops { margin: 14px 18px 0; width: calc(100% - 36px); }
 .ops-cell .ready-in-ops.selected { border-color: #71905e; color: #c2d9b3; background: #1f2c1c; }
 
 .avatar.mini { flex: 0 0 30px; height: 30px; font-size: 12px; }
