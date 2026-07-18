@@ -32,12 +32,12 @@ function fixture(count = 5) {
 const PRESETS = {
   5:  ['murderer','priest','interrogator','chirurgeon','imperial-citizen'],
   6:  ['murderer','heretic-priest','priest','interrogator','chirurgeon','novice-psychic'],
-  7:  ['murderer','heretic-priest','priest','interrogator','chirurgeon','novice-psychic','imperial-citizen'],
-  8:  ['murderer','heretic-priest','saboteur','priest','interrogator','chirurgeon','arbitrator','imperial-citizen'],
-  9:  ['murderer','heretic-priest','saboteur','priest','interrogator','chirurgeon','novice-psychic','arbitrator','imperial-citizen'],
-  10: ['murderer','heretic-priest','saboteur','recruiter','priest','interrogator','chirurgeon','novice-psychic','arbitrator','imperial-citizen'],
-  11: ['murderer','heretic-priest','conspirator','saboteur','recruiter','priest','interrogator','chirurgeon','novice-psychic','arbitrator','imperial-citizen'],
-  12: ['murderer','heretic-priest','conspirator','saboteur','recruiter','priest','interrogator','chirurgeon','novice-psychic','arbitrator','imperial-citizen','imperial-citizen']
+  7:  ['murderer','heretic-priest','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic'],
+  8:  ['murderer','heretic-priest','saboteur','sanctioned-psyker','priest','interrogator','chirurgeon','arbitrator'],
+  9:  ['murderer','heretic-priest','saboteur','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator'],
+  10: ['murderer','heretic-priest','saboteur','recruiter','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator'],
+  11: ['murderer','heretic-priest','conspirator','saboteur','recruiter','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator'],
+  12: ['murderer','heretic-priest','conspirator','saboteur','recruiter','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator','imperial-citizen']
 };
 
 function getAssignedRoles(manager, code) {

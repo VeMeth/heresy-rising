@@ -27,7 +27,7 @@ export function loadGameConfig() {
     roleList,
     composition: {
       ...compositionData.compositions,
-      fallbackPriority: ['priest','interrogator','chirurgeon','novice-psychic','arbitrator','murderer','heretic-priest','saboteur','recruiter','conspirator']
+      fallbackPriority: ['sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator','murderer','heretic-priest','saboteur','recruiter','conspirator']
     },
     hardRules: compositionData.hardRules,
     drift: read('drift.json'),

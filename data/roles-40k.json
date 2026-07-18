@@ -1,10 +1,10 @@
 {
   "$schema": "../projects/heresy-rising/mechanics/role.schema.md",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "status": "proposed",
-  "lastUpdated": "2026-07-06T07:42:00+02:00",
+  "lastUpdated": "2026-07-18T03:24:00+02:00",
   "owner": "Heretic",
-  "origin": "Locked roster from ROSTER.md + loyalist-kit.md + heretic-kit.md. 11 roles total (6 Loyalist, 5 Heretic). Composition table in composition.json.",
+  "origin": "Locked roster from ROSTER.md + loyalist-kit.md + heretic-kit.md. 12 roles total (7 Loyalist, 5 Heretic). Composition table in composition.json. Updated 2026-07-18 to add L7 Sanctioned Psyker.",
   "notes": "All role IDs are kebab-case. Citizen role ID is the noise-floor and may appear multiple times in a game (see composition.json). All other role IDs are unique per game.",
   "roles": [
     {
@@ -128,6 +128,32 @@
       },
       "ability": "Each night, bodyguard-proxy one player: take the hit for them if they're attacked. The kill lands on you instead. You survive. You and the protected player both learn next day that the proxy fired.",
       "objective": "Soak the bullet. Marks you as 'worth attacking' — durable defender slot."
+    },
+    {
+      "id": "sanctioned-psyker",
+      "displayName": "Sanctioned Psyker",
+      "faction": "loyalist",
+      "claim": null,
+      "driftWeight": 15,
+      "tier": "T2",
+      "actions": {
+        "night": {
+          "kind": "kill",
+          "target": "other",
+          "driftCost": 15
+        },
+        "day": null
+      },
+      "killLimit": "1_per_game",
+      "crippleProfile": {
+        "blocks": [
+          "kill"
+        ],
+        "onCripple": "disable-one"
+      },
+      "ability": "One-shot warp-kill. Once per game, fire a kill on any night. Drift cost on self: +15 flat (lands Psyker at Red zone, 15-19). At Red, any T2+ Interrogator scan triggers Execute on Sight (Psyker dies). No role marker — Psyker looks identical to Murderer from the table's perspective. Crippled Psyker cannot fire the kill (T1+ blocks it).",
+      "objective": "Land one kill on a Heretic. Survive long enough to fire it. Hide that you fired it.",
+      "notes": "Locked 2026-07-18 (Heretic + Nicolas). Composition: ships at ≥7p, max 1 per game. Symmetry role to H1 Murderer (hidden killer + drift-priced). At Red zone, the Loyalist Interrogator is the structural threat."
     },
     {
       "id": "priest",

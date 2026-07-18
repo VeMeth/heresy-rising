@@ -1,11 +1,11 @@
 {
   "$schema": "../projects/heresy-rising/mechanics/composition.schema.md",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "status": "proposed",
-  "lastUpdated": "2026-07-06T07:42:00+02:00",
+  "lastUpdated": "2026-07-18T03:24:00+02:00",
   "owner": "Heretic",
-  "origin": "Composition table derived 2026-07-06 from ROSTER.md locked kit (11 roles) + parity rule (Heretics ≤ Loyalists at start).",
-  "notes": "TODO(heresy-spec): Composition drafted in 2026-07-06 session, not playtested. Review after first v1 playtest.",
+  "origin": "Composition table derived 2026-07-06 from ROSTER.md locked kit (11 roles) + parity rule (Heretics ≤ Loyalists at start). Updated 2026-07-18 to include L7 Sanctioned Psyker at ≥7p.",
+  "notes": "TODO(heresy-spec): Composition drafted in 2026-07-06 session, not playtested. Updated 2026-07-18 to add Sanctioned Psyker at 7p+ (optional, max 1 per game).",
 
   "hardRules": {
     "non_citizen_roles_unique": "All roles except imperial-citizen are unique per game (no duplicate Interrogators, etc.).",
@@ -18,29 +18,31 @@
     "recruiter_rationale": "Catalyst carrier required for v1 conversion win path.",
     "conspirator_min_player_count": 11,
     "conspirator_rationale": "Forgery needs ≥10 living players for density to matter.",
+    "sanctioned_psyker_min_player_count": 7,
+    "sanctioned_psyker_rationale": "L7 Sanctioned Psyker ships at ≥7p (locked 2026-07-18). Optional, max 1 per game. At 7p replaces one Citizen slot via fallback priority.",
     "parity_friendly_start": "Heretic count ≤ Loyalist count at game start (parity win rule)."
   },
 
-  "fallbackRule": "If player count not in table: select role subset by descending priority [priest, interrogator, chirurgeon, novice-psychic, arbitrator, murderer, heretic-priest, saboteur, recruiter, conspirator], then fill rest with imperial-citizen. Citizen goes last; non-Citizen roles go in priority order.",
+  "fallbackRule": "If player count not in table: select role subset by descending priority [sanctioned-psyker, priest, interrogator, chirurgeon, novice-psychic, arbitrator, murderer, heretic-priest, saboteur, recruiter, conspirator], then fill rest with imperial-citizen. Citizen goes last; non-Citizen roles go in priority order. Sanctioned Psyker is preferred over a duplicate Citizen when player count is 7p.",
 
   "compositions": {
     "5":  ["murderer", "priest", "interrogator", "chirurgeon", "imperial-citizen"],
     "6":  ["murderer", "heretic-priest", "priest", "interrogator", "chirurgeon", "novice-psychic"],
-    "7":  ["murderer", "heretic-priest", "priest", "interrogator", "chirurgeon", "novice-psychic", "imperial-citizen"],
-    "8":  ["murderer", "heretic-priest", "saboteur", "priest", "interrogator", "chirurgeon", "arbitrator", "imperial-citizen"],
-    "9":  ["murderer", "heretic-priest", "saboteur", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen"],
-    "10": ["murderer", "heretic-priest", "saboteur", "recruiter", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen"],
-    "11": ["murderer", "heretic-priest", "conspirator", "saboteur", "recruiter", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen"],
-    "12": ["murderer", "heretic-priest", "conspirator", "saboteur", "recruiter", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen", "imperial-citizen"]
+    "7":  ["murderer", "heretic-priest", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic"],
+    "8":  ["murderer", "heretic-priest", "saboteur", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "arbitrator"],
+    "9":  ["murderer", "heretic-priest", "saboteur", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator"],
+    "10": ["murderer", "heretic-priest", "saboteur", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator"],
+    "11": ["murderer", "heretic-priest", "conspirator", "saboteur", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator"],
+    "12": ["murderer", "heretic-priest", "conspirator", "saboteur", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen"]
   },
 
   "perCountSummary": {
     "5":  { "heretic": 1, "loyalist": 3, "citizen": 1, "non_citizen_unique": 4 },
     "6":  { "heretic": 2, "loyalist": 4, "citizen": 0, "non_citizen_unique": 6 },
-    "7":  { "heretic": 2, "loyalist": 4, "citizen": 1, "non_citizen_unique": 6 },
-    "8":  { "heretic": 3, "loyalist": 4, "citizen": 1, "non_citizen_unique": 7 },
-    "9":  { "heretic": 3, "loyalist": 5, "citizen": 1, "non_citizen_unique": 8 },
-    "10": { "heretic": 4, "loyalist": 5, "citizen": 1, "non_citizen_unique": 9 },
+    "7":  { "heretic": 2, "loyalist": 5, "citizen": 0, "non_citizen_unique": 7 },
+    "8":  { "heretic": 3, "loyalist": 5, "citizen": 0, "non_citizen_unique": 8 },
+    "9":  { "heretic": 3, "loyalist": 6, "citizen": 0, "non_citizen_unique": 9 },
+    "10": { "heretic": 4, "loyalist": 6, "citizen": 0, "non_citizen_unique": 10 },
     "11": { "heretic": 5, "loyalist": 6, "citizen": 0, "non_citizen_unique": 11 },
     "12": { "heretic": 5, "loyalist": 6, "citizen": 1, "non_citizen_unique": 11 }
   }
