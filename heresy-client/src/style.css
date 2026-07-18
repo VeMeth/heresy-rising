@@ -29,6 +29,10 @@
   background: #1d1b13;
 }
 .load-history:disabled { opacity: .4; cursor: not-allowed; }
+.earlier-toggle{background:none;border:1px solid var(--line);color:#b69a5c;font:600 10px/1.4 Inter;text-transform:uppercase;letter-spacing:.12em;padding:9px 11px;cursor:pointer;width:100%;text-align:center;margin:4px 0}
+.earlier-toggle:hover{background:#1c1f1a;color:var(--gold2)}
+.earlier-day{border:1px solid var(--line);background:#0d0f0c;padding:8px 12px;margin:0 0 10px;max-height:240px;overflow-y:auto}
+.earlier-day>.message{opacity:.7;padding:6px 0}
 
 /* Chat message alignment.
    .message is a flex row with the avatar on the left and the content
