@@ -24,6 +24,6 @@
     "litany":{"self":6,"target":-10,"limit":1},
     "false-comfort":{"self":2,"target":3,"limit":null},
     "twisted-hymn":{"self":2,"target":7,"limit":null},
-    "warp-litany":{"self":4,"target":12,"limit":null}
+    "warp-litany":{"self":4,"target":12,"limit":1,"target_zone_min":"orange","target_zone_min_drift":10}
   }
 }
