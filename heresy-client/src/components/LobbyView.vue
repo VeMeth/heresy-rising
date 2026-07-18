@@ -53,6 +53,7 @@
           </li>
         </ul>
         <p v-if="players.length<5" class="notice">At least five operatives are required.</p>
+        <button class="secondary wide ready-in-ops" :class="{selected:me?.ready}" :disabled="busy" @click="$emit('ready')">{{ me?.ready?'Stand down':'Mark ready' }}</button>
       </article>
 
       <article class="panel setup-card params-cell">
@@ -208,7 +209,6 @@
     </article>
 
     <div class="lobby-actions">
-      <button class="secondary" :class="{selected:me?.ready}" :disabled="busy" @click="$emit('ready')">{{ me?.ready?'Stand down':'Mark ready' }}</button>
       <button v-if="isHost" class="primary" :disabled="!canStart||busy||!compositionValid" @click="emitStart">Seal the chamber</button>
       <span v-else>Waiting for the conclave commander.</span>
     </div>
@@ -580,6 +580,8 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 }
 .ops-cell .kick-btn:hover:not(:disabled) { border-color: #c46a5d; color: #e2b3ac; background: #1d1413; }
 .ops-cell .kick-btn:disabled { opacity: .3; cursor: not-allowed; }
+.ops-cell .ready-in-ops { margin-top: 14px; }
+.ops-cell .ready-in-ops.selected { border-color: #71905e; color: #c2d9b3; background: #1f2c1c; }
 
 .avatar.mini { flex: 0 0 30px; height: 30px; font-size: 12px; }
 .composition-card { margin-top: 18px; padding: 22px 26px 28px; }
