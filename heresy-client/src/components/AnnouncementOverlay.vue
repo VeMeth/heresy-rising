@@ -1,6 +1,6 @@
 <template>
   <Transition name="announce-fade">
-    <div v-if="announcement" class="announcement-wrapper" :class="`type-${announcement.type}`" role="alert">
+    <div v-if="announcement" :key="(announcement.type||'announce')+':'+(announcement.round||0)+':'+(announcement.title||'')+':'+(announcement.message||'')+':'+(announcement.createdAt||'')" class="announcement-wrapper" :class="`type-${announcement.type}`" role="alert">
       <div class="announcement-backdrop"></div>
       <div class="announcement-card">
         <span class="announcement-badge">{{ badgeLabel }}</span>
