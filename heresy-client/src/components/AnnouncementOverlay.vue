@@ -1,18 +1,16 @@
 <template>
-  <Transition name="announce-fade">
-    <div v-if="announcement" :key="(announcement.type||'announce')+':'+(announcement.round||0)+':'+(announcement.title||'')+':'+(announcement.message||'')+':'+(announcement.createdAt||'')" class="announcement-wrapper" :class="`type-${announcement.type}`" role="alert">
-      <div class="announcement-backdrop"></div>
-      <div class="announcement-card">
-        <span class="announcement-badge">{{ badgeLabel }}</span>
-        <h1 class="announcement-title">{{ announcement.title }}</h1>
-        <p class="announcement-message">{{ announcement.message }}</p>
-      </div>
+  <div v-if="announcement" :key="animationKey" class="announcement-wrapper" :class="`type-${announcement.type}`" role="alert">
+    <div class="announcement-backdrop"></div>
+    <div class="announcement-card">
+      <span class="announcement-badge">{{ badgeLabel }}</span>
+      <h1 class="announcement-title">{{ announcement.title }}</h1>
+      <p class="announcement-message">{{ announcement.message }}</p>
     </div>
-  </Transition>
+  </div>
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
   announcement: { type: Object, default: null }
@@ -33,23 +31,37 @@ const badgeLabel = computed(() => {
   if (!props.announcement) return '';
   return badgeLabels[props.announcement.type] || 'ANNOUNCEMENT';
 });
+
+// Force a fresh render every time the announcement changes so the CSS
+// enter animation always replays, even when the server sends two
+// announcements with the same fields back-to-back.
+const animationKey = computed(() => {
+  const a = props.announcement;
+  if (!a) return 'none';
+  return `${a.type || 'announce'}|${a.title || ''}|${a.message || ''}|${a.round || 0}|${Date.now()}`;
+});
 </script>
 
 <style scoped>
 .announcement-wrapper {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  animation: announce-in 0.35s ease;
+}
+@keyframes announce-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 .announcement-backdrop {
   position: absolute;
   inset: 0;
-  transition: opacity 0.3s ease;
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .announcement-card {
@@ -59,7 +71,7 @@ const badgeLabel = computed(() => {
   max-width: 42rem;
   border: 1px solid;
   background: rgba(10, 12, 10, 0.95);
-  box-shadow: 0 0 60px rgba(0,0,0,0.8);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
 }
 
 .announcement-badge {
@@ -116,20 +128,4 @@ const badgeLabel = computed(() => {
 .type-gameover .announcement-backdrop { background: rgba(0, 0, 0, 0.75); }
 .type-gameover .announcement-card { border-color: #8b0000; color: #ff3333; }
 .type-gameover .announcement-title { font-size: 3rem; }
-
-/* Transition */
-.announce-fade-enter-active {
-  transition: opacity 0.4s ease, transform 0.4s ease;
-}
-.announce-fade-leave-active {
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-.announce-fade-enter-from {
-  opacity: 0;
-  transform: scale(0.9);
-}
-.announce-fade-leave-to {
-  opacity: 0;
-  transform: scale(1.05);
-}
 </style>
