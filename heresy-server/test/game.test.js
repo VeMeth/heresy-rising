@@ -105,4 +105,19 @@ test('L4: novice-psychic self-investigate is rejected',()=>{const f=fixture(8);t
 
 test('L4: novice-psychic pays +1 drift when night action resolves',()=>{const f=fixture(8);try{const{l4,target}=setupL4Target(f,0);f.manager.submitAction(f.code,l4.player_code,{targetCode:target.player_code});f.manager.resolve(f.code,true);assert.equal(f.manager.player(f.code,l4.player_code).drift,1,'L4 paid +1 drift');}finally{f.close();}});
 
-test('L4: no L3/L5 regression — 42 existing tests still pass',()=>{assert.ok(true,'Verified by running the full test suite');});
+test('T1 cripple recovers after 1 round of no re-interrogation — night action works on next night',()=>{const f=fixture();try{f.manager.start(f.code,'p0');const chirurgeon=f.manager.players(f.code).find(p=>p.role_id==='chirurgeon'),voters=f.manager.players(f.code).filter(p=>p.player_code!==chirurgeon.player_code).slice(0,3);f.manager.db.prepare("UPDATE hr_games SET phase='day',round=1,day_stage='vote' WHERE code=?").run(f.code);for(const p of voters)f.manager.vote(f.code,p.player_code,chirurgeon.player_code);f.manager.resolve(f.code,true);assert.equal(f.manager.player(f.code,chirurgeon.player_code).cripple_tier,1,'T1 applied');assert.equal(f.manager.player(f.code,chirurgeon.player_code).tier1_until_round,1,'tier1_until_round is current round');assert.equal(f.manager.player(f.code,chirurgeon.player_code).alive,1,'still alive');// Night 1: T1 active — action silently rejected
+const target=f.manager.players(f.code).find(p=>p.player_code!==chirurgeon.player_code&&p.alive);
+const night1Result=f.manager.submitAction(f.code,chirurgeon.player_code,{targetCode:target.player_code});
+assert.equal(night1Result.silent,true,'T1 blocks action');
+f.manager.resolve(f.code,true);
+// Day 2: T1 should have cleared during night→day transition
+assert.equal(f.manager.player(f.code,chirurgeon.player_code).cripple_tier,0,'T1 cleared');
+assert.equal(f.manager.player(f.code,chirurgeon.player_code).tier1_until_round,null,'tier1_until_round cleared');
+// Night 2: chirurgeon can act again
+f.manager.db.prepare("UPDATE hr_games SET phase='night',round=2 WHERE code=?").run(f.code);
+const result=f.manager.submitAction(f.code,chirurgeon.player_code,{targetCode:target.player_code});
+assert.equal(result.silent,undefined,'action is not silently rejected');
+assert.equal(result.kind,'protect','action kind is protect');
+  }finally{f.close();}
+});
+
