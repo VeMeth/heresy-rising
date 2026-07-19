@@ -50,7 +50,7 @@ services:
       - SIM_BYPASS_TOKEN=${SIM_BYPASS_TOKEN:-change-me-sim}
       - MiniMax_API_KEY=${MiniMax_API_KEY:-}
       - MiniMax_MODEL=${MiniMax_MODEL:-MiniMax-M3}
-      - MiniMax_BASE_URL=${MiniMax_BASE_URL:-https://api.minimax.io/v1}
+      - MiniMax_BASE_URL=${MiniMax_BASE_URL:-https://api.minimax.io}
       - MAX_BOT_SESSIONS=${MAX_BOT_SESSIONS:-12}
       - MAX_BOTS_PER_GAME=${MAX_BOTS_PER_GAME:-4}
       - LLM_TIMEOUT_MS=${LLM_TIMEOUT_MS:-30000}

@@ -18,7 +18,7 @@ function messageToRole(m) {
 }
 
 export class ChatMiniMax extends BaseChatModel {
-  constructor({ apiKey, model = 'MiniMax-M3', baseUrl = 'https://api.minimax.io/v1', temperature = 0.7, maxTokens = 512, topP = 0.9, timeoutMs = 30000, maxRetries = 2 } = {}) {
+  constructor({ apiKey, model = 'MiniMax-M3', baseUrl = 'https://api.minimax.io', temperature = 0.7, maxTokens = 512, topP = 0.9, timeoutMs = 30000, maxRetries = 2 } = {}) {
     super({});
     if (!apiKey) throw new Error('ChatMiniMax requires apiKey');
     this.apiKey = apiKey;
@@ -52,7 +52,7 @@ export class ChatMiniMax extends BaseChatModel {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), this.timeoutMs);
       try {
-        const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),

@@ -28,7 +28,7 @@ export const config = {
   // MiniMax + LangChain runtime.
   miniMaxApiKey: process.env.MiniMax_API_KEY || '',
   miniMaxModel: process.env.MiniMax_MODEL || 'MiniMax-M3',
-  miniMaxBaseUrl: process.env.MiniMax_BASE_URL || 'https://api.minimax.io/v1',
+  miniMaxBaseUrl: process.env.MiniMax_BASE_URL || 'https://api.minimax.io',
 
   // Per-manager caps and tuning.
   maxBotSessions: parseNum(process.env.MAX_BOT_SESSIONS, 12),
