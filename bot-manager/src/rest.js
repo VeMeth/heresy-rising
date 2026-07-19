@@ -91,6 +91,7 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
       }
       await s.close();
       sessionStore.remove(s.id);
+      req.app.get('persistence')?.remove(s.id);
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: e.message });

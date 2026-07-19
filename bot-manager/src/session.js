@@ -333,7 +333,5 @@ _emit(event, payload, cb) {
     try { this._socket && this._socket.disconnect(); } catch {}
     this._socket = null;
     this.lastAction = 'closed';
-    // Remove persisted state on despawn — no point restoring a dead session.
-    if (this._persistence) this._persistence.remove(this.id);
   }
 }
