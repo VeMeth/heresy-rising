@@ -197,6 +197,11 @@ export class BotSession {
       this._botMessagesThisPhase = 0;
       this._scheduleConsolidation();
     }
+    // Reset per-round vote tracking on round change.
+    if (this._lastRound !== this.round) {
+      this._voteCastThisRound = false;
+      this._lastRound = this.round;
+    }
     this._lastPhase = this.phase;
     if (Array.isArray(s.privateMessages) && s.privateMessages.length) {
       for (const m of s.privateMessages) {
@@ -311,6 +316,15 @@ export class BotSession {
       return;
     }
 
+    // Prevent re-voting: if the bot already voted this round and tries to
+    // vote again (e.g. from a chat reply), downgrade to pass. The engine
+    // would accept the duplicate but it floods chat with vote justifications.
+    if (action.kind === 'vote' && this._voteCastThisRound) {
+      this.lastAction = 'pass';
+      this._logAction({ kind: 'pass', note: 'already voted this round' });
+      return;
+    }
+
     const dispatch = buildEnginePayload(action, this);
     if (!dispatch) { this.lastAction = 'invalid_action'; this._logAction({ kind: 'invalid_action', action }); return; }
     if (dispatch.type === 'pass' || dispatch.type === 'sleep') { this.lastAction = dispatch.type; this._logAction({ kind: dispatch.type, action }); return; }
@@ -327,6 +341,7 @@ export class BotSession {
         if (ack?.ok === false) console.warn(`vote:submit rejected for ${this.id}: ${ack.error}`);
       });
       this.lastAction = 'vote';
+      this._voteCastThisRound = true;
       this._logAction({ kind: 'vote', action, target: dispatch.payload?.target });
     } else if (dispatch.type === 'action') {
       this._emit('action:submit', dispatch.payload, (ack) => {
