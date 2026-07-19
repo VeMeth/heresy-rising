@@ -62,7 +62,8 @@ export class BotSession {
       tokensUsed: this.tokensUsed,
       costCeiling: this.costCeiling,
       startedAt: this.startedAt,
-      connected: !!(this._socket && this._socket.connected)
+      connected: !!(this._socket && this._socket.connected),
+      llmPassive: !!(this._llm && (this._llm.label === 'passthrough' || this._llm._label === 'passthrough'))
     };
   }
 

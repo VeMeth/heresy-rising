@@ -25,7 +25,8 @@
         @kick="kickPlayer" />
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :has-more="hasMoreByChannel[channel]"
-        :busy="busy" :now="now" @channel="changeChannel" @send="sendMessage" @history="loadHistory"
+        :busy="busy" :now="now" :voting-enabled="game?.votingEnabled"
+        @channel="changeChannel" @send="sendMessage" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
         @retract-action="retractAction" @respond="respondInterrogation" @ask-confession="askConfession"
         @leave="leaveGame" />

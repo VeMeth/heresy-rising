@@ -1,6 +1,7 @@
 <template>
   <section class="game-page">
     <div class="phase-strip" :class="game.phase"><div><span class="phase-icon">{{ game.phase==='night'?'☾':game.phase==='ended'?'†':'☼' }}</span><div><span class="eyebrow">{{ stageKicker }}</span><strong>{{ stageTitle }}</strong></div></div><div class="phase-time"><small>PHASE ENDS IN</small><strong>{{ timeLeft }}</strong></div></div>
+    <div v-if="game.phase==='day' && !votingEnabled && game.round===1" class="day1-banner">Day 1 — no vote. Introduce yourself and observe.</div>
     <nav class="mobile-tabs"><button v-for="tab in ['roster','chat','orders']" :key="tab" :class="{active:mobileTab===tab}" @click="mobileTab=tab">{{ tab }}</button></nav>
     <div class="game-grid">
       <aside class="panel roster-panel" :class="{'mobile-hidden':mobileTab!=='roster'}"><header><h2>Conclave</h2><span>{{ alive.length }} alive</span></header><ul class="player-list"><li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,selected:myVote?.choice===p.playerCode,selectable:votingOpen&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)"><span class="avatar">{{ initial(p.name) }}</span><div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div><small v-if="votingOpen&&p.alive" class="vote-count">{{ targetVoteCount(p.playerCode) }}/{{ voteThreshold }}</small><i :class="{online:p.connected}"></i></li></ul><template v-if="votingOpen"><button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small>{{ targetVoteCount('skip') }}/{{ voteThreshold }}</small></button><button v-if="myVote" class="ghost wide" @click="$emit('retract-vote')">Retract vote</button></template><button class="ghost wide leave" @click="$emit('leave')">Leave session</button></aside>
@@ -23,9 +24,10 @@
 </template>
 <script setup>
 import { computed,nextTick,ref,watch } from 'vue';
-const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','history','vote','retract-vote','action','retract-action','respond','ask-confession','leave']);
+// TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
+const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','history','vote','retract-vote','action','retract-action','respond','ask-confession','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),showEarlier=ref(false);
-const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),pending=computed(()=>props.game.pendingInterrogation),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===props.me?.playerCode)),voteThreshold=computed(()=>props.game.votes?.[0]?.threshold||Math.floor(alive.value.length/2)+1),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),votingOpen=computed(()=>props.game.phase==='day'&&!pending.value),splitMessages=computed(()=>{const msgs=props.messages;for(let i=msgs.length-1;i>=0;i--){if(msgs[i]?.kind==='system'&&/^Day \d+:/i.test(msgs[i].body))return{earlier:msgs.slice(0,i),current:msgs.slice(i)};}return{earlier:[],current:msgs};});
+const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),pending=computed(()=>props.game.pendingInterrogation),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===props.me?.playerCode)),voteThreshold=computed(()=>props.game.votes?.[0]?.threshold||Math.floor(alive.value.length/2)+1),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),votingOpen=computed(()=>props.votingEnabled&&props.game.phase==='day'&&!pending.value),splitMessages=computed(()=>{const msgs=props.messages;for(let i=msgs.length-1;i>=0;i--){if(msgs[i]?.kind==='system'&&/^Day \d+:/i.test(msgs[i].body))return{earlier:msgs.slice(0,i),current:msgs.slice(i)};}return{earlier:[],current:msgs};});
 watch(variants,v=>variant.value=v[0]||'',{immediate:true});
 let preChangeHeight=0,preChangeScrollTop=0;
 watch(()=>props.messages.length,()=>{
@@ -49,6 +51,17 @@ function voteFor(p){if(!votingOpen.value||!p.alive||p.playerCode===props.me?.pla
 </script>
 
 <style scoped>
+.day1-banner {
+  padding: 12px 16px;
+  background: rgba(255, 193, 7, 0.15);
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  margin: 0 16px 12px;
+  text-align: center;
+  font-weight: 600;
+  color: #ffc107;
+  font-size: 0.95rem;
+}
 .player-list li.lynch-leader {
   border-color: #ff3333;
   background: rgba(255, 51, 51, 0.18);
