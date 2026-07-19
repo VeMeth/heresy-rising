@@ -1,0 +1,24 @@
+{
+  "name": "heresy-bot-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LLM-driven bot player manager for Heresy Rising — talks to the game engine on the bot's behalf.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.40",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "langchain": "^0.3.19",
+    "p-queue": "^8.0.1",
+    "socket.io-client": "^4.7.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

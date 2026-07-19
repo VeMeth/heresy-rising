@@ -14,6 +14,11 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8281}
       - TRUST_PROXY=${TRUST_PROXY:-true}
       - GAME_DB_PATH=/usr/src/app/data/heresy-rising.db
+      - BOT_MANAGER_URL=http://heresy-bot-manager:7878
+      - BOT_API_KEY=${BOT_API_KEY:-change-me-bot-api}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-change-me-admin-api}
+      - SIM_BYPASS_TOKEN=${SIM_BYPASS_TOKEN:-change-me-sim}
+      - MAX_BOTS_PER_GAME=${MAX_BOTS_PER_GAME:-4}
     ports:
       - "${SERVER_HOST_BIND:-127.0.0.1}:${SERVER_PORT:-4100}:${SERVER_PORT:-4100}"
     volumes:
@@ -26,6 +31,45 @@ services:
           memory: 512M
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${SERVER_PORT:-4100}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  heresy-bot-manager:
+    build:
+      context: .
+      dockerfile: bot-manager/Dockerfile
+    image: heresy-rising-bot-manager:local
+    environment:
+      - NODE_ENV=production
+      - HERESY_GAME_HOST=http://heresy-server:4100
+      - HERESY_BOT_PORT=7878
+      - BOT_API_KEY=${BOT_API_KEY:-change-me-bot-api}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-change-me-admin-api}
+      - SIM_BYPASS_TOKEN=${SIM_BYPASS_TOKEN:-change-me-sim}
+      - MiniMax_API_KEY=${MiniMax_API_KEY:-}
+      - MiniMax_MODEL=${MiniMax_MODEL:-MiniMax-M3}
+      - MiniMax_BASE_URL=${MiniMax_BASE_URL:-https://api.minimax.io/v1}
+      - MAX_BOT_SESSIONS=${MAX_BOT_SESSIONS:-12}
+      - MAX_BOTS_PER_GAME=${MAX_BOTS_PER_GAME:-4}
+      - LLM_TIMEOUT_MS=${LLM_TIMEOUT_MS:-30000}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.7}
+      - MAX_TOKENS=${MAX_TOKENS:-512}
+      - MAX_TOKENS_PER_GAME=${MAX_TOKENS_PER_GAME:-50000}
+      - BOT_ACTION_DELAY_MS=${BOT_ACTION_DELAY_MS:-10000}
+      - CHAT_DEBOUNCE_MS=${CHAT_DEBOUNCE_MS:-2000}
+      - LANGCHAIN_TRACING=${LANGCHAIN_TRACING:-false}
+    depends_on:
+      - heresy-server
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7878/health"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -1,0 +1,272 @@
+import { openEngineSocket } from './engineSocket.js';
+import { BufferWindow, StructuredNotes } from './memory.js';
+import { buildEnginePayload } from './actionDispatch.js';
+import { actionValidator } from './validator.js';
+
+// Fixed delay before the bot emits an action after being prompted (Q-BOT-1
+// resolution: "Fixed delay (e.g. 10s)"). Looked up from
+// config.botActionDelayMs, default 10000ms. The decision loop debounces chat
+// responses with a separate shorter window (config.chatDebounceMs).
+//
+// Phase 3 wires the engine Socket.IO client + the decision loop against a
+// pluggable `llm` (Phase 4 swaps in ChatMiniMax / MockLLM). Until then, a
+// PassThroughLLM makes the bot observe silently.
+export class BotSession {
+  constructor({ id, conclaveCode, playerCode, name, personaOverrides, costCeiling, config, llm, engineBaseUrl }) {
+    this.id = id;
+    this.playerCode = playerCode || id;
+    this.conclaveCode = conclaveCode;
+    this.name = name || 'Heretic Bot';
+    this.role = null;
+    this.faction = null;
+    this.claim = null;
+    this.alive = true;
+    this.phase = 'lobby';
+    this.round = 0;
+    this.botIds = [];
+    this.sessionInit = null;
+    this.personaOverrides = personaOverrides || null;
+    this.costCeiling = costCeiling || config.maxTokensPerGame;
+    this.tokensUsed = 0;
+    this.lastAction = 'init';
+    this.startedAt = Date.now();
+    this.shortTermMemory = new BufferWindow({ windowSize: 20 });
+    this.notes = new StructuredNotes();
+    this._config = config;
+    this._llm = llm || { async generate() { return { kind: 'pass' }; _label: 'passthrough' } };
+    this._engineBaseUrl = engineBaseUrl;
+    this._socket = null;
+    this._joinPromise = null;
+    this._chatTimer = null;
+    this._actTimer = null;
+    this._closing = false;
+    this.connect();
+  }
+
+  setNote(key, value) { return this.notes.set(key, value); }
+  getNotes() { return this.notes.all(); }
+  inspect() {
+    return {
+      botId: this.id,
+      playerCode: this.playerCode,
+      conclaveCode: this.conclaveCode,
+      name: this.name,
+      role: this.role,
+      faction: this.faction,
+      phase: this.phase,
+      round: this.round,
+      alive: this.alive,
+      lastAction: this.lastAction,
+      memoryBytes: this.shortTermMemory.length,
+      notesCount: this.notes.size,
+      tokensUsed: this.tokensUsed,
+      costCeiling: this.costCeiling,
+      startedAt: this.startedAt,
+      connected: !!(this._socket && this._socket.connected)
+    };
+  }
+
+  connect() {
+    if (!this._engineBaseUrl || this._socket || this._closing) return;
+    const { socket, joinPromise } = openEngineSocket({
+      baseUrl: this._engineBaseUrl,
+      conclaveCode: this.conclaveCode,
+      playerCode: this.playerCode
+    });
+    this._socket = socket;
+    this._joinPromise = joinPromise;
+
+    socket.on('game:state', (p) => this._onGameState(p));
+    socket.on('phase:updated', (p) => this._onGameState(p));
+    socket.on('chat:message', (m) => this._onChatMessage(m));
+    socket.on('game:announcement', (a) => this._onAnnouncement(a));
+    socket.on('vote:state', (v) => this._onVoteState(v));
+    socket.on('bot:session_init', (p) => this._onSessionInit(p));
+    socket.on('night_action_prompt', (p) => this._scheduleAct(p));
+    socket.on('day_vote_prompt', (p) => this._scheduleAct(p));
+    socket.on('game:ended', (p) => { this._onGameEnded(p); this.lastAction = 'game_over'; });
+
+    socket.on('connect', () => { this.lastAction = 'connected'; });
+    socket.on('disconnect', (reason) => { this.lastAction = `disconnected:${reason}`; });
+
+    joinPromise.then(() => { this.lastAction = 'joined'; })
+      .catch((err) => { console.warn(`[bot-manager] socket join failed for ${this.id}:`, err.message); this.lastAction = 'join_failed'; });
+  }
+
+  _onGameState(payload) {
+    const s = payload?.state;
+    if (!s) return;
+    this.phase = s.phase ?? this.phase;
+    this.round = s.round ?? this.round;
+    if (s.me) {
+      this.alive = !!s.me.alive;
+      if (s.me.role && typeof s.me.role === 'object') this.role = s.me.role.id || this.role;
+      else if (typeof s.me.role === 'string') this.role = s.me.role;
+      if (s.me.faction) this.faction = s.me.faction;
+      this._latestMe = s.me;
+    }
+    if (Array.isArray(s.players)) {
+      // Track the codes of all currently-alive players. The bot is drift-blind
+      // — it only sees codes from public roster, never drift values or zones.
+      this.alivePlayers = s.players.filter((p) => p.alive).map((p) => p.playerCode);
+      // other-bot visibility already comes through bot:session_init
+    }
+    if (this._lastPhase && this._lastPhase !== this.phase) this.shortTermMemory.flush();
+    this._lastPhase = this.phase;
+    if (Array.isArray(s.privateMessages) && s.privateMessages.length) {
+      for (const m of s.privateMessages) {
+        if (m.meta && (m.meta.intelKind || m.meta.drift_hint)) {
+          this.shortTermMemory.append({ kind: 'intel_return', ...m.meta, round: this.round });
+        }
+      }
+    }
+    if (this.lastAction !== 'killed' && this.lastAction !== 'game_over') this.lastAction = `state:${this.phase}`;
+  }
+
+  _onChatMessage(payload) {
+    const m = payload?.message;
+    if (!m) return;
+    if (m.player_code === this.playerCode) return; // ignore our own
+    if (m.channel && m.channel !== 'public') return; // public only; faction handled separately
+    this.shortTermMemory.append({ kind: 'chat_message', from: m.player_code, author: m.author, text: m.body, round: this.round, phase: this.phase });
+    // If it's day chat and not in cooldown, schedule a debounced chat reply.
+    if (this.phase === 'day' && this._config.chatDebounceMs > 0) {
+      if (this._chatTimer) clearTimeout(this._chatTimer);
+      this._chatTimer = setTimeout(() => this._act({ kind: 'chat_reply' }).catch(() => {}), this._config.chatDebounceMs);
+    }
+  }
+
+  _onAnnouncement(payload) {
+    const a = payload?.announcement;
+    if (!a) return;
+    this.shortTermMemory.append({ kind: 'announcement', type: a.type, title: a.title, message: a.message });
+  }
+
+  _onVoteState(_payload) { /* votes are visible via state; nothing extra needed */ }
+
+  _onSessionInit(payload) {
+    if (!payload) return;
+    this.role = payload.role?.id || payload.role || this.role;
+    this.faction = payload.faction ?? this.faction;
+    this.claim = payload.claim ?? this.claim;
+    this.phase = payload.phase ?? this.phase;
+    this.round = payload.round ?? this.round;
+    this.botIds = Array.isArray(payload.botIds) ? payload.botIds : [];
+    this.sessionInit = payload;
+    this.lastAction = 'session_init';
+  }
+
+  _onGameEnded(payload) {
+    this.sessionInit = null;
+    this.phase = 'ended';
+    this.lastAction = 'game_over';
+    if (payload?.state?.winner) this.winner = payload.state.winner;
+  }
+
+  _scheduleAct(prompt) {
+    if (this._closing) return;
+    if (this._actTimer) clearTimeout(this._actTimer);
+    const delay = Math.max(0, Number(this._config.botActionDelayMs) || 0);
+    this._actTimer = setTimeout(() => {
+      this._act(prompt).catch((e) => console.warn(`[bot-manager] act errored for ${this.id}:`, e.message));
+      this._actTimer = null;
+    }, delay);
+  }
+
+  async _act(prompt) {
+    if (!this.alive || this._closing) return;
+    if (this.tokensUsed >= this.costCeiling) {
+      this.lastAction = 'budget_exhausted';
+      return;
+    }
+    let action;
+    try {
+      action = await this._llm.generate({ session: this, prompt });
+    } catch (e) {
+      console.warn(`[bot-manager] LLM generate failed for ${this.id}:`, e.message);
+      this.lastAction = 'llm_error';
+      return;
+    }
+    if (!action) { this.lastAction = 'pass'; return; }
+
+    // Forward any notes the bot wants to persist into its structured memory.
+    // Notes are write-only side effects — apply them even on `pass` so the bot
+    // can record observations without taking an action this turn.
+    if (action.notes && typeof action.notes === 'object') {
+      for (const [k, v] of Object.entries(action.notes)) this.notes.set(k, v);
+    }
+
+    if (action.kind === 'pass') { this.lastAction = 'pass'; return; }
+
+    // Soft pre-validation. Engine is still the source of truth — but if our
+    // validator catches an obvious violation (self-target, day-1 vote, etc.)
+    // we downgrade to pass rather than waste a round-trip on a rejected
+    // action.
+    const validation = actionValidator(this.role, action, this._validatorContext());
+    if (!validation.ok) {
+      console.warn(`[bot-manager] validator rejected action for ${this.id} (${this.role}): ${validation.reason}`);
+      this.lastAction = `rejected:${validation.reason}`;
+      return;
+    }
+
+    const dispatch = buildEnginePayload(action, this);
+    if (!dispatch) { this.lastAction = 'invalid_action'; return; }
+    if (dispatch.type === 'pass' || dispatch.type === 'sleep') { this.lastAction = dispatch.type; return; }
+    if (!this._socket || !this._socket.connected) { this.lastAction = 'socket_offline'; return; }
+
+    if (dispatch.type === 'chat') {
+      this._emit('chat:send', dispatch.payload, (ack) => {
+        if (ack?.ok === false) console.warn(`chat:send rejected for ${this.id}: ${ack.error}`);
+      });
+      this.lastAction = 'chat';
+    } else if (dispatch.type === 'vote') {
+      this._emit('vote:submit', dispatch.payload, (ack) => {
+        if (ack?.ok === false) console.warn(`vote:submit rejected for ${this.id}: ${ack.error}`);
+      });
+      this.lastAction = 'vote';
+    } else if (dispatch.type === 'action') {
+      this._emit('action:submit', dispatch.payload, (ack) => {
+        if (ack?.ok === false) console.warn(`action:submit rejected for ${this.id}: ${ack.error}`);
+      });
+      this.lastAction = `action:${action.verb}`;
+    }
+  }
+
+  // Unwraps socket.io's `(err, ack)` callback shape so the rest of the session
+// code can treat its callback as if it only received the ack.
+_emit(event, payload, cb) {
+    try {
+      this._socket.timeout(5000).emit(event, payload, (err, ack) => {
+        if (err) cb && cb({ ok: false, error: `${event} timed out`, timedOut: true });
+        else cb && cb(ack || { ok: true });
+      });
+    } catch (e) { console.warn(`[bot-manager] emit ${event} failed ${this.id}:`, e.message); }
+  }
+
+  // Snapshot for the manager-side validator. Built from the latest game state
+  // we observed. Missing fields are tolerated (validator degrades).
+  _validatorContext() {
+    const me = this._latestMe || {};
+    return {
+      selfCode: this.playerCode,
+      phase: this.phase,
+      round: this.round,
+      votingEnabled: this.phase === 'day' ? this.round !== 1 : false,
+      crippleTier: me.crippleTier ?? 0,
+      alivePlayers: this.alivePlayers,
+      usage: me.usage || {},
+      lastProtectTarget: me.lastProtectTarget || null,
+      targetZones: this._targetZones || {},
+      targetsByFaction: this._targetsByFaction
+    };
+  }
+
+  async close() {
+    this._closing = true;
+    if (this._actTimer) { clearTimeout(this._actTimer); this._actTimer = null; }
+    if (this._chatTimer) { clearTimeout(this._chatTimer); this._chatTimer = null; }
+    try { this._socket && this._socket.disconnect(); } catch {}
+    this._socket = null;
+    this.lastAction = 'closed';
+  }
+}

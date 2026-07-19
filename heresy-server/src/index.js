@@ -5,7 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
-import { config, isDefaultAdminPassword } from './config.js';
+import { config, isDefaultAdminPassword, isDefaultAdminApiKey } from './config.js';
 import { HeresyGameManager } from './heresyGameManager.js';
 import { normalizeRoomCode, requirePlayerCode } from './utils.js';
 import { SocketRateLimiter } from './socketRateLimiter.js';
@@ -41,6 +41,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
   app.disable('x-powered-by'); app.set('trust proxy',config.trustProxy?1:false); app.use(helmet({crossOriginResourcePolicy:{policy:'same-site'}})); app.use(cors(corsOptions)); app.use(express.json({limit:'32kb'})); app.use(rateLimit({...config.rateLimit,max:config.rateLimit.max||120}));
   const gameManager=new HeresyGameManager({databasePath,now});
   gameManager.onAnnouncement((code,a)=>{broadcastAnnouncement(code,a);});
+  gameManager.onBotPrompt((code,payload)=>{broadcastBotPrompt(code,payload);});
   app.get('/api/health',(req,res)=>res.json({status:'ok',time:Date.now()}));
   app.get('/api/game/presets',(req,res)=>{res.set('Cache-Control','no-store').json(publicPresetMetadata(req.query.players));});
   // In production, a default/unchanged admin password must never grant access — fail closed.
@@ -67,6 +68,32 @@ export function createHeresyServer({ databasePath, now } = {}) {
   app.get('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{const log=getGameLog(req.params.id);if(!log)return res.status(404).json({error:'Game log not found'});res.json({log});}catch(e){res.status(500).json({error:e.message});}});
   app.delete('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{res.json({deleted:deleteGameLog(req.params.id)});}catch(e){res.status(400).json({error:e.message});}});
   function requestPlayerCode(req){return requirePlayerCode(req.get('X-Player-Code')||req.query.playerCode);}
+  // ── Bot manager ↔ engine auth ────────────────────────────────────────────
+  // The bot-manager talks to us with BOT_API_KEY as a bearer token. Both tokens
+  // must be set before these endpoints accept anything — fail-closed.
+  function requireBotApiKey(req,res,next){
+    res.set('Cache-Control','no-store');
+    if(!config.botManager.botApiKey)return res.status(503).json({error:'BOT_API_KEY is not configured on the engine'});
+    const header=req.get('Authorization')||'';
+    if(!header.startsWith('Bearer ')||!constantTimeEquals(header.slice(7),config.botManager.botApiKey))return res.status(403).json({error:'Bot API key required'});
+    next();
+  }
+  app.post('/api/bots/spawn',requireBotApiKey,(req,res)=>{try{const code=normalizeRoomCode(req.body?.conclaveCode||req.body?.code);const r=gameManager.adminSpawnBot(code,{name:req.body?.name,seatHint:req.body?.seatHint});res.json(r);}catch(e){res.status(400).json({error:e.message});}});
+  app.delete('/api/bots/despawn',requireBotApiKey,(req,res)=>{try{const code=normalizeRoomCode(req.body?.conclaveCode||req.body?.code||req.query.code);const playerCode=requirePlayerCode(req.body?.playerCode||req.query.playerCode);res.json(gameManager.adminDespawnBot(code,playerCode));}catch(e){res.status(400).json({error:e.message});}});
+  // ── Admin panel → bot-manager proxy ─────────────────────────────────────
+  // The browser holds ADMIN_PASSWORD; we validate it (via requireAdmin), then
+  // present ADMIN_API_KEY to the bot-manager on the proxy hop. The browser
+  // never sees either ADMIN_API_KEY or SIM_BYPASS_TOKEN.
+  const botsLocked = process.env.NODE_ENV === 'production' && isDefaultAdminApiKey();
+  if (botsLocked) console.error('[SECURITY] Refusing bot admin proxy: ADMIN_API_KEY is unset in production.');
+  function botProxy(req,res,subPath,{method,withBody}){const url=`${config.botManager.url}${subPath}`;const init={method,headers:{'Authorization':`Bearer ${config.botManager.adminApiKey}`,'Content-Type':'application/json','X-Proxied-From':'heresy-server'}};if(withBody)init.body=JSON.stringify(req.body||{});fetch(url,init).then(async upstream=>{const text=await upstream.text();res.status(upstream.status);const ct=upstream.headers.get('content-type');if(ct)res.set('Content-Type',ct);res.send(text);}).catch(e=>{res.status(502).json({error:'Bot manager unreachable',detail:e.message});});}
+  function requireBotsAdmin(req,res,next){res.set('Cache-Control','no-store');if(botsLocked)return res.status(503).json({error:'ADMIN_API_KEY is not configured'});if(!constantTimeEquals(req.get('X-Admin-Password'),config.adminPassword))return res.status(401).json({error:'Admin password required'});next();}
+  app.post('/api/admin/bots',requireBotsAdmin,(req,res)=>botProxy(req,res,'/bots',{method:'POST',withBody:true}));
+  app.get('/api/admin/bots',requireBotsAdmin,(req,res)=>botProxy(req,res,'/bots',{method:'GET',withBody:false}));
+  app.get('/api/admin/bots/:id',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}`,{method:'GET',withBody:false}));
+  app.delete('/api/admin/bots/:id',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}`,{method:'DELETE',withBody:false}));
+  app.post('/api/admin/bots/:id/notes',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}/notes`,{method:'POST',withBody:true}));
+  app.get('/api/admin/bots/:id/notes',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}/notes`,{method:'GET',withBody:false}));
   app.get('/api/game/:code',(req,res)=>{try{res.set('Cache-Control','no-store').json({state:gameManager.state(normalizeRoomCode(req.params.code),requestPlayerCode(req))});}catch(e){res.status(400).json({error:e.message});}});
   app.get('/api/game/:code/chat',(req,res)=>{try{res.set('Cache-Control','no-store').json(gameManager.historyMessages(normalizeRoomCode(req.params.code),requestPlayerCode(req),req.query.channel,req.query.before,req.query.limit));}catch(e){res.status(400).json({error:e.message});}});
   app.use((err,req,res,next)=>{if(err?.message==='Origin not allowed')return res.status(403).json({error:'Origin not allowed'});next(err);});
@@ -84,12 +111,18 @@ export function createHeresyServer({ databasePath, now } = {}) {
   function broadcast(code,event='game:state'){for(const socket of io.sockets.sockets.values()){if(socket.rooms.has(code)&&socket.data.playerCode){try{const state=gameManager.state(code,socket.data.playerCode);socket.emit(event,{state});if(state.status==='ended')socket.emit('game:ended',{state});}catch{}}}}
   function broadcastMessage(code,message){for(const client of io.sockets.sockets.values()){try{if(!client.rooms.has(code)||!client.data.playerCode)continue;const player=gameManager.player(code,client.data.playerCode);if(!player)continue;if(message.channel==='public'||(message.channel==='faction'&&player.faction==='heretic')||(message.channel==='graveyard'&&!player.alive)||(message.channel==='private'&&message.recipient_code===client.data.playerCode))client.emit('chat:message',{message});}catch{}}}
   function broadcastAnnouncement(code,announcement){io.to(code).emit('game:announcement',{announcement});}
+  // Targeted delivery to a single bot socket (identified by payload.playerCode).
+  function broadcastBotPrompt(code,payload){const evt=payload.kind;for(const s of io.sockets.sockets.values()){if(!s.rooms.has(code)||!s.data.playerCode||s.data.playerCode!==payload.playerCode)continue;s.emit(evt,payload);}}
+  // Fan-out to every bot socket joined to `code`. `payloadFor(botPlayer)` builds
+  // the per-bot payload (so we can stamp botId/role per recipient).
+  function broadcastBots(code,event,payloadFor){for(const s of io.sockets.sockets.values()){if(!s.rooms.has(code)||!s.data.playerCode)continue;try{const player=gameManager.player(code,s.data.playerCode);if(!player||!player.is_bot)continue;s.emit(event,payloadFor(player));}catch{}}}
   io.on('connection',socket=>{
     ackWrap(socket,'game:create',p=>{const playerCode=auth(socket,p);const result=gameManager.create({playerCode,name:p.name,mode:p.mode,options:p.options});socket.join(result.code);return result;});
     ackWrap(socket,'game:join',p=>{const playerCode=auth(socket,p),code=normalizeRoomCode(p.code);const state=gameManager.join({code,playerCode,name:p.name});socket.join(code);broadcast(code);return {state};});
     ackWrap(socket,'game:state',p=>{const code=normalizeRoomCode(p.code),playerCode=auth(socket,p);socket.join(code);const state=gameManager.reconnect(code,playerCode);broadcast(code);return {state};});
     ackWrap(socket,'game:ready',p=>{const code=normalizeRoomCode(p.code),state=gameManager.ready(code,auth(socket,p),p.ready);broadcast(code);return {state};});
-    ackWrap(socket,'game:start',p=>{const code=normalizeRoomCode(p.code);const result=gameManager.start(code,auth(socket,p),p.setup);if(result&&result.ok===false)return result;broadcast(code,'phase:updated');return{state:result};});
+    ackWrap(socket,'game:start',p=>{const code=normalizeRoomCode(p.code);const result=gameManager.start(code,auth(socket,p),p.setup);if(result&&result.ok===false)return result;broadcast(code,'phase:updated');// After role seal, push a per-bot session_init so the bot-manager can wire its role/faction/claim block.
+      broadcastBots(code,'bot:session_init',(bot)=>gameManager.botSessionInit(code,bot.player_code));return{state:result};});
     ackWrap(socket,'game:configure',p=>{const code=normalizeRoomCode(p.code);gameManager.configure(code,auth(socket,p),p.setup);broadcast(code);return{state:gameManager.state(code,socket.data.playerCode)};});
     ackWrap(socket,'game:advance-phase',p=>{const code=normalizeRoomCode(p.code);gameManager.advance(code,auth(socket,p),true);broadcast(code,'phase:updated');return {state:gameManager.state(code,socket.data.playerCode)};});
     ackWrap(socket,'chat:history',p=>(gameManager.historyMessages(normalizeRoomCode(p.code),auth(socket,p),p.channel,p.before,p.limit)));

@@ -40,8 +40,24 @@ export const config = {
     max: parseNumber(process.env.RATE_LIMIT_MAX, 120),
     standardHeaders: true,
     legacyHeaders: false
+  },
+  // Bot manager wiring. The manager is a separate container that listens on :7878
+  // and is reached at BOT_MANAGER_URL. ADMIN_API_KEY is the bearer token the
+  // *panel/proxy* presents to the manager; BOT_API_KEY is what the *manager*
+  // presents to us when reserving a Conclave seat; SIM_BYPASS_TOKEN is reserved
+  // for the sim/test harness talking directly to the manager.
+  botManager: {
+    url: process.env.BOT_MANAGER_URL || 'http://127.0.0.1:7878',
+    botApiKey: process.env.BOT_API_KEY || '',
+    adminApiKey: process.env.ADMIN_API_KEY || '',
+    simBypassToken: process.env.SIM_BYPASS_TOKEN || ''
   }
 };
+
+const ADMIN_API_KEY_DEFAULT = '';
+export function isDefaultAdminApiKey() {
+  return !process.env.ADMIN_API_KEY || config.botManager.adminApiKey === ADMIN_API_KEY_DEFAULT;
+}
 
 // A never-set or still-default admin password must never grant access in production.
 export function isDefaultAdminPassword() {

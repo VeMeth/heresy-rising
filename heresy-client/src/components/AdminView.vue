@@ -36,6 +36,7 @@
       <nav class="tabs">
         <button type="button" :class="{ active: tab === 'cells' }" @click="tab = 'cells'">Conclaves</button>
         <button type="button" :class="{ active: tab === 'logs' }" @click="openLogs">Game Logs</button>
+        <button type="button" :class="{ active: tab === 'bots' }" @click="openBots">Bots</button>
       </nav>
 
       <section v-if="tab === 'cells'" class="layout">
@@ -166,6 +167,105 @@
         </div>
         <pre v-if="selectedLog">{{ pretty(selectedLog) }}</pre>
       </section>
+
+      <section v-if="tab === 'bots'" class="bots">
+        <header class="detail-head">
+          <div><span>HERESY BOTS</span><h2>AI operatives</h2></div>
+          <div class="actions">
+            <button type="button" @click="loadBots" :disabled="loadingBots">Refresh</button>
+            <button type="button" :class="{ active: botsPolling }" @click="toggleBotsPolling">{{ botsPolling ? 'Auto: On' : 'Auto: Off' }}</button>
+          </div>
+        </header>
+        <p v-if="botError" class="error">{{ botError }}</p>
+
+        <section class="spawn-form">
+          <h3>Spawn bot</h3>
+          <div class="spawn-grid">
+            <label>Conclave code
+              <input v-model="spawnForm.conclaveCode" type="text" placeholder="ABC123" maxlength="8" />
+            </label>
+            <label>Name
+              <input v-model="spawnForm.name" type="text" placeholder="Heretic Bot" maxlength="20" />
+            </label>
+            <label>Seat hint (optional)
+              <input v-model.number="spawnForm.seatHint" type="number" min="0" max="11" placeholder="auto" />
+            </label>
+            <label>Per-game token budget
+              <input v-model.number="spawnForm.costCeiling" type="number" min="1000" max="500000" />
+            </label>
+            <label>Persona overrides (freeform)
+              <textarea v-model="spawnForm.personaOverrides" rows="3" placeholder="e.g. speak in clipped, terse sentences; never claim Citizen; vote with the Heretic consensus"></textarea>
+            </label>
+          </div>
+          <div class="actions">
+            <button type="button" :disabled="loadingBots || !spawnForm.conclaveCode" @click="spawnBot">Spawn</button>
+          </div>
+          <p v-if="lastSpawnResult" class="spawn-result">
+            <span>Last response:</span>
+            <code>{{ pretty(lastSpawnResult) }}</code>
+          </p>
+        </section>
+
+        <section>
+          <h3>Active sessions ({{ bots.length }})</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>botId</th><th>Conclave</th><th>Name</th><th>Role</th><th>Faction</th><th>Phase</th><th>Round</th><th>Alive</th><th>Last</th><th>Tokens</th><th>Mem</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="bot in bots" :key="bot.botId">
+                  <td><code>{{ bot.botId }}</code></td>
+                  <td>{{ bot.conclaveCode }}</td>
+                  <td><strong>{{ bot.name || '-' }}</strong></td>
+                  <td>{{ bot.role || '-' }}</td>
+                  <td>{{ bot.faction || '-' }}</td>
+                  <td>{{ bot.phase || '-' }}</td>
+                  <td>{{ bot.round ?? '-' }}</td>
+                  <td>{{ bot.alive === false ? 'no' : 'yes' }}</td>
+                  <td><code>{{ bot.lastAction || '-' }}</code></td>
+                  <td>{{ bot.tokensUsed ?? 0 }} / {{ bot.costCeiling ?? '?' }}</td>
+                  <td>{{ bot.memoryBytes ?? 0 }}</td>
+                  <td class="actions">
+                    <button type="button" @click="selectBot(bot.botId)">Notes</button>
+                    <button type="button" class="danger" @click="despawnBot(bot)">Despawn</button>
+                  </td>
+                </tr>
+                <tr v-if="!bots.length"><td colspan="12"><p class="empty">No bots currently spawned.</p></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section v-if="selectedBot" class="bot-notes">
+          <header class="detail-head">
+            <div>
+              <span>BOT NOTES</span>
+              <h3>{{ selectedBot.botId }}</h3>
+            </div>
+            <button type="button" @click="selectedBot = null">Close</button>
+          </header>
+          <div class="columns">
+            <div>
+              <h4>Read</h4>
+              <pre>{{ pretty(botNotes) }}</pre>
+              <button type="button" @click="loadBotNotes(selectedBot.botId)">Reload</button>
+            </div>
+            <div>
+              <h4>Write</h4>
+              <label>Key<input v-model="noteForm.key" type="text" placeholder="P-02-suspicion" /></label>
+              <label>Value<input v-model="noteForm.value" type="text" placeholder="voted against me on Day 2" /></label>
+              <button type="button" @click="saveBotNote">Save note</button>
+            </div>
+          </div>
+          <details>
+            <summary>Inspect session</summary>
+            <pre>{{ pretty(selectedBot) }}</pre>
+          </details>
+        </section>
+      </section>
     </section>
   </main>
 </template>
@@ -187,6 +287,17 @@ const detail = ref(null);
 const selectedCode = ref('');
 const logs = ref([]);
 const selectedLog = ref(null);
+
+const bots = ref([]);
+const botsPolling = ref(false);
+let botsPollTimer = null;
+const loadingBots = ref(false);
+const botError = ref('');
+const spawnForm = ref({ conclaveCode:'', name:'', seatHint:null, costCeiling:50000, personaOverrides:'' });
+const lastSpawnResult = ref(null);
+const selectedBot = ref(null);
+const botNotes = ref({});
+const noteForm = ref({ key:'', value:'' });
 
 const headers = computed(() => ({ 'Content-Type': 'application/json', 'X-Admin-Password': password.value }));
 
@@ -219,6 +330,8 @@ function logout() {
   password.value = '';
   passwordInput.value = '';
   authenticated.value = false;
+  if (botsPollTimer) { clearInterval(botsPollTimer); botsPollTimer = null; }
+  botsPolling.value = false;
 }
 async function loadOverview() {
   error.value = '';
@@ -284,6 +397,99 @@ async function deleteLog(log) {
   await adminFetch(`/api/admin/game-logs/${encodeURIComponent(log.id)}`, { method: 'DELETE' });
   logs.value = logs.value.filter(item => item.id !== log.id);
   if (selectedLog.value?.id === log.id) selectedLog.value = null;
+}
+
+// ── Heresy Bots ──────────────────────────────────────────────────────────
+// All bot endpoints are proxied through the heresy-server's
+// /api/admin/bots/* routes — the browser only ever holds ADMIN_PASSWORD; the
+// server forwards each call to the bot-manager's REST API with its own
+// ADMIN_API_KEY. Persona overrides and per-game cost ceiling are sent in the
+// spawn body per the locked v1.1.0 spec.
+async function openBots() {
+  tab.value = 'bots';
+  if (!bots.value.length) await loadBots();
+}
+async function loadBots() {
+  botError.value = '';
+  loadingBots.value = true;
+  try {
+    bots.value = await adminFetch('/api/admin/bots');
+  } catch (err) {
+    botError.value = err.message;
+  } finally {
+    loadingBots.value = false;
+  }
+}
+function toggleBotsPolling() {
+  botsPolling.value = !botsPolling.value;
+  if (botsPolling.value) {
+    if (botsPollTimer) clearInterval(botsPollTimer);
+    botsPollTimer = setInterval(loadBots, 3000);
+  } else if (botsPollTimer) {
+    clearInterval(botsPollTimer); botsPollTimer = null;
+  }
+}
+async function spawnBot() {
+  botError.value = '';
+  loadingBots.value = true;
+  try {
+    const body = {
+      conclaveCode: String(spawnForm.value.conclaveCode || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8),
+      name: String(spawnForm.value.name || '').slice(0, 20) || null,
+      seatHint: spawnForm.value.seatHint != null && spawnForm.value.seatHint !== '' ? Number(spawnForm.value.seatHint) : null,
+      costCeiling: Number(spawnForm.value.costCeiling) > 0 ? Number(spawnForm.value.costCeiling) : null,
+      personaOverrides: spawnForm.value.personaOverrides || null
+    };
+    if (!body.conclaveCode) throw new Error('Conclave code is required');
+    const data = await adminFetch('/api/admin/bots', { method: 'POST', body: JSON.stringify(body) });
+    lastSpawnResult.value = data;
+    await loadBots();
+  } catch (err) {
+    botError.value = err.message;
+  } finally {
+    loadingBots.value = false;
+  }
+}
+async function despawnBot(bot) {
+  if (!confirm(`Despawn bot ${bot.botId} (conclave ${bot.conclaveCode})?`)) return;
+  botError.value = '';
+  try {
+    await adminFetch(`/api/admin/bots/${encodeURIComponent(bot.botId)}`, { method: 'DELETE' });
+    if (selectedBot.value?.botId === bot.botId) selectedBot.value = null;
+    await loadBots();
+  } catch (err) {
+    botError.value = err.message;
+  }
+}
+async function selectBot(id) {
+  botError.value = '';
+  try {
+    selectedBot.value = await adminFetch(`/api/admin/bots/${encodeURIComponent(id)}`);
+    await loadBotNotes(id);
+  } catch (err) {
+    botError.value = err.message;
+  }
+}
+async function loadBotNotes(id) {
+  try {
+    botNotes.value = await adminFetch(`/api/admin/bots/${encodeURIComponent(id)}/notes`);
+  } catch (err) {
+    botNotes.value = { error: err.message };
+  }
+}
+async function saveBotNote() {
+  if (!selectedBot.value || !noteForm.value.key) return;
+  botError.value = '';
+  try {
+    await adminFetch(`/api/admin/bots/${encodeURIComponent(selectedBot.value.botId)}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ key: noteForm.value.key, value: noteForm.value.value })
+    });
+    noteForm.value = { key:'', value:'' };
+    await loadBotNotes(selectedBot.value.botId);
+  } catch (err) {
+    botError.value = err.message;
+  }
 }
 async function copyJson(value) {
   await navigator.clipboard.writeText(JSON.stringify(value, null, 2));
