@@ -68,6 +68,7 @@ export class BotSession {
     this._joinPromise = null;
     this._chatTimer = null;
     this._actTimer = null;
+    this._consolidateTimer = null;
     this._closing = false;
     // Per-bot random stagger to avoid all bots hitting the LLM API simultaneously.
     // Acts (night/vote prompts) get 0..botActionDelayMs of extra jitter;
@@ -187,11 +188,9 @@ export class BotSession {
       // other-bot visibility already comes through bot:session_init
     }
     if (this._lastPhase && this._lastPhase !== this.phase) {
-      // Phase changed — compress the current short-term memory into a
-      // persistent note before flushing, so the bot retains a summary of what
-      // happened without carrying 20 raw history lines into every future prompt.
-      this._persistPhaseMemory();
-      this.shortTermMemory.flush();
+      // Phase changed — schedule an LLM-based memory consolidation so the bot
+      // writes its own summary notes before we flush short-term memory.
+      this._scheduleConsolidation();
     }
     this._lastPhase = this.phase;
     if (Array.isArray(s.privateMessages) && s.privateMessages.length) {
@@ -335,46 +334,70 @@ export class BotSession {
     }
   }
 
-  _persistPhaseMemory() {
+  _scheduleConsolidation() {
+    // Don't schedule if already closing, or if there's nothing to consolidate.
+    if (this._closing) return;
     const items = this.shortTermMemory?.items || [];
     if (items.length === 0) return;
 
-    // Categorise memory items.
-    const chats = items.filter((i) => i.kind === 'chat_message');
-    const announcements = items.filter((i) => i.kind === 'announcement');
-    const intels = items.filter((i) => i.kind === 'intel_return');
+    // Cancel any pending consolidation (shouldn't happen but be safe).
+    if (this._consolidateTimer) { clearTimeout(this._consolidateTimer); }
 
-    // Build a compact summary string, capped at the notes value limit (500 chars).
-    const parts = [];
-    if (chats.length) {
-      const speakers = [...new Set(chats.map((c) => c.author || c.from).filter(Boolean))];
-      parts.push(`chat(${chats.length} msgs from ${speakers.join(', ')})`);
+    // Use a short delay so the new phase's action prompt gets priority.
+    const delay = Math.min(2000, Number(this._config?.botActionDelayMs || 10000) / 5);
+    this._consolidateTimer = setTimeout(() => {
+      this._consolidateMemory().catch((e) => console.warn(`[bot-manager] consolidate failed for ${this.id}:`, e.message));
+      this._consolidateTimer = null;
+    }, delay);
+  }
+
+  async _consolidateMemory() {
+    if (this._closing) return;
+    const items = this.shortTermMemory?.items || [];
+    if (items.length === 0) return;
+
+    // Render short-term memory as bullet points for the LLM.
+    const memoryLines = items.map((it) => {
+      if (it.kind === 'chat_message') return `${it.author || it.from || '?'}: "${it.text || ''}"`;
+      if (it.kind === 'announcement') return `[ANNOUNCEMENT] ${it.title || it.type || ''}: ${it.message || ''}`;
+      if (it.kind === 'intel_return') return `[INTEL] ${it.intelKind || 'info'}: ${JSON.stringify(it)}`;
+      return `[${it.kind || 'event'}]: ${JSON.stringify(it)}`;
+    });
+
+    const lastPhase = this._lastPhase || this.phase;
+    const prompt = {
+      kind: 'memory_consolidation',
+      phase: lastPhase,
+      round: this.round,
+      memory: memoryLines
+    };
+
+    let response;
+    try {
+      response = await this._llm.generate({ session: this, prompt });
+    } catch (e) {
+      console.warn(`[bot-manager] consolidate LLM error for ${this.id}:`, e.message);
+      return;
     }
-    if (announcements.length) {
-      const titles = announcements.map((a) => a.title || a.type).filter(Boolean);
-      parts.push(`announce(${titles.join(', ')})`);
+
+    // Save any notes the LLM returned.
+    if (response?.notes && typeof response.notes === 'object') {
+      for (const [k, v] of Object.entries(response.notes)) {
+        this.notes.set(k, v);
+      }
     }
-    if (intels.length) {
-      const results = intels.map((i) => i.intelKind || i.result || 'intel').filter(Boolean);
-      parts.push(`intel(${[...new Set(results)].join(', ')})`);
-    }
 
-    let summary = parts.join('; ');
-    if (summary.length > 500) summary = summary.slice(0, 497) + '...';
-    if (!summary) return;
-
-    // Store under a phase-round key so the LLM sees previous phases' summaries
-    // in the LONG-TERM NOTES block. Key format: "phase-{round}-{phase}" e.g. "phase-3-night".
-    const key = `phase-${this.round || '?'}-${this._lastPhase || '?'}`;
-    this.notes.set(key, summary);
-
-    // Keep at most 6 phase notes (3 full rounds) to avoid bloating the prompt.
+    // Prune old phase notes — keep at most 6 (3 full rounds).
     const allNotes = this.notes.all();
     const phaseKeys = Object.keys(allNotes).filter((k) => k.startsWith('phase-'));
     if (phaseKeys.length > 6) {
       const toRemove = phaseKeys.sort().slice(0, phaseKeys.length - 6);
       for (const k of toRemove) this.notes.map.delete(k);
     }
+
+    // Flush short-term memory now that we've summarised it.
+    this.shortTermMemory.flush();
+    this._save();
   }
 
   _logAction(entry) {
@@ -416,6 +439,7 @@ _emit(event, payload, cb) {
     this._closing = true;
     if (this._actTimer) { clearTimeout(this._actTimer); this._actTimer = null; }
     if (this._chatTimer) { clearTimeout(this._chatTimer); this._chatTimer = null; }
+    if (this._consolidateTimer) { clearTimeout(this._consolidateTimer); this._consolidateTimer = null; }
     try { this._socket && this._socket.disconnect(); } catch {}
     this._socket = null;
     this.lastAction = 'closed';

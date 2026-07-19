@@ -31,10 +31,31 @@ export function assembleMessages({ session, prompt } = {}) {
     content: `[${seqLabel(it)}${it.from ? ' from ' + it.from : ''}${it.author ? ' (' + it.author + ')' : ''}] ${seqBody(it)}`
   }));
 
-  const userPrompt = `Round ${session?.round ?? '?'}, phase ${session?.phase ?? '?'}, alive=${session?.alive ? 'yes' : 'no'}. Your player code: ${session?.playerCode ?? '?'}.
+  let userPrompt;
+  if (prompt?.kind === 'memory_consolidation') {
+    const phase = prompt.phase || session?.phase || 'unknown';
+    const round = prompt.round ?? session?.round ?? '?';
+    userPrompt = `## MEMORY CONSOLIDATION — End of ${phase} (Round ${round})
+
+The ${phase} phase has ended. Review the events below and write any important conclusions, suspicions, or facts into your LONG-TERM NOTES using the "notes" field in your action block.
+
+### What happened this ${phase}
+${(prompt.memory || []).map((m) => `- ${m}`).join('\n')}
+
+Write your notes as key-value pairs in the "notes" field. Each key should be short and descriptive, each value concise (max 500 chars). Include things like:
+- Who said what, and whether you believe them
+- Intel results and what they mean
+- Vote patterns and suspicions
+- Your own actions and their outcomes
+- Plans for the next phase
+
+Use the "kind": "pass" action — you are not taking a game action, just updating your memory.`;
+  } else {
+    userPrompt = `Round ${session?.round ?? '?'}, phase ${session?.phase ?? '?'}, alive=${session?.alive ? 'yes' : 'no'}. Your player code: ${session?.playerCode ?? '?'}.
 
 Engine event:
 ${JSON.stringify(prompt)}`;
+  }
 
   return { system, history, user: userPrompt };
 }
