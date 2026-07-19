@@ -4,6 +4,22 @@ import { buildEnginePayload } from './actionDispatch.js';
 import { actionValidator } from './validator.js';
 import { BotPersistence } from './persistence.js';
 
+// Process-wide LLM call queue. Even with per-bot jitter on _scheduleAct and
+// the chat debounce, four bots spawned at the same instant can land their
+// Math.random() jitters within a few ms of each other and end up firing
+// _act() in the same wall-clock second. That translates into N parallel HTTP
+// requests to the LLM provider, which we want to avoid.
+//
+// Every LLM.generate() call (both action and consolidation) is funnelled
+// through enqueueLLMCall(), which serializes them in FIFO order. The previous
+// call's outcome (resolved or rejected) does not block subsequent calls.
+let _llmQueueTail = Promise.resolve();
+function enqueueLLMCall(fn) {
+  const next = _llmQueueTail.then(() => fn(), () => fn());
+  _llmQueueTail = next.catch(() => undefined);
+  return next;
+}
+
 // Fixed delay before the bot emits an action after being prompted (Q-BOT-1
 // resolution: "Fixed delay (e.g. 10s)"). Looked up from
 // config.botActionDelayMs, default 10000ms. The decision loop debounces chat
@@ -285,7 +301,7 @@ export class BotSession {
     }
     let action;
     try {
-      action = await this._llm.generate({ session: this, prompt });
+      action = await enqueueLLMCall(() => this._llm.generate({ session: this, prompt }));
     } catch (e) {
       console.warn(`[bot-manager] LLM generate failed for ${this.id}:`, e.message);
       this.lastAction = 'llm_error';
@@ -392,7 +408,7 @@ export class BotSession {
 
     let response;
     try {
-      response = await this._llm.generate({ session: this, prompt });
+      response = await enqueueLLMCall(() => this._llm.generate({ session: this, prompt }));
     } catch (e) {
       console.warn(`[bot-manager] consolidate LLM error for ${this.id}:`, e.message);
       return;
