@@ -199,7 +199,7 @@ export class BotSession {
     }
     // Reset per-round vote tracking on round change.
     if (this._lastRound !== this.round) {
-      this._voteCastThisRound = false;
+      this._lastVoteTarget = null;
       this._lastRound = this.round;
     }
     this._lastPhase = this.phase;
@@ -316,12 +316,12 @@ export class BotSession {
       return;
     }
 
-    // Prevent re-voting: if the bot already voted this round and tries to
-    // vote again (e.g. from a chat reply), downgrade to pass. The engine
-    // would accept the duplicate but it floods chat with vote justifications.
-    if (action.kind === 'vote' && this._voteCastThisRound) {
+    // Prevent re-voting for the SAME target. Changing your vote based on new
+    // intel is fine — but re-casting the same vote floods chat with
+    // duplicate justifications.
+    if (action.kind === 'vote' && action.target && this._lastVoteTarget === action.target) {
       this.lastAction = 'pass';
-      this._logAction({ kind: 'pass', note: 'already voted this round' });
+      this._logAction({ kind: 'pass', note: `already voted for ${action.target} this round` });
       return;
     }
 
@@ -341,7 +341,7 @@ export class BotSession {
         if (ack?.ok === false) console.warn(`vote:submit rejected for ${this.id}: ${ack.error}`);
       });
       this.lastAction = 'vote';
-      this._voteCastThisRound = true;
+      this._lastVoteTarget = dispatch.payload?.target || 'skip';
       this._logAction({ kind: 'vote', action, target: dispatch.payload?.target });
     } else if (dispatch.type === 'action') {
       this._emit('action:submit', dispatch.payload, (ack) => {
