@@ -42,6 +42,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
   const gameManager=new HeresyGameManager({databasePath,now});
   gameManager.onAnnouncement((code,a)=>{broadcastAnnouncement(code,a);});
   gameManager.onBotPrompt((code,payload)=>{broadcastBotPrompt(code,payload);});
+  gameManager.onChatMessage((code,message)=>{broadcastMessage(code,message);});
   app.get('/api/health',(req,res)=>res.json({status:'ok',time:Date.now()}));
   app.get('/api/game/presets',(req,res)=>{res.set('Cache-Control','no-store').json(publicPresetMetadata(req.query.players));});
   // In production, a default/unchanged admin password must never grant access — fail closed.

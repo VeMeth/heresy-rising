@@ -34,11 +34,14 @@ export class HeresyGameManager {
     this.now = now; this.random = random; this.config = loadGameConfig();
     this._announcementListeners = [];
     this._botPromptListeners = [];
+    this._chatMessageListeners = [];
   }
   onAnnouncement(fn){this._announcementListeners.push(fn);}
   emitAnnouncement(c,a){for(const fn of this._announcementListeners)try{fn(c,a);}catch{}}
   onBotPrompt(fn){this._botPromptListeners.push(fn);}
   emitBotPrompt(c,payload){for(const fn of this._botPromptListeners)try{fn(c,payload);}catch{}}
+  onChatMessage(fn){this._chatMessageListeners.push(fn);}
+  emitChatMessage(c,message){for(const fn of this._chatMessageListeners)try{fn(c,message);}catch{}}
   close(){this.db.close();}
   ensureColumn(table,column,definition){if(!this.db.prepare(`PRAGMA table_info(${table})`).all().some(x=>x.name===column))this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);}
   game(c){return this.db.prepare('SELECT * FROM hr_games WHERE code=?').get(c);}
@@ -180,7 +183,7 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
     this.db.prepare("UPDATE hr_games SET phase='ended',status='ended',winner=?,deadline=NULL WHERE code=?").run(winner,c);this.system(c,`Game over. ${winner} victory.`);const gEnd=this.game(c);this.emitAnnouncement(c,{type:'gameover',title:'GAME OVER',message:`${winner} victory. The conclave is dissolved.`,winner,round:gEnd.round});return true;}
   sendMessage(c,p,channel,body){const g=this.game(c),player=this.requirePlayer(c,p);this.authorizeChannel(g,player,channel,true);return this.insertMessage(c,channel,null,p,player.name,String(body||'').trim().slice(0,1000),'player');}
   insertMessage(c,ch,recipient,p,author,body,kind,meta=null){if(!body)throw new Error('Message is empty');const x=this.db.prepare('INSERT INTO hr_messages(game_code,channel,recipient_code,player_code,author,body,kind,created_at,meta) VALUES(?,?,?,?,?,?,?,?,?)').run(c,ch,recipient,p,author,body,kind,this.now(),meta?JSON.stringify(meta):null);return this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE id=?').get(x.lastInsertRowid);}
-  system(c,b){return this.insertMessage(c,'public',null,null,'The Vox',b,'system');} privateSystem(c,p,b,meta=null){return this.insertMessage(c,'private',p,null,'The Vox',b,'system',meta);} factionSystem(c,b){return this.insertMessage(c,'faction',null,null,'The Vox',b,'system');}
+  system(c,b){const m=this.insertMessage(c,'public',null,null,'The Vox',b,'system');this.emitChatMessage(c,m);return m;} privateSystem(c,p,b,meta=null){const m=this.insertMessage(c,'private',p,null,'The Vox',b,'system',meta);this.emitChatMessage(c,m);return m;} factionSystem(c,b){const m=this.insertMessage(c,'faction',null,null,'The Vox',b,'system');this.emitChatMessage(c,m);return m;}
   historyMessages(c,p,ch='public',before=Number.MAX_SAFE_INTEGER,limit=50){const g=this.game(c),player=this.requirePlayer(c,p);this.authorizeChannel(g,player,ch,false);const cap=Math.min(100,Number(limit)||50);const rows=this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? AND channel=? AND id<? ORDER BY id DESC LIMIT ?').all(c,ch,Number(before)||Number.MAX_SAFE_INTEGER,cap+1).reverse();const hasMore=rows.length>cap;return {messages:hasMore?rows.slice(0,cap):rows,hasMore};}
   authorizeChannel(g,p,ch,write){if(!['public','faction','graveyard'].includes(ch))throw new Error('Unknown channel');if(ch==='faction'&&p.faction!=='heretic')throw new Error('Faction channel denied');if(ch==='graveyard'&&p.alive)throw new Error('Graveyard denied');if(write&&ch==='public'&&(!p.alive||g.phase==='night'))throw new Error('Public chat is closed');if(write&&ch==='faction'&&g.phase!=='night')throw new Error('Faction chat is night-only');}
     // TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
