@@ -193,8 +193,8 @@ export class BotSession {
       // other-bot visibility already comes through bot:session_init
     }
     if (this._lastPhase && this._lastPhase !== this.phase) {
-      // Phase changed — schedule an LLM-based memory consolidation so the bot
-      // writes its own summary notes before we flush short-term memory.
+      // Phase changed — reset phase-scoped counters and schedule consolidation.
+      this._botMessagesThisPhase = 0;
       this._scheduleConsolidation();
     }
     this._lastPhase = this.phase;
@@ -218,16 +218,14 @@ export class BotSession {
     // If it's day chat and not in cooldown, schedule a debounced chat reply.
     this._save();
     if (this.phase === 'day' && this._config.chatDebounceMs > 0) {
-      // Track consecutive bot-only messages to prevent endless bot↔bot loops.
-      // Reset on any human message; increment on bot messages. If the streak
-      // exceeds the threshold, bots stop auto-replying until a human chimes in.
+      // Track total bot messages this phase. Once bots have flooded the channel
+      // enough, they stop replying until the next phase. This prevents echo
+      // chambers even if a human occasionally chimes in.
       const isBot = Array.isArray(this.botIds) && this.botIds.includes(m.player_code);
       if (isBot) {
-        this._botOnlyStreak = (this._botOnlyStreak || 0) + 1;
-      } else {
-        this._botOnlyStreak = 0;
+        this._botMessagesThisPhase = (this._botMessagesThisPhase || 0) + 1;
       }
-      if ((this._botOnlyStreak || 0) >= 10) return;
+      if ((this._botMessagesThisPhase || 0) >= 12) return;
       if (this._chatTimer) clearTimeout(this._chatTimer);
       this._chatTimer = setTimeout(() => this._act({ kind: 'chat_reply' }).catch(() => {}), this._config.chatDebounceMs + (this._chatJitterMs || 0));
     }
