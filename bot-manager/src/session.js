@@ -71,9 +71,10 @@ export class BotSession {
     this._closing = false;
     // Per-bot random stagger to avoid all bots hitting the LLM API simultaneously.
     // Acts (night/vote prompts) get 0..botActionDelayMs of extra jitter;
-    // chat replies get 0..chatDebounceMs of extra jitter.
+    // chat replies get 0..botActionDelayMs of extra jitter (wider range than the
+    // debounce window itself, so bots spread across a meaningful timespan).
     const actJitter = Math.random() * Number(config?.botActionDelayMs || 10000);
-    const chatJitter = Math.random() * Number(config?.chatDebounceMs || 2000);
+    const chatJitter = Math.random() * Number(config?.botActionDelayMs || 10000);
     this._actJitterMs = Math.floor(actJitter);
     this._chatJitterMs = Math.floor(chatJitter);
     this.connect();
@@ -207,6 +208,16 @@ export class BotSession {
     // If it's day chat and not in cooldown, schedule a debounced chat reply.
     this._save();
     if (this.phase === 'day' && this._config.chatDebounceMs > 0) {
+      // Track consecutive bot-only messages to prevent endless bot↔bot loops.
+      // Reset on any human message; increment on bot messages. If the streak
+      // exceeds the threshold, bots stop auto-replying until a human chimes in.
+      const isBot = Array.isArray(this.botIds) && this.botIds.includes(m.player_code);
+      if (isBot) {
+        this._botOnlyStreak = (this._botOnlyStreak || 0) + 1;
+      } else {
+        this._botOnlyStreak = 0;
+      }
+      if ((this._botOnlyStreak || 0) >= 10) return;
       if (this._chatTimer) clearTimeout(this._chatTimer);
       this._chatTimer = setTimeout(() => this._act({ kind: 'chat_reply' }).catch(() => {}), this._config.chatDebounceMs + (this._chatJitterMs || 0));
     }

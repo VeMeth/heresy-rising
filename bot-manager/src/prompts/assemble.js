@@ -31,7 +31,7 @@ export function assembleMessages({ session, prompt } = {}) {
     content: `[${seqLabel(it)}${it.from ? ' from ' + it.from : ''}${it.author ? ' (' + it.author + ')' : ''}] ${seqBody(it)}`
   }));
 
-  const userPrompt = `Round ${session?.round ?? '?'}, phase ${session?.phase ?? '?'}, alive=${session?.alive ? 'yes' : 'no'}. Conclave: ${session?.conclaveCode ?? '?'}. Your player code: ${session?.playerCode ?? '?'}.
+  const userPrompt = `Round ${session?.round ?? '?'}, phase ${session?.phase ?? '?'}, alive=${session?.alive ? 'yes' : 'no'}. Your player code: ${session?.playerCode ?? '?'}.
 
 Engine event:
 ${JSON.stringify(prompt)}`;
