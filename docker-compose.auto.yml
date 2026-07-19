@@ -54,9 +54,9 @@ services:
       - BOT_ACTION_DELAY_MS=${BOT_ACTION_DELAY_MS:-10000}
       - CHAT_DEBOUNCE_MS=${CHAT_DEBOUNCE_MS:-2000}
       - LANGCHAIN_TRACING=${LANGCHAIN_TRACING:-false}
-      - BOT_SESSION_DIR=/usr/src/app/data/bot-sessions
+    volumes:
+      - ./data:/usr/src/app/data
     depends_on:
-      - heresy-server
       - heresy-server
     restart: unless-stopped
     deploy:

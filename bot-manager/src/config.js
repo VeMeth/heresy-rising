@@ -41,8 +41,7 @@ export const config = {
   botActionDelayMs: parseNum(process.env.BOT_ACTION_DELAY_MS, 10000),
   chatDebounceMs: parseNum(process.env.CHAT_DEBOUNCE_MS, 2000),
   maxRetries: parseNum(process.env.MAX_RETRIES, 2),
-  langChainTracing: parseBool(process.env.LANGCHAIN_TRACING, false),
-  botSessionDir: process.env.BOT_SESSION_DIR || './data/bot-sessions'
+  langChainTracing: parseBool(process.env.LANGCHAIN_TRACING, false)
 };
 
 // Required before any spawn/despawn may succeed. The control endpoints accept

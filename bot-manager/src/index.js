@@ -16,7 +16,7 @@ app.use(express.json({ limit: '32kb' }));
 
 const sessionStore = new SessionStore();
 const engineClient = new EngineClient({ baseUrl: config.heresyGameHost, botApiKey: config.botApiKey });
-const persistence = new BotPersistence({ dir: config.botSessionDir });
+const persistence = new BotPersistence({ dir: './data/bot-sessions' });
 app.set('sessionStore', sessionStore);
 app.set('engineClient', engineClient);
 app.set('persistence', persistence);
