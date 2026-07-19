@@ -78,18 +78,24 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
   // For v1, despawn is lobby-only (matches the spec gate on spawn). If the
   // Conclave has started, we refuse the manager-side teardown rather than
   // orphaning a seat the engine won't return.
+  // If the engine call fails (e.g. game already deleted), we still clean up
+  // the local session — the seat is already gone.
   app.delete('/bots/:id', auth, async (req, res) => {
     const s = getSessionOrThrow(req, res); if (!s) return;
     try {
       if (s.phase && s.phase !== 'lobby') {
-        return res.status(409).json({ error: `Bot is in phase ${s.phase}; despawn is lobby-only (the engine refuses mid-game seat removal)` });
-      }
-      try { await engineClient.despawn({ conclaveCode: s.conclaveCode, playerCode: s.playerCode }); }
-      catch (e) {
-        // Mirror the engine's HTTP error to the admin. Common case: the seat
-        // has already moved out of lobby (game started) and the engine
-        // rejects the despawn.
-        return res.status(e.status && e.status !== 400 ? e.status : 409).json({ error: e.message });
+        try {
+          await engineClient.despawn({ conclaveCode: s.conclaveCode, playerCode: s.playerCode });
+        } catch (e) {
+          // Engine rejected the despawn (game doesn't exist or other error).
+          // Still clean up locally — the seat can't be orphaned if the game is gone.
+          await s.close();
+          sessionStore.remove(s.id);
+          req.app.get('persistence')?.remove(s.id);
+          return res.json({ ok: true, note: 'local cleanup only; engine rejected despawn: ' + e.message });
+        }
+      } else {
+        await engineClient.despawn({ conclaveCode: s.conclaveCode, playerCode: s.playerCode });
       }
       await s.close();
       sessionStore.remove(s.id);
