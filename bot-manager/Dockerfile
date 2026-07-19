@@ -1,9 +1,8 @@
 FROM node:20-alpine AS base
 WORKDIR /usr/src/app
 
-# Lightweight runtime — no native build needs (LangChain + Socket.IO are pure JS).
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 -G nodejs -h /usr/src/app
+# Ensure the data directory exists for session persistence (shared volume)
+RUN mkdir -p /usr/src/app/data/bot-sessions
 
 COPY bot-manager/package.json bot-manager/package-lock.json* ./
 RUN npm install --omit=dev
@@ -14,5 +13,4 @@ ENV NODE_ENV=production
 ENV HERESY_BOT_PORT=7878
 EXPOSE 7878
 
-USER nodejs
 CMD ["node", "src/index.js"]

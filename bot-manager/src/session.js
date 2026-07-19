@@ -2,6 +2,7 @@ import { openEngineSocket } from './engineSocket.js';
 import { BufferWindow, StructuredNotes } from './memory.js';
 import { buildEnginePayload } from './actionDispatch.js';
 import { actionValidator } from './validator.js';
+import { BotPersistence } from './persistence.js';
 
 // Fixed delay before the bot emits an action after being prompted (Q-BOT-1
 // resolution: "Fixed delay (e.g. 10s)"). Looked up from
@@ -12,26 +13,52 @@ import { actionValidator } from './validator.js';
 // pluggable `llm` (Phase 4 swaps in ChatMiniMax / MockLLM). Until then, a
 // PassThroughLLM makes the bot observe silently.
 export class BotSession {
-  constructor({ id, conclaveCode, playerCode, name, personaOverrides, costCeiling, config, llm, engineBaseUrl }) {
+  constructor({ id, conclaveCode, playerCode, name, personaOverrides, costCeiling, config, llm, engineBaseUrl, persistence, snapshot: snap } = {}) {
     this.id = id;
     this.playerCode = playerCode || id;
     this.conclaveCode = conclaveCode;
     this.name = name || 'Heretic Bot';
-    this.role = null;
-    this.faction = null;
-    this.claim = null;
-    this.alive = true;
-    this.phase = 'lobby';
-    this.round = 0;
-    this.botIds = [];
-    this.sessionInit = null;
-    this.personaOverrides = personaOverrides || null;
-    this.costCeiling = costCeiling || config.maxTokensPerGame;
-    this.tokensUsed = 0;
-    this.lastAction = 'init';
-    this.startedAt = Date.now();
-    this.shortTermMemory = new BufferWindow({ windowSize: 20 });
-    this.notes = new StructuredNotes();
+    this._persistence = persistence || null;
+    if (snap) {
+      // Restore from a previously-saved snapshot.
+      this.role = snap.role ?? null;
+      this.faction = snap.faction ?? null;
+      this.claim = snap.claim ?? null;
+      this.alive = snap.alive ?? true;
+      this.phase = snap.phase ?? 'lobby';
+      this.round = snap.round ?? 0;
+      this.botIds = Array.isArray(snap.botIds) ? snap.botIds : [];
+      this.sessionInit = snap.sessionInit ?? null;
+      this.personaOverrides = snap.personaOverrides ?? null;
+      this.costCeiling = snap.costCeiling ?? (config?.maxTokensPerGame || 50000);
+      this.tokensUsed = snap.tokensUsed ?? 0;
+      this.lastAction = snap.lastAction || 'restored';
+      this.startedAt = snap.startedAt ?? Date.now();
+      this.shortTermMemory = new BufferWindow({ windowSize: 20 });
+      if (Array.isArray(snap.shortTermMemory)) {
+        for (const item of snap.shortTermMemory) this.shortTermMemory.append(item);
+      }
+      this.notes = new StructuredNotes();
+      if (snap.notes && typeof snap.notes === 'object') {
+        for (const [k, v] of Object.entries(snap.notes)) this.notes.set(k, v);
+      }
+    } else {
+      this.role = null;
+      this.faction = null;
+      this.claim = null;
+      this.alive = true;
+      this.phase = 'lobby';
+      this.round = 0;
+      this.botIds = [];
+      this.sessionInit = null;
+      this.personaOverrides = personaOverrides || null;
+      this.costCeiling = costCeiling || config.maxTokensPerGame;
+      this.tokensUsed = 0;
+      this.lastAction = 'init';
+      this.startedAt = Date.now();
+      this.shortTermMemory = new BufferWindow({ windowSize: 20 });
+      this.notes = new StructuredNotes();
+    }
     this._config = config;
     this._llm = llm || { async generate() { return { kind: 'pass' }; _label: 'passthrough' } };
     this._engineBaseUrl = engineBaseUrl;
@@ -41,6 +68,37 @@ export class BotSession {
     this._actTimer = null;
     this._closing = false;
     this.connect();
+  }
+
+  /** Serialise session state to a plain object for persistence. */
+  snapshot() {
+    const s = {
+      id: this.id,
+      playerCode: this.playerCode,
+      conclaveCode: this.conclaveCode,
+      name: this.name,
+      role: this.role,
+      faction: this.faction,
+      claim: this.claim,
+      alive: this.alive,
+      phase: this.phase,
+      round: this.round,
+      botIds: this.botIds,
+      sessionInit: this.sessionInit,
+      personaOverrides: this.personaOverrides,
+      costCeiling: this.costCeiling,
+      tokensUsed: this.tokensUsed,
+      lastAction: this.lastAction,
+      startedAt: this.startedAt,
+      shortTermMemory: this.shortTermMemory.items,
+      notes: this.notes.all()
+    };
+    return s;
+  }
+
+  /** Persist this session's state to disk (fire-and-forget). */
+  _save() {
+    if (this._persistence) this._persistence.save(this);
   }
 
   setNote(key, value) { return this.notes.set(key, value); }
@@ -122,6 +180,7 @@ export class BotSession {
       }
     }
     if (this.lastAction !== 'killed' && this.lastAction !== 'game_over') this.lastAction = `state:${this.phase}`;
+    this._save();
   }
 
   _onChatMessage(payload) {
@@ -131,6 +190,7 @@ export class BotSession {
     if (m.channel && m.channel !== 'public') return; // public only; faction handled separately
     this.shortTermMemory.append({ kind: 'chat_message', from: m.player_code, author: m.author, text: m.body, round: this.round, phase: this.phase });
     // If it's day chat and not in cooldown, schedule a debounced chat reply.
+    this._save();
     if (this.phase === 'day' && this._config.chatDebounceMs > 0) {
       if (this._chatTimer) clearTimeout(this._chatTimer);
       this._chatTimer = setTimeout(() => this._act({ kind: 'chat_reply' }).catch(() => {}), this._config.chatDebounceMs);
@@ -141,6 +201,7 @@ export class BotSession {
     const a = payload?.announcement;
     if (!a) return;
     this.shortTermMemory.append({ kind: 'announcement', type: a.type, title: a.title, message: a.message });
+    this._save();
   }
 
   _onVoteState(_payload) { /* votes are visible via state; nothing extra needed */ }
@@ -155,6 +216,7 @@ export class BotSession {
     this.botIds = Array.isArray(payload.botIds) ? payload.botIds : [];
     this.sessionInit = payload;
     this.lastAction = 'session_init';
+    this._save();
   }
 
   _onGameEnded(payload) {
@@ -162,6 +224,7 @@ export class BotSession {
     this.phase = 'ended';
     this.lastAction = 'game_over';
     if (payload?.state?.winner) this.winner = payload.state.winner;
+    this._save();
   }
 
   _scheduleAct(prompt) {
@@ -197,6 +260,7 @@ export class BotSession {
       for (const [k, v] of Object.entries(action.notes)) this.notes.set(k, v);
     }
 
+    this._save();
     if (action.kind === 'pass') { this.lastAction = 'pass'; return; }
 
     // Soft pre-validation. Engine is still the source of truth — but if our
@@ -269,5 +333,7 @@ _emit(event, payload, cb) {
     try { this._socket && this._socket.disconnect(); } catch {}
     this._socket = null;
     this.lastAction = 'closed';
+    // Remove persisted state on despawn — no point restoring a dead session.
+    if (this._persistence) this._persistence.remove(this.id);
   }
 }

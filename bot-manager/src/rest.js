@@ -41,7 +41,8 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
         costCeiling,
         config,
         llm: req.app.get('llm'),
-        engineBaseUrl: engineClient.baseUrl
+        engineBaseUrl: engineClient.baseUrl,
+        persistence: req.app.get('persistence')
       });
       sessionStore.add(session);
       return res.json({

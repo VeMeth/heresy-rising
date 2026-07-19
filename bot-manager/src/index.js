@@ -7,6 +7,8 @@ import { registerRestRoutes } from './rest.js';
 import { PassThroughLLM } from './llm/passthroughLLM.js';
 import { ChatMiniMax } from './llm/chatMiniMax.js';
 import { ActionLLM } from './llm/actionLLM.js';
+import { BotPersistence } from './persistence.js';
+import { BotSession } from './session.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -14,8 +16,10 @@ app.use(express.json({ limit: '32kb' }));
 
 const sessionStore = new SessionStore();
 const engineClient = new EngineClient({ baseUrl: config.heresyGameHost, botApiKey: config.botApiKey });
+const persistence = new BotPersistence({ dir: config.botSessionDir });
 app.set('sessionStore', sessionStore);
 app.set('engineClient', engineClient);
+app.set('persistence', persistence);
 app.set('config', config);
 
 // Pick the LLM at boot: ChatMiniMax via ActionLLM if MiniMax_API_KEY is set,
@@ -42,6 +46,31 @@ if (hasLLMConfig(config)) {
   }
 }
 app.set('llm', llm);
+
+// Restore any previously-persisted bot sessions. This reconnects them to
+// their conclaves so bot state survives manager restarts mid-game.
+const savedSessions = persistence.loadAll();
+let restored = 0;
+for (const snap of savedSessions) {
+  try {
+    const session = new BotSession({
+      id: snap.id,
+      playerCode: snap.playerCode,
+      conclaveCode: snap.conclaveCode,
+      name: snap.name,
+      config,
+      llm,
+      engineBaseUrl: config.heresyGameHost,
+      persistence,
+      snapshot: snap
+    });
+    sessionStore.add(session);
+    restored++;
+  } catch (e) {
+    console.warn(`[bot-manager] failed to restore session ${snap.id}:`, e.message);
+  }
+}
+console.log(`[bot-manager] restored ${restored}/${savedSessions.length} persisted sessions`);
 
 app.get('/health', healthHandler);
 registerRestRoutes(app, sessionStore, engineClient, config);
