@@ -62,7 +62,9 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
     res.json(sessionStore.list().map((s) => ({
       botId: s.id, playerCode: s.playerCode, conclaveCode: s.conclaveCode,
       role: s.role, faction: s.faction, alive: s.alive, phase: s.phase, lastAction: s.lastAction,
-      llmPassive: !!(s._llm && (s._llm.label === 'passthrough' || s._llm._label === 'passthrough'))
+      llmPassive: !!(s._llm && (s._llm.label === 'passthrough' || s._llm._label === 'passthrough')),
+      memoryBytes: s.shortTermMemory?.length ?? 0,
+      tokensUsed: s.tokensUsed
     })));
   });
 

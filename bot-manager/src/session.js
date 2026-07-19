@@ -186,7 +186,13 @@ export class BotSession {
       this.alivePlayers = s.players.filter((p) => p.alive).map((p) => p.playerCode);
       // other-bot visibility already comes through bot:session_init
     }
-    if (this._lastPhase && this._lastPhase !== this.phase) this.shortTermMemory.flush();
+    if (this._lastPhase && this._lastPhase !== this.phase) {
+      // Phase changed — compress the current short-term memory into a
+      // persistent note before flushing, so the bot retains a summary of what
+      // happened without carrying 20 raw history lines into every future prompt.
+      this._persistPhaseMemory();
+      this.shortTermMemory.flush();
+    }
     this._lastPhase = this.phase;
     if (Array.isArray(s.privateMessages) && s.privateMessages.length) {
       for (const m of s.privateMessages) {
@@ -326,6 +332,48 @@ export class BotSession {
       });
       this.lastAction = `action:${action.verb}`;
       this._logAction({ kind: 'action', verb: action.verb, action, target: dispatch.payload?.target, targetCode: dispatch.payload?.targetCode });
+    }
+  }
+
+  _persistPhaseMemory() {
+    const items = this.shortTermMemory?.items || [];
+    if (items.length === 0) return;
+
+    // Categorise memory items.
+    const chats = items.filter((i) => i.kind === 'chat_message');
+    const announcements = items.filter((i) => i.kind === 'announcement');
+    const intels = items.filter((i) => i.kind === 'intel_return');
+
+    // Build a compact summary string, capped at the notes value limit (500 chars).
+    const parts = [];
+    if (chats.length) {
+      const speakers = [...new Set(chats.map((c) => c.author || c.from).filter(Boolean))];
+      parts.push(`chat(${chats.length} msgs from ${speakers.join(', ')})`);
+    }
+    if (announcements.length) {
+      const titles = announcements.map((a) => a.title || a.type).filter(Boolean);
+      parts.push(`announce(${titles.join(', ')})`);
+    }
+    if (intels.length) {
+      const results = intels.map((i) => i.intelKind || i.result || 'intel').filter(Boolean);
+      parts.push(`intel(${[...new Set(results)].join(', ')})`);
+    }
+
+    let summary = parts.join('; ');
+    if (summary.length > 500) summary = summary.slice(0, 497) + '...';
+    if (!summary) return;
+
+    // Store under a phase-round key so the LLM sees previous phases' summaries
+    // in the LONG-TERM NOTES block. Key format: "phase-{round}-{phase}" e.g. "phase-3-night".
+    const key = `phase-${this.round || '?'}-${this._lastPhase || '?'}`;
+    this.notes.set(key, summary);
+
+    // Keep at most 6 phase notes (3 full rounds) to avoid bloating the prompt.
+    const allNotes = this.notes.all();
+    const phaseKeys = Object.keys(allNotes).filter((k) => k.startsWith('phase-'));
+    if (phaseKeys.length > 6) {
+      const toRemove = phaseKeys.sort().slice(0, phaseKeys.length - 6);
+      for (const k of toRemove) this.notes.map.delete(k);
     }
   }
 

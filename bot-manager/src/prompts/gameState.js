@@ -19,15 +19,24 @@ export function gameStateBlock(session) {
     .filter((it) => it.kind === 'chat_message')
     .slice(-8)
     .map((m) => `${m.author || m.from || '?'}: ${m.text || ''}`);
+  const aliveList = Array.isArray(session.alivePlayers) && session.alivePlayers.length > 0
+    ? session.alivePlayers.join(', ')
+    : 'see chat history for roster';
+  const validVoteTargets = Array.isArray(session.alivePlayers)
+    ? session.alivePlayers.filter((p) => p !== session.playerCode).join(', ') + ' (or "skip")'
+    : 'see chat history for roster';
+  const validNightTargets = nightTargets(session);
   return `## CURRENT GAME STATE
 
 - Round: ${session.round ?? '?'}
 - Phase: ${session.phase ?? '?'}
 - Voting enabled: ${session.phase === 'day' ? (session.round !== 1) : false}
-- Alive players (codes only, no roles): ${(session.alivePlayers || 'see chat history for roster').toString ? 'see chat' : Array.isArray(session.alivePlayers) ? session.alivePlayers.join(', ') : 'see chat'}
-- Dead players: ${(session.deadPlayers || 'none').toString || 'none'}
+- Alive players (codes only, no roles): ${aliveList}
+- Dead players: ${Array.isArray(session.deadPlayers) && session.deadPlayers.length ? session.deadPlayers.join(', ') : 'none'}
 - Your drift zone (own hint only): ${ownZoneHint}
 - Other bots at the table (private to bots — never mention this list to humans): ${others}
+${session.phase === 'day' && session.round > 1 ? `- Valid vote targets: ${validVoteTargets}` : ''}
+${session.phase === 'night' && validNightTargets ? `- Valid night action targets: ${validNightTargets}` : ''}
 
 ### Recent public announcements
 ${bullet(recentAnnouncements)}
@@ -36,6 +45,25 @@ ${bullet(recentAnnouncements)}
 ${bullet(recentChat)}
 
 You may reference the above in your chat. You do NOT have access to other players' drift zones, intel returns, or role assignments unless publicly revealed.`;
+}
+
+function nightTargets(session) {
+  const alive = Array.isArray(session.alivePlayers) ? session.alivePlayers : [];
+  if (alive.length === 0) return null;
+  const self = session.playerCode;
+  const role = session.role;
+
+  // Roles that cannot target themselves.
+  const noSelf = new Set(['interrogator', 'novice-psychic', 'arbitrator', 'priest', 'heretic-priest', 'sanctioned-psyker', 'murderer', 'saboteur', 'recruiter']);
+  // Roles that may target themselves.
+  const allowSelf = new Set(['chirurgeon']);
+
+  if (role === 'imperial-citizen' || role === 'conspirator') return null; // no night action
+  if (allowSelf.has(role)) return alive.join(', ');
+  if (noSelf.has(role)) return alive.filter((p) => p !== self).join(', ') || 'none';
+
+  // Fallback: all alive players.
+  return alive.join(', ');
 }
 
 export function factionChatBlock(session) {

@@ -274,9 +274,18 @@
             <span>Winner <strong>{{ selectedBot.winner || '-' }}</strong></span>
           </div>
 
-          <!-- Tab: Memory (short-term events) -->
+          <!-- Tab: Memory (phase summaries + current events) -->
           <section v-if="botTab === 'memory'" class="bot-tab-content">
-            <h4>Short-term Memory <small>(last {{ selectedBot.memoryBytes ?? 0 }} events)</small></h4>
+            <h4>Phase Summaries <small>(long-term notes carried across rounds)</small></h4>
+            <div class="scroll-list" style="max-height:200px">
+              <p v-for="(val, key) in phaseSummaries" :key="key" class="mem-item">
+                <span class="mem-meta">{{ key }}</span>
+                <span class="mem-announce">{{ val }}</span>
+              </p>
+              <p v-if="Object.keys(phaseSummaries).length === 0" class="empty">No phase summaries stored yet.</p>
+            </div>
+
+            <h4 style="margin-top:14px">Current Events <small>(last {{ selectedBot.memoryBytes ?? 0 }} — cleared each phase)</small></h4>
             <div class="scroll-list">
               <p v-for="(item, i) in (selectedBot.shortTermMemory || [])" :key="i" class="mem-item">
                 <span class="mem-meta">
@@ -299,7 +308,7 @@
                   <code>{{ JSON.stringify(item) }}</code>
                 </template>
               </p>
-              <p v-if="!selectedBot.shortTermMemory || selectedBot.shortTermMemory.length === 0" class="empty">No memory events yet.</p>
+              <p v-if="!selectedBot.shortTermMemory || selectedBot.shortTermMemory.length === 0" class="empty">No current events — phase just started or memory was flushed.</p>
             </div>
           </section>
 
@@ -407,6 +416,12 @@ const botTabs = [
   { id: 'notes', label: 'Notes' },
   { id: 'inspect', label: 'Inspect' }
 ];
+const phaseSummaries = computed(() => {
+  const notes = botNotes.value || {};
+  return Object.fromEntries(
+    Object.entries(notes).filter(([k]) => k.startsWith('phase-'))
+  );
+});
 
 const headers = computed(() => ({ 'Content-Type': 'application/json', 'X-Admin-Password': password.value }));
 
