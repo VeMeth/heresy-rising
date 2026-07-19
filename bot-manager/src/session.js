@@ -29,6 +29,15 @@ function enqueueLLMCall(fn) {
 // pluggable `llm` (Phase 4 swaps in ChatMiniMax / MockLLM). Until then, a
 // PassThroughLLM makes the bot observe silently.
 export class BotSession {
+  // Per-phase cap on chat messages this session is allowed to send. Picked
+  // small enough that two bots cannot exchange more than a couple of round
+  // trips before going silent — large enough that a bot still has room to
+  // claim its role on Day 1 and react once to a real human question.
+  static CHAT_SENT_PER_PHASE_MAX = 2;
+  // How many recent chat messages must all be from bots before we treat the
+  // conversation as an echo chamber and stop replying.
+  static ECHO_CHAMBER_LOOKBACK = 3;
+
   constructor({ id, conclaveCode, playerCode, name, personaOverrides, costCeiling, config, llm, engineBaseUrl, persistence, snapshot: snap } = {}) {
     this.id = id;
     this.playerCode = playerCode || id;
@@ -211,6 +220,7 @@ export class BotSession {
     if (this._lastPhase && this._lastPhase !== this.phase) {
       // Phase changed — reset phase-scoped counters and schedule consolidation.
       this._botMessagesThisPhase = 0;
+      this._chatSentThisPhase = 0;
       this._scheduleConsolidation();
     }
     // Reset per-round vote tracking on round change.
@@ -239,14 +249,28 @@ export class BotSession {
     // If it's day chat and not in cooldown, schedule a debounced chat reply.
     this._save();
     if (this.phase === 'day' && this._config.chatDebounceMs > 0) {
-      // Track total bot messages this phase. Once bots have flooded the channel
-      // enough, they stop replying until the next phase. This prevents echo
-      // chambers even if a human occasionally chimes in.
-      const isBot = Array.isArray(this.botIds) && this.botIds.includes(m.player_code);
-      if (isBot) {
-        this._botMessagesThisPhase = (this._botMessagesThisPhase || 0) + 1;
+      // Hard per-bot cap: this session gets at most CHAT_SENT_PER_PHASE_MAX
+      // chat messages out per phase. After that the bot stays silent until
+      // the next phase, regardless of who speaks. Stops bots from monopolising
+      // the channel.
+      if ((this._chatSentThisPhase || 0) >= BotSession.CHAT_SENT_PER_PHASE_MAX) {
+        if (this._chatTimer) { clearTimeout(this._chatTimer); this._chatTimer = null; }
+        return;
       }
-      if ((this._botMessagesThisPhase || 0) >= 12) return;
+
+      // Echo-chamber guard: if the last three chat messages are all from
+      // bots, do not reply. The NO ECHO CHAMBER rule in the prompt is
+      // advisory — the LLM still drifts into agreeing with itself — so we
+      // enforce it on the client side. A human message resets the streak.
+      const recent = (this.shortTermMemory?.items || [])
+        .filter((it) => it.kind === 'chat_message')
+        .slice(-BotSession.ECHO_CHAMBER_LOOKBACK);
+      if (recent.length === BotSession.ECHO_CHAMBER_LOOKBACK &&
+          recent.every((it) => Array.isArray(this.botIds) && this.botIds.includes(it.from))) {
+        if (this._chatTimer) { clearTimeout(this._chatTimer); this._chatTimer = null; }
+        return;
+      }
+
       if (this._chatTimer) clearTimeout(this._chatTimer);
       this._chatTimer = setTimeout(() => this._act({ kind: 'chat_reply' }).catch(() => {}), this._config.chatDebounceMs + (this._chatJitterMs || 0));
     }
@@ -347,6 +371,7 @@ export class BotSession {
     if (!this._socket || !this._socket.connected) { this.lastAction = 'socket_offline'; this._logAction({ kind: 'socket_offline', action }); return; }
 
     if (dispatch.type === 'chat') {
+      this._chatSentThisPhase = (this._chatSentThisPhase || 0) + 1;
       this._emit('chat:send', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`chat:send rejected for ${this.id}: ${ack.error}`);
       });
