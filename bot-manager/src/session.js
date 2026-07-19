@@ -42,6 +42,7 @@ export class BotSession {
       if (snap.notes && typeof snap.notes === 'object') {
         for (const [k, v] of Object.entries(snap.notes)) this.notes.set(k, v);
       }
+      this.actionLog = [];
     } else {
       this.role = null;
       this.faction = null;
@@ -58,6 +59,7 @@ export class BotSession {
       this.startedAt = Date.now();
       this.shortTermMemory = new BufferWindow({ windowSize: 20 });
       this.notes = new StructuredNotes();
+      this.actionLog = [];
     }
     this._config = config;
     this._llm = llm || { async generate() { return { kind: 'pass' }; _label: 'passthrough' } };
@@ -128,7 +130,13 @@ export class BotSession {
       costCeiling: this.costCeiling,
       startedAt: this.startedAt,
       connected: !!(this._socket && this._socket.connected),
-      llmPassive: !!(this._llm && (this._llm.label === 'passthrough' || this._llm._label === 'passthrough'))
+      llmPassive: !!(this._llm && (this._llm.label === 'passthrough' || this._llm._label === 'passthrough')),
+      shortTermMemory: this.shortTermMemory.inspect(),
+      actionLog: this.actionLog,
+      sessionInit: this.sessionInit,
+      personaOverrides: this.personaOverrides,
+      alivePlayers: this.alivePlayers,
+      winner: this.winner
     };
   }
 
@@ -257,9 +265,10 @@ export class BotSession {
     } catch (e) {
       console.warn(`[bot-manager] LLM generate failed for ${this.id}:`, e.message);
       this.lastAction = 'llm_error';
+      this._logAction({ kind: 'llm_error', error: e.message });
       return;
     }
-    if (!action) { this.lastAction = 'pass'; return; }
+    if (!action) { this.lastAction = 'pass'; this._logAction({ kind: 'pass' }); return; }
 
     // Forward any notes the bot wants to persist into its structured memory.
     // Notes are write-only side effects — apply them even on `pass` so the bot
@@ -269,7 +278,7 @@ export class BotSession {
     }
 
     this._save();
-    if (action.kind === 'pass') { this.lastAction = 'pass'; return; }
+    if (action.kind === 'pass') { this.lastAction = 'pass'; this._logAction({ kind: 'pass' }); return; }
 
     // Soft pre-validation. Engine is still the source of truth — but if our
     // validator catches an obvious violation (self-target, day-1 vote, etc.)
@@ -279,30 +288,40 @@ export class BotSession {
     if (!validation.ok) {
       console.warn(`[bot-manager] validator rejected action for ${this.id} (${this.role}): ${validation.reason}`);
       this.lastAction = `rejected:${validation.reason}`;
+      this._logAction({ kind: 'rejected', action, reason: validation.reason });
       return;
     }
 
     const dispatch = buildEnginePayload(action, this);
-    if (!dispatch) { this.lastAction = 'invalid_action'; return; }
-    if (dispatch.type === 'pass' || dispatch.type === 'sleep') { this.lastAction = dispatch.type; return; }
-    if (!this._socket || !this._socket.connected) { this.lastAction = 'socket_offline'; return; }
+    if (!dispatch) { this.lastAction = 'invalid_action'; this._logAction({ kind: 'invalid_action', action }); return; }
+    if (dispatch.type === 'pass' || dispatch.type === 'sleep') { this.lastAction = dispatch.type; this._logAction({ kind: dispatch.type, action }); return; }
+    if (!this._socket || !this._socket.connected) { this.lastAction = 'socket_offline'; this._logAction({ kind: 'socket_offline', action }); return; }
 
     if (dispatch.type === 'chat') {
       this._emit('chat:send', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`chat:send rejected for ${this.id}: ${ack.error}`);
       });
       this.lastAction = 'chat';
+      this._logAction({ kind: 'chat', action, target: dispatch.payload?.target, text: dispatch.payload?.body });
     } else if (dispatch.type === 'vote') {
       this._emit('vote:submit', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`vote:submit rejected for ${this.id}: ${ack.error}`);
       });
       this.lastAction = 'vote';
+      this._logAction({ kind: 'vote', action, target: dispatch.payload?.target });
     } else if (dispatch.type === 'action') {
       this._emit('action:submit', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`action:submit rejected for ${this.id}: ${ack.error}`);
       });
       this.lastAction = `action:${action.verb}`;
+      this._logAction({ kind: 'action', verb: action.verb, action, target: dispatch.payload?.target, targetCode: dispatch.payload?.targetCode });
     }
+  }
+
+  _logAction(entry) {
+    this.actionLog.push({ ts: Date.now(), phase: this.phase, round: this.round, ...entry });
+    // Cap the log to the last 50 entries
+    if (this.actionLog.length > 50) this.actionLog.splice(0, this.actionLog.length - 50);
   }
 
   // Unwraps socket.io's `(err, ack)` callback shape so the rest of the session

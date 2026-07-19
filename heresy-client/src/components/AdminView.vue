@@ -242,31 +242,130 @@
           </div>
         </section>
 
-        <section v-if="selectedBot" class="bot-notes">
+        <section v-if="selectedBot" class="bot-detail">
           <header class="detail-head">
             <div>
-              <span>BOT NOTES</span>
-              <h3>{{ selectedBot.botId }}</h3>
+              <span>BOT</span>
+              <h3>{{ selectedBot.name || selectedBot.botId }}</h3>
             </div>
-            <button type="button" @click="selectedBot = null">Close</button>
+            <div class="actions">
+              <button
+                v-for="t in botTabs"
+                :key="t.id"
+                type="button"
+                :class="{ active: botTab === t.id }"
+                @click="botTab = t.id"
+              >{{ t.label }}</button>
+              <button type="button" @click="selectedBot = null; botNotes = {}">Close</button>
+            </div>
           </header>
-          <div class="columns">
-            <div>
-              <h4>Read</h4>
-              <pre>{{ pretty(botNotes) }}</pre>
-              <button type="button" @click="loadBotNotes(selectedBot.botId)">Reload</button>
-            </div>
-            <div>
-              <h4>Write</h4>
-              <label>Key<input v-model="noteForm.key" type="text" placeholder="P-02-suspicion" /></label>
-              <label>Value<input v-model="noteForm.value" type="text" placeholder="voted against me on Day 2" /></label>
-              <button type="button" @click="saveBotNote">Save note</button>
-            </div>
+
+          <!-- Bot info bar -->
+          <div class="facts">
+            <span>Role <strong>{{ selectedBot.role || '-' }}</strong></span>
+            <span>Faction <strong>{{ selectedBot.faction || '-' }}</strong></span>
+            <span>Phase <strong>{{ selectedBot.phase || '-' }}</strong></span>
+            <span>Round <strong>{{ selectedBot.round ?? '-' }}</strong></span>
+            <span>Alive <strong>{{ selectedBot.alive === false ? 'No' : 'Yes' }}</strong></span>
+            <span>Last <strong><code>{{ selectedBot.lastAction || '-' }}</code></strong></span>
+            <span>Tokens <strong>{{ selectedBot.tokensUsed ?? 0 }} / {{ selectedBot.costCeiling ?? '?' }}</strong></span>
+            <span>Memory <strong>{{ selectedBot.memoryBytes ?? 0 }} events</strong></span>
+            <span>Connected <strong>{{ selectedBot.connected ? 'Yes' : 'No' }}</strong></span>
+            <span>Winner <strong>{{ selectedBot.winner || '-' }}</strong></span>
           </div>
-          <details>
-            <summary>Inspect session</summary>
+
+          <!-- Tab: Memory (short-term events) -->
+          <section v-if="botTab === 'memory'" class="bot-tab-content">
+            <h4>Short-term Memory <small>(last {{ selectedBot.memoryBytes ?? 0 }} events)</small></h4>
+            <div class="scroll-list">
+              <p v-for="(item, i) in (selectedBot.shortTermMemory || [])" :key="i" class="mem-item">
+                <span class="mem-meta">
+                  <template v-if="item.round != null">R{{ item.round }} </template>
+                  <template v-if="item.phase">{{ item.phase }} </template>
+                  <template v-if="item.kind">· {{ item.kind }}</template>
+                </span>
+                <template v-if="item.kind === 'chat_message'">
+                  <strong>{{ item.author || item.from }}:</strong> {{ item.text }}
+                </template>
+                <template v-else-if="item.kind === 'announcement'">
+                  <span class="mem-announce">{{ item.title }}: {{ item.message }}</span>
+                </template>
+                <template v-else-if="item.kind === 'intel_return'">
+                  <span class="mem-intel">Intel: {{ item.intelKind || item.type }}
+                    <template v-if="item.message">— {{ item.message }}</template>
+                  </span>
+                </template>
+                <template v-else>
+                  <code>{{ JSON.stringify(item) }}</code>
+                </template>
+              </p>
+              <p v-if="!selectedBot.shortTermMemory || selectedBot.shortTermMemory.length === 0" class="empty">No memory events yet.</p>
+            </div>
+          </section>
+
+          <!-- Tab: Actions -->
+          <section v-if="botTab === 'actions'" class="bot-tab-content">
+            <h4>Action Log <small>(last {{ (selectedBot.actionLog || []).length }} actions)</small></h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Time</th><th>Round</th><th>Phase</th><th>Kind</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(entry, i) in (selectedBot.actionLog || []).slice().reverse()" :key="i">
+                    <td>{{ formatDate(entry.ts) }}</td>
+                    <td>{{ entry.round ?? '-' }}</td>
+                    <td>{{ entry.phase || '-' }}</td>
+                    <td><code>{{ entry.kind }}</code></td>
+                    <td class="action-detail">
+                      <template v-if="entry.kind === 'chat'">
+                        <span v-if="entry.text">“{{ entry.text }}”</span>
+                        <span v-else-if="entry.target">→ {{ entry.target }}</span>
+                      </template>
+                      <template v-else-if="entry.kind === 'vote'">
+                        Vote → <strong>{{ entry.target || 'skip' }}</strong>
+                      </template>
+                      <template v-else-if="entry.kind === 'action'">
+                        <strong>{{ entry.verb }}</strong>
+                        <span v-if="entry.targetCode"> → {{ entry.targetCode }}</span>
+                        <span v-if="entry.target"> ({{ entry.target }})</span>
+                      </template>
+                      <template v-else-if="entry.kind === 'rejected'">
+                        <span class="mem-intel">{{ entry.reason }}</span>
+                      </template>
+                      <template v-else>
+                        <code>{{ JSON.stringify(entry.action || entry) }}</code>
+                      </template>
+                    </td>
+                  </tr>
+                  <tr v-if="!selectedBot.actionLog || selectedBot.actionLog.length === 0"><td colspan="5"><p class="empty">No actions recorded yet.</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Tab: Notes (existing read/write) -->
+          <section v-if="botTab === 'notes'" class="bot-tab-content bot-notes-panel">
+            <div class="columns">
+              <div>
+                <h4>Read</h4>
+                <pre>{{ pretty(botNotes) }}</pre>
+                <button type="button" @click="loadBotNotes(selectedBot.botId)">Reload</button>
+              </div>
+              <div>
+                <h4>Write</h4>
+                <label>Key<input v-model="noteForm.key" type="text" placeholder="P-02-suspicion" /></label>
+                <label>Value<input v-model="noteForm.value" type="text" placeholder="voted against me on Day 2" /></label>
+                <button type="button" @click="saveBotNote">Save note</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Tab: Inspect (raw JSON) -->
+          <section v-if="botTab === 'inspect'" class="bot-tab-content">
+            <h4>Raw session data</h4>
             <pre>{{ pretty(selectedBot) }}</pre>
-          </details>
+          </section>
         </section>
       </section>
     </section>
@@ -301,6 +400,13 @@ const lastSpawnResult = ref(null);
 const selectedBot = ref(null);
 const botNotes = ref({});
 const noteForm = ref({ key:'', value:'' });
+const botTab = ref('memory');
+const botTabs = [
+  { id: 'memory', label: 'Memory' },
+  { id: 'actions', label: 'Actions' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'inspect', label: 'Inspect' }
+];
 
 const headers = computed(() => ({ 'Content-Type': 'application/json', 'X-Admin-Password': password.value }));
 
@@ -510,5 +616,5 @@ if (authenticated.value) loadOverview();
 </script>
 
 <style scoped>
-.admin-shell{min-height:100vh;background:#101312;color:#e7e3d5;padding:24px;font-family:Inter,system-ui,sans-serif}.login-panel,.control-room{max-width:1500px;margin:0 auto}.login-panel{width:min(440px,100%);margin-top:12vh;background:#171a16;border:1px solid #34372f;padding:28px}.login-panel span,.topbar span,.detail-head span{color:#b69a5c;font-size:11px;font-weight:800;letter-spacing:.16em}.login-panel h1,.topbar h1,.detail-head h2{margin:6px 0 18px;font-family:Cinzel,serif}.login-panel form{display:grid;gap:14px}label{display:grid;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa99d}input,select{background:#0d0f0d;border:1px solid #3a3c34;color:#e7e3d5;padding:9px;border-radius:2px}button{background:#8f7543;border:1px solid #b99c62;color:#0b0c0a;padding:9px 12px;text-transform:uppercase;font-size:10px;font-weight:800;letter-spacing:.1em;cursor:pointer}button.danger{background:#7a2a25;border-color:#a8463d;color:#fff}button:disabled{opacity:.5}.error{border:1px solid #70352f;background:#321916;color:#d99b95;padding:10px}.topbar,.detail-head,.actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.actions{justify-content:flex-end}.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:20px 0}.metrics div,.detail,.logs,.cell-list button{background:#171a16;border:1px solid #34372f}.metrics div{padding:14px}.metrics span,.facts span{display:block;color:#8f9287;font-size:10px;text-transform:uppercase;letter-spacing:.12em}.metrics strong{display:block;margin-top:5px;font-size:24px}.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs .active,.cell-list .selected{background:#2b271b;color:#dfc27c;border-color:#b69a5c}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}.cell-list{display:grid;align-content:start;gap:8px}.cell-list button{text-align:left;color:#e7e3d5;padding:14px}.cell-list strong,.cell-list span,.cell-list small{display:block}.cell-list span{margin-top:4px;color:#c8c0aa}.cell-list small{margin-top:5px;color:#8f9287}.detail,.logs{padding:18px;min-width:0}.facts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:16px 0}.facts span{background:#0d0f0d;border:1px solid #2c3028;padding:10px}.facts strong{display:block;color:#e7e3d5;margin-top:4px;text-transform:none;letter-spacing:0}.table-wrap{overflow:auto;border:1px solid #34372f}table{width:100%;border-collapse:collapse;min-width:900px}th,td{border-bottom:1px solid #2c3028;padding:9px;text-align:left;vertical-align:top}th{color:#b69a5c;font-size:10px;text-transform:uppercase;letter-spacing:.12em;background:#11130f}td code{display:block;margin-top:4px;color:#8f9287;font-size:10px}.checks{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:6px}.checks label{display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;letter-spacing:0}.checks input{width:auto}.columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}pre,.scroll-list{max-height:360px;overflow:auto;background:#0b0d0b;border:1px solid #2c3028;color:#d9d7cc;padding:12px;font-size:12px;line-height:1.5}.scroll-list p{border-bottom:1px solid #252820;margin:0;padding:9px 0;white-space:pre-wrap}.scroll-list span{display:block;color:#8f9287;font-size:10px;margin-bottom:4px}.badge-passive{display:inline-block;background:#5a3e1f;color:#f0c674;border:1px solid #8f6d3a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-active{display:inline-block;background:#1f3a25;color:#74c68a;border:1px solid #3a6d4a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.warning-banner{background:#3a2a0f;border:1px solid #8f6d3a;color:#f0c674;padding:10px;margin:10px 0;font-size:12px;border-radius:2px}.empty{color:#8f9287}@media(max-width:900px){.metrics,.facts,.columns,.layout{grid-template-columns:1fr}.topbar,.detail-head{align-items:flex-start;flex-direction:column}}
+.admin-shell{min-height:100vh;background:#101312;color:#e7e3d5;padding:24px;font-family:Inter,system-ui,sans-serif}.login-panel,.control-room{max-width:1500px;margin:0 auto}.login-panel{width:min(440px,100%);margin-top:12vh;background:#171a16;border:1px solid #34372f;padding:28px}.login-panel span,.topbar span,.detail-head span{color:#b69a5c;font-size:11px;font-weight:800;letter-spacing:.16em}.login-panel h1,.topbar h1,.detail-head h2{margin:6px 0 18px;font-family:Cinzel,serif}.login-panel form{display:grid;gap:14px}label{display:grid;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa99d}input,select{background:#0d0f0d;border:1px solid #3a3c34;color:#e7e3d5;padding:9px;border-radius:2px}button{background:#8f7543;border:1px solid #b99c62;color:#0b0c0a;padding:9px 12px;text-transform:uppercase;font-size:10px;font-weight:800;letter-spacing:.1em;cursor:pointer}button.danger{background:#7a2a25;border-color:#a8463d;color:#fff}button:disabled{opacity:.5}.error{border:1px solid #70352f;background:#321916;color:#d99b95;padding:10px}.topbar,.detail-head,.actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.actions{justify-content:flex-end}.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:20px 0}.metrics div,.detail,.logs,.cell-list button{background:#171a16;border:1px solid #34372f}.metrics div{padding:14px}.metrics span,.facts span{display:block;color:#8f9287;font-size:10px;text-transform:uppercase;letter-spacing:.12em}.metrics strong{display:block;margin-top:5px;font-size:24px}.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs .active,.cell-list .selected{background:#2b271b;color:#dfc27c;border-color:#b69a5c}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}.cell-list{display:grid;align-content:start;gap:8px}.cell-list button{text-align:left;color:#e7e3d5;padding:14px}.cell-list strong,.cell-list span,.cell-list small{display:block}.cell-list span{margin-top:4px;color:#c8c0aa}.cell-list small{margin-top:5px;color:#8f9287}.detail,.logs{padding:18px;min-width:0}.facts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:16px 0}.facts span{background:#0d0f0d;border:1px solid #2c3028;padding:10px}.facts strong{display:block;color:#e7e3d5;margin-top:4px;text-transform:none;letter-spacing:0}.table-wrap{overflow:auto;border:1px solid #34372f}table{width:100%;border-collapse:collapse;min-width:900px}th,td{border-bottom:1px solid #2c3028;padding:9px;text-align:left;vertical-align:top}th{color:#b69a5c;font-size:10px;text-transform:uppercase;letter-spacing:.12em;background:#11130f}td code{display:block;margin-top:4px;color:#8f9287;font-size:10px}.checks{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:6px}.checks label{display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;letter-spacing:0}.checks input{width:auto}.columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}pre,.scroll-list{max-height:360px;overflow:auto;background:#0b0d0b;border:1px solid #2c3028;color:#d9d7cc;padding:12px;font-size:12px;line-height:1.5}.scroll-list p{border-bottom:1px solid #252820;margin:0;padding:9px 0;white-space:pre-wrap}.scroll-list span{display:block;color:#8f9287;font-size:10px;margin-bottom:4px}.badge-passive{display:inline-block;background:#5a3e1f;color:#f0c674;border:1px solid #8f6d3a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-active{display:inline-block;background:#1f3a25;color:#74c68a;border:1px solid #3a6d4a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.warning-banner{background:#3a2a0f;border:1px solid #8f6d3a;color:#f0c674;padding:10px;margin:10px 0;font-size:12px;border-radius:2px}.empty{color:#8f9287}.bot-detail{background:#171a16;border:1px solid #34372f;padding:18px;margin-top:14px}.bot-detail .facts{grid-template-columns:repeat(5,minmax(0,1fr))}.bot-tab-content h4{margin:0 0 10px;font-family:Cinzel,serif;color:#c8c0aa}.bot-tab-content h4 small{font-size:10px;color:#8f9287;font-weight:400}.mem-item{padding:7px 0;border-bottom:1px solid #252820;font-size:12px;line-height:1.5;white-space:pre-wrap}.mem-meta{display:block;color:#8f9287;font-size:10px;margin-bottom:3px}.mem-announce{color:#b69a5c}.mem-intel{color:#c67a5c}.action-detail{font-size:12px}.bot-notes-panel pre{max-height:200px}.bot-notes-panel .columns{gap:20px}@media(max-width:900px){.metrics,.facts,.columns,.layout{grid-template-columns:1fr}.topbar,.detail-head{align-items:flex-start;flex-direction:column}}
 </style>
