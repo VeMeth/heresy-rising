@@ -100,6 +100,28 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
     }
   });
 
+  // DELETE /bots/by-conclave/:conclaveCode — despawn ALL bots in a conclave.
+  // Used when the game is deleted; force-teardown regardless of phase since the
+  // game no longer exists. Tries to clean up engine seats but does not fail if
+  // the engine is already gone.
+  app.delete('/bots/by-conclave/:conclaveCode', auth, async (req, res) => {
+    const conclaveCode = req.params.conclaveCode;
+    const matches = sessionStore.list().filter((s) => s.conclaveCode === conclaveCode);
+    const results = [];
+    for (const s of matches) {
+      try {
+        await engineClient.despawn({ conclaveCode, playerCode: s.playerCode }).catch(() => {});
+        await s.close();
+        sessionStore.remove(s.id);
+        req.app.get('persistence')?.remove(s.id);
+        results.push({ botId: s.id, ok: true });
+      } catch (e) {
+        results.push({ botId: s.id, ok: false, error: e.message });
+      }
+    }
+    res.json({ ok: true, count: results.length, results });
+  });
+
   // POST /bots/:id/notes — {key, value} inject into the session's notes.
   app.post('/bots/:id/notes', auth, (req, res) => {
     const s = getSessionOrThrow(req, res); if (!s) return;
