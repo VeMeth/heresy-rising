@@ -67,6 +67,13 @@ export class BotSession {
     this._chatTimer = null;
     this._actTimer = null;
     this._closing = false;
+    // Per-bot random stagger to avoid all bots hitting the LLM API simultaneously.
+    // Acts (night/vote prompts) get 0..botActionDelayMs of extra jitter;
+    // chat replies get 0..chatDebounceMs of extra jitter.
+    const actJitter = Math.random() * Number(config?.botActionDelayMs || 10000);
+    const chatJitter = Math.random() * Number(config?.chatDebounceMs || 2000);
+    this._actJitterMs = Math.floor(actJitter);
+    this._chatJitterMs = Math.floor(chatJitter);
     this.connect();
   }
 
@@ -193,7 +200,7 @@ export class BotSession {
     this._save();
     if (this.phase === 'day' && this._config.chatDebounceMs > 0) {
       if (this._chatTimer) clearTimeout(this._chatTimer);
-      this._chatTimer = setTimeout(() => this._act({ kind: 'chat_reply' }).catch(() => {}), this._config.chatDebounceMs);
+      this._chatTimer = setTimeout(() => this._act({ kind: 'chat_reply' }).catch(() => {}), this._config.chatDebounceMs + (this._chatJitterMs || 0));
     }
   }
 
@@ -230,7 +237,8 @@ export class BotSession {
   _scheduleAct(prompt) {
     if (this._closing) return;
     if (this._actTimer) clearTimeout(this._actTimer);
-    const delay = Math.max(0, Number(this._config.botActionDelayMs) || 0);
+    const baseDelay = Math.max(0, Number(this._config.botActionDelayMs) || 0);
+    const delay = baseDelay + (this._actJitterMs || 0);
     this._actTimer = setTimeout(() => {
       this._act(prompt).catch((e) => console.warn(`[bot-manager] act errored for ${this.id}:`, e.message));
       this._actTimer = null;
