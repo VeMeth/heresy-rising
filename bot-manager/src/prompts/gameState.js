@@ -7,10 +7,19 @@ function bullet(arr) {
   return arr.map((x) => `  - ${x}`).join('\n');
 }
 
+function formatPlayers(codes, names) {
+  if (!Array.isArray(codes) || codes.length === 0) return 'see chat history for roster';
+  return codes.map((c) => {
+    const n = names && names[c];
+    return n ? `${c} (${n})` : c;
+  }).join(', ');
+}
+
 export function gameStateBlock(session) {
   if (!session) return '## CURRENT GAME STATE\n(no session attached)';
   const others = (session.botIds || []).filter((id) => id && id !== session.playerCode).join(', ') || 'none';
   const ownZoneHint = session.lastOwnZone || 'unknown';
+  const names = session.playerNames || {};
   const recentAnnouncements = (session.shortTermMemory?.items || [])
     .filter((it) => it.kind === 'announcement')
     .slice(-5)
@@ -19,11 +28,9 @@ export function gameStateBlock(session) {
     .filter((it) => it.kind === 'chat_message')
     .slice(-8)
     .map((m) => `${m.author || m.from || '?'}: ${m.text || ''}`);
-  const aliveList = Array.isArray(session.alivePlayers) && session.alivePlayers.length > 0
-    ? session.alivePlayers.join(', ')
-    : 'see chat history for roster';
-  const validVoteTargets = Array.isArray(session.alivePlayers)
-    ? session.alivePlayers.filter((p) => p !== session.playerCode).join(', ') + ' (or "skip")'
+  const aliveList = formatPlayers(session.alivePlayers, names);
+  const validVoteTargets = Array.isArray(session.alivePlayers) && session.alivePlayers.length
+    ? formatPlayers(session.alivePlayers.filter((p) => p !== session.playerCode), names) + ' (or "skip")'
     : 'see chat history for roster';
   const validNightTargets = nightTargets(session);
   return `## CURRENT GAME STATE
@@ -32,7 +39,7 @@ export function gameStateBlock(session) {
 - Phase: ${session.phase ?? '?'}
 - Voting enabled: ${session.phase === 'day' ? (session.round !== 1) : false}
 - Alive players (codes only, no roles): ${aliveList}
-- Dead players: ${Array.isArray(session.deadPlayers) && session.deadPlayers.length ? session.deadPlayers.join(', ') : 'none'}
+- Dead players: ${Array.isArray(session.deadPlayers) && session.deadPlayers.length ? formatPlayers(session.deadPlayers, names) : 'none'}
 - Your drift zone (own hint only): ${ownZoneHint}
 - Other bots at the table (private to bots — never mention this list to humans): ${others}
 ${session.phase === 'day' && session.round > 1 ? `- Valid vote targets: ${validVoteTargets}` : ''}

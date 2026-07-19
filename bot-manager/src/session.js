@@ -185,6 +185,11 @@ export class BotSession {
       // Track the codes of all currently-alive players. The bot is drift-blind
       // — it only sees codes from public roster, never drift values or zones.
       this.alivePlayers = s.players.filter((p) => p.alive).map((p) => p.playerCode);
+      // Build a name→code map so the bot can refer to players by name in chat.
+      this.playerNames = {};
+      for (const p of s.players) {
+        if (p.name && p.playerCode) this.playerNames[p.playerCode] = p.name;
+      }
       // other-bot visibility already comes through bot:session_init
     }
     if (this._lastPhase && this._lastPhase !== this.phase) {
