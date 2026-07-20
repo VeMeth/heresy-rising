@@ -22,7 +22,7 @@ const badgeLabels = {
   'execution': 'SUMMARY EXECUTION',
   'lynch': 'SENTENCE CARRIED OUT',
   'protection': 'CHIRURGEON INTERVENTION',
-  'interrogation': 'INTERROGATION',
+  'torture-chamber': 'TORTURE CHAMBER',
   'confession': 'CONFESSION',
   'gameover': 'CONCLUSION'
 };
@@ -119,8 +119,8 @@ const animationKey = computed(() => {
 .type-protection .announcement-backdrop { background: rgba(0, 30, 50, 0.45); }
 .type-protection .announcement-card { border-color: #1a4a6b; color: #66c0ff; }
 
-.type-interrogation .announcement-backdrop { background: rgba(50, 40, 0, 0.5); }
-.type-interrogation .announcement-card { border-color: #6b5a1a; color: #ffd700; }
+.type-torture-chamber .announcement-backdrop { background: rgba(50, 40, 0, 0.5); }
+.type-torture-chamber .announcement-card { border-color: #6b5a1a; color: #ffd700; }
 
 .type-confession .announcement-backdrop { background: rgba(40, 0, 50, 0.5); }
 .type-confession .announcement-card { border-color: #5a1a6b; color: #c966ff; }
