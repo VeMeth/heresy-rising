@@ -85,7 +85,6 @@
         <template v-else>
           <div class="dossier-header">
             <span class="eyebrow">CLASSIFIED DOSSIER</span>
-            <span class="dossier-stamp">SEALED · EYES ONLY</span>
           </div>
           <div class="role-card" :class="me?.faction">
             <span class="role-sigil" aria-hidden="true">{{ me?.faction === 'heretic' ? '✶' : '☉' }}</span>
@@ -317,18 +316,7 @@ button.ghost.wide.stand-down-leading {
   letter-spacing: 0.1em;
   margin: 4px 0 0;
 }
-.dossier-stamp {
-  display: inline-block;
-  align-self: flex-start;
-  font: 700 9px/1 Inter, sans-serif;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--red);
-  border: 1px solid var(--red);
-  padding: 4px 8px;
-  margin-top: 2px;
-  opacity: 0.85;
-}
+
 
 .role-card {
   position: relative;
@@ -465,16 +453,38 @@ button.ghost.wide.stand-down-leading {
   border-bottom: 1px solid var(--line);
 }
 
-.selected-summary {
-  font: 500 11px/1.5 Inter, sans-serif;
-  color: var(--muted);
-  text-align: center;
-  padding: 10px 12px;
-  margin: 0 0 10px;
-  background: rgba(182, 154, 92, 0.06);
-  border: 1px dashed rgba(182, 154, 92, 0.4);
+/* Glow the action block so players can't miss their turn prompt */
+.order-block {
+  position: relative;
+  margin-top: 18px;
+  padding: 16px 14px 14px;
+  background: linear-gradient(180deg, rgba(40, 32, 14, 0.55), rgba(20, 16, 8, 0.55));
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 1px rgba(182, 154, 92, 0.25),
+    0 0 18px rgba(255, 200, 90, 0.18),
+    inset 0 0 24px rgba(182, 154, 92, 0.08);
+  animation: actionGlow 2.6s ease-in-out infinite alternate;
 }
-.selected-summary strong { color: var(--gold2); font-weight: 600; }
+@keyframes actionGlow {
+  from {
+    box-shadow:
+      0 0 0 1px rgba(182, 154, 92, 0.22),
+      0 0 14px rgba(255, 200, 90, 0.14),
+      inset 0 0 20px rgba(182, 154, 92, 0.06);
+  }
+  to {
+    box-shadow:
+      0 0 0 1px rgba(182, 154, 92, 0.42),
+      0 0 26px rgba(255, 200, 90, 0.32),
+      inset 0 0 32px rgba(182, 154, 92, 0.14);
+  }
+}
+.order-block .eyebrow {
+  color: var(--gold);
+  letter-spacing: 0.2em;
+}
 
 /* Final judgement — give the reveal list nicer pills instead of plain text rows */
 .reveal-list {
