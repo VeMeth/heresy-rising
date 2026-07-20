@@ -109,7 +109,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       this.db.prepare("DELETE FROM hr_messages WHERE game_code=?").run(c);
       this.system(c,'Roles sealed. Day 1 begins — review your dossier and discuss.');
     })();
-    players.forEach((x,i)=>{const r=this.role(assigned[i]);this.privateSystem(c,x.player_code,`Your role is ${r.displayName}. ${r.objective}`);});
+    players.forEach((x,i)=>{const r=this.role(assigned[i]);this.privateSystem(c,x.player_code,`Your role is ${r.displayName}. ${r.objective}`);this.emitAnnouncement(c,{type:'role-reveal',title:'YOUR DOSSIER',message:`You are a ${r.displayName}. ${r.objective}`,role:r.displayName,objective:r.objective,faction:r.faction,round:1,phase:'day',targetCode:x.player_code});});
     return this.state(c,p);
   }
   configure(c,p,options={}){const g=this.requireGame(c);if(g.phase!=='lobby')throw new Error('Game has already started');this.requireHost(c,p);const dayMs=Math.max(60000,Math.min(86400000,Number(options.dayMs)||g.day_ms)),nightMs=Math.max(60000,Math.min(86400000,Number(options.nightMs)||g.night_ms)),maxDrift=Math.max(1,Math.min(100,Number(options.maxDrift)||g.max_drift));this.db.prepare('UPDATE hr_games SET day_ms=?,night_ms=?,max_drift=?,updated_at=? WHERE code=?').run(dayMs,nightMs,maxDrift,this.now(),c);return this.state(c,p);}
