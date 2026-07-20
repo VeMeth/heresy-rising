@@ -136,24 +136,27 @@
             </template>
             <p v-else-if="pending" class="notice">Waiting for the accused to answer.</p>
           </div>
-          <div v-else-if="game.phase !== 'day'" class="order-block night-directive">
+          <div v-else-if="game.phase !== 'day'" class="order-block night-directive" :class="{ disabled: !me?.alive }">
             <span class="eyebrow">Night directive</span>
             <h2 class="directive-title">{{ actionLabel }}</h2>
-            <template v-if="hasNightAction">
-              <label v-if="variants.length" class="intensity-label">
-                <span class="eyebrow">Intensity</span>
-                <select v-model="variant"><option v-for="v in variants" :key="v" :value="v">{{ intensityLabel(v) }}</option></select>
-              </label>
-              <div class="targets">
-                <button v-for="p in actionTargets" :key="p.playerCode" :class="{selected:game.myAction?.targetCode===p.playerCode}" @click="act(p.playerCode)">
-                  <span class="target-avatar">{{ initial(p.name) }}</span>
-                  <span class="target-name">{{ p.name }}</span>
-                </button>
-              </div>
-              <div v-if="game.myAction" class="selected-summary">Directive locked on <strong>{{ targetName(game.myAction.targetCode) }}</strong></div>
-              <button class="ghost wide" @click="$emit('retract-action')">Retract directive</button>
+            <template v-if="me?.alive">
+              <template v-if="hasNightAction">
+                <label v-if="variants.length" class="intensity-label">
+                  <span class="eyebrow">Intensity</span>
+                  <select v-model="variant"><option v-for="v in variants" :key="v" :value="v">{{ intensityLabel(v) }}</option></select>
+                </label>
+                <div class="targets">
+                  <button v-for="p in actionTargets" :key="p.playerCode" :class="{selected:game.myAction?.targetCode===p.playerCode}" @click="act(p.playerCode)">
+                    <span class="target-avatar">{{ initial(p.name) }}</span>
+                    <span class="target-name">{{ p.name }}</span>
+                  </button>
+                </div>
+                <div v-if="game.myAction" class="selected-summary">Directive locked on <strong>{{ targetName(game.myAction.targetCode) }}</strong></div>
+                <button class="ghost wide" @click="$emit('retract-action')">Retract directive</button>
+              </template>
+              <p v-else class="notice">No directive tonight. Skipping the night counts as sleep.</p>
             </template>
-            <p v-else class="notice">No directive tonight. Skipping the night counts as sleep.</p>
+            <p v-else class="notice deceased-notice">You are deceased. You have no night directives.</p>
           </div>
         </template>
       </aside>
@@ -472,6 +475,18 @@ button.ghost.wide.stand-down-leading {
     0 0 18px rgba(255, 200, 90, 0.18),
     inset 0 0 24px rgba(182, 154, 92, 0.08);
   animation: actionGlow 2.6s ease-in-out infinite alternate;
+}
+/* Dead players can't act — kill the glow, grey out the block */
+.order-block.disabled {
+  background: linear-gradient(180deg, rgba(22, 22, 22, 0.45), rgba(12, 12, 12, 0.45));
+  border-color: #3a3a3a;
+  box-shadow: none;
+  animation: none;
+  opacity: 0.5;
+}
+.order-block.disabled .eyebrow,
+.order-block.disabled .directive-title {
+  color: #777a70;
 }
 @keyframes actionGlow {
   from {
