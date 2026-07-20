@@ -12,7 +12,7 @@
       <aside class="panel roster-panel" :class="{'mobile-hidden':mobileTab!=='roster'}">
         <header><h2>Conclave</h2><span>{{ alive.length }} alive</span></header>
         <ul class="player-list">
-          <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,selected:myVote?.choice===p.playerCode,selectable:votingOpen&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)">
+          <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)">
             <span class="avatar">{{ initial(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
             <small v-if="votingOpen&&p.alive" class="vote-count">{{ targetVoteCount(p.playerCode) }}/{{ voteThreshold }}</small>
@@ -190,7 +190,7 @@ const actionTargets=computed(()=>alive.value.filter(p=>{if(nightAction.value?.ta
 const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(props.me?.faction==='heretic'?[{id:'faction',label:'Cabal',note:'heretics'}]:[]),...(!props.me?.alive?[{id:'graveyard',label:'Graveyard',note:'dead'}]:[])]),canChat=computed(()=>props.game.phase!=='ended'&&(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard'));
 const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeader=computed(()=>{if(!votingOpen.value)return null;const counts=voteCounts.value;let leader=null,max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max){max=count;leader=code;}}return leader}),standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 function castVote(choice){emit('vote',{choice,justification:voteJustification.value})}
-function voteFor(p){if(!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(draft.value&&canChat.value){emit('send',draft.value);draft.value=''}}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'Observing':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+function voteFor(p){if(!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(draft.value&&canChat.value){emit('send',draft.value);draft.value=''}}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'Observing':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 function targetName(code){return players.value.find(p=>p.playerCode===code)?.name||'unknown';}
 </script>
 
@@ -214,6 +214,14 @@ function targetName(code){return players.value.find(p=>p.playerCode===code)?.nam
     0 0 20px rgba(255, 51, 51, 0.35);
   animation: lynchPulse 1s ease-in-out infinite alternate;
 }
+
+.player-list li.voted {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: rgba(182, 154, 92, 0.08);
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+.player-list li.voted:hover { background: rgba(182, 154, 92, 0.08); }
 
 @keyframes lynchPulse {
   from { box-shadow: 0 0 0 1px rgba(255, 51, 51, 0.35), 0 0 14px rgba(255, 51, 51, 0.25); }
