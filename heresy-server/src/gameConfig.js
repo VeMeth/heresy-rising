@@ -31,6 +31,7 @@ export function loadGameConfig() {
     },
     hardRules: compositionData.hardRules,
     drift: read('drift.json'),
-    hintProfiles: { default: read('scenarios/default/hints.json') }
+    hintProfiles: { default: read('scenarios/default/hints.json') },
+    deathFlavor: read('deathFlavor.json')
   };
 }

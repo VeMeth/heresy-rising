@@ -1,0 +1,43 @@
+{
+  "slain": [
+    "{victim} was found cut in two by a chainsword.",
+    "{victim} was found with a lasgun hole punched through their forehead.",
+    "{victim} was found with three bolter rounds through their chest.",
+    "{victim}'s skull was crushed by a power fist.",
+    "{victim} was found strangled, throat crushed by armored fingers.",
+    "{victim} was burned beyond recognition by a flamer.",
+    "{victim}'s soul was burned away, only ash remaining where they fell.",
+    "{victim} was found pinned to the wall by a combat knife.",
+    "{victim}'s chest cavity was opened, organs removed with surgical precision.",
+    "{victim} was melted from the inside by a melta gun.",
+    "{victim}'s eyes had been burned out, their sockets blackened.",
+    "{victim} was found with tongue cut out and hearts pierced through.",
+    "{victim}'s spine was torn out through the back of their armor.",
+    "{victim}'s body was covered in plasma burns, armor fused to flesh.",
+    "{victim}'s head had been removed cleanly at the neck.",
+    "{victim} was atomised where they stood, only a shadow remaining.",
+    "{victim} was found eviscerated, their entrails strung across the chamber.",
+    "{victim}'s armor had been peeled open like a tin can, ribcage shattered inward.",
+    "{victim} was found bleeding from every orifice, their warp-touched blood pooling beneath them.",
+    "{victim} had been dragged into the shadows; only their cooling footprints marked the end.",
+    "{victim} was found with the Imperial aquila branded into their forehead.",
+    "{victim} was discovered slumped over a console, a single needle-hole in their neck."
+  ],
+  "bodyguardRedirect": [
+    "{victim} was found dead, the killer's strike meant for {target} having landed true instead.",
+    "{victim} absorbed the killing blow meant for {target}.",
+    "{victim} took the lethal strike intended for {target}, their body shielding the proxy.",
+    "{victim} was found cut down in {target}'s place, the assassin's blade turned aside by flesh.",
+    "{victim} was found collapsed across {target}, having taken the round that was meant for another."
+  ],
+  "tortureChamber": [
+    "{victim} was dragged before the torture chamber's pain engine and left at Tier {tier}.",
+    "{victim} was broken on the excruciator and left at Tier {tier}.",
+    "{victim} was hooked to the agony bonds and left at Tier {tier}.",
+    "{victim} was pierced by pneumatic interrogation probes and left at Tier {tier}.",
+    "{victim} was held in the heretic's embrace until their mind shattered to Tier {tier}.",
+    "{victim} was lashed to the torturer's bench and left raving at Tier {tier}.",
+    "{victim} had the truth extracted drop by drop, left a husk at Tier {tier}.",
+    "{victim} was interrogated with surgical implements and left screaming at Tier {tier}."
+  ]
+}
