@@ -32,7 +32,7 @@
           <div v-if="!messages.length" class="empty-chat"><strong>No transmissions recorded</strong></div>
           <template v-else>
             <div class="day-sections">
-              <section v-for="day in daySections" :key="day.label" class="day-section">
+              <section v-for="day in pastDays" :key="day.label" class="day-section">
                 <header class="day-header" @click="toggleDay(day.label)">
                   <span class="day-toggle">{{ day.expanded ? '▼' : '▶' }}</span>
                   <strong>{{ day.label }}</strong>
@@ -52,6 +52,16 @@
                 </div>
               </section>
             </div>
+            <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.kind==='faction'}]">
+              <span v-if="m.kind==='system'" class="system-line">{{ m.body }}</span>
+              <template v-else>
+                <span class="avatar mini">{{ initial(m.author) }}</span>
+                <div>
+                  <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
+                  <p>{{ m.body }}</p>
+                </div>
+              </template>
+            </article>
           </template>
         </div>
         <form class="composer" @submit.prevent="post">
@@ -81,7 +91,7 @@ import { computed,nextTick,ref,watch } from 'vue';
 const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','history','vote','retract-vote','action','retract-action','respond','ask-confession','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref('');
 const dayExpanded = ref({});
-const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),pending=computed(()=>props.game.pendingInterrogation),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===props.me?.playerCode)),voteThreshold=computed(()=>props.game.votes?.[0]?.threshold||Math.floor(alive.value.length/2)+1),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),votingOpen=computed(()=>props.votingEnabled&&props.game.phase==='day'&&!pending.value),daySections=computed(()=>{const sections=[];let currentLabel='Current';let currentMessages=[];for(const m of props.messages){if(m.kind==='system'&&/^Day \d+:/i.test(m.body)){if(currentMessages.length){sections.unshift({label:currentLabel,messages:[...currentMessages],expanded:dayExpanded.value[currentLabel]??(currentLabel==='Current')});}currentLabel=m.body.replace(/^Day (\d+):.*/i,'Day $1');currentMessages=[];}else{currentMessages.unshift(m);}}if(currentMessages.length){sections.unshift({label:currentLabel,messages:[...currentMessages],expanded:dayExpanded.value[currentLabel]??true});}return sections;});
+const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),pending=computed(()=>props.game.pendingInterrogation),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===props.me?.playerCode)),voteThreshold=computed(()=>props.game.votes?.[0]?.threshold||Math.floor(alive.value.length/2)+1),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),votingOpen=computed(()=>props.votingEnabled&&props.game.phase==='day'&&!pending.value),pastDays=computed(()=>{const sections=[];let currentLabel=null;let currentMessages=[];for(let i=0;i<props.messages.length;i++){const m=props.messages[i];if(m.kind==='system'&&/^Day \d+:/i.test(m.body)){if(currentMessages.length&&currentLabel){sections.push({label:currentLabel,messages:[...currentMessages].reverse(),expanded:dayExpanded.value[currentLabel]??false});}currentLabel=m.body.replace(/^Day (\d+):.*/i,'Day $1');currentMessages=[];}else{currentMessages.push(m);}}return sections;}),currentMessages=computed(()=>{const msgs=[];let foundCurrent=false;for(let i=props.messages.length-1;i>=0;i--){const m=props.messages[i];if(m.kind==='system'&&/^Day \d+:/i.test(m.body)){foundCurrent=true;continue;}if(foundCurrent)break;msgs.unshift(m);}return msgs;});
 function toggleDay(label){dayExpanded.value[label]=!dayExpanded.value[label];}
 watch(variants,v=>variant.value=v[0]||'',{immediate:true});
 let preChangeHeight=0,preChangeScrollTop=0;
