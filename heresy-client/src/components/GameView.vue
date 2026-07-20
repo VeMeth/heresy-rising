@@ -88,7 +88,7 @@
           </div>
           <div class="role-card" :class="me?.faction">
             <span class="role-sigil" aria-hidden="true">{{ me?.faction === 'heretic' ? '✶' : '☉' }}</span>
-            <h2 class="role-name">{{ role.displayName }}</h2>
+            <button class="role-name" @click="$emit('open-manual', '/docs/roles/' + (role.id || '').toLowerCase())">{{ role.displayName }}</button>
             <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
             <dl v-if="me?.drift != null || me?.crippleTier" class="role-meta">
               <div v-if="me?.drift != null"><dt>Drift</dt><dd>{{ me.drift }} / {{ game.maxDrift }}</dd></div>
@@ -166,7 +166,7 @@
 <script setup>
 import { computed,nextTick,ref,watch } from 'vue';
 // TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
-const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','history','vote','retract-vote','action','retract-action','respond','ask-confession','leave']);
+const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','history','vote','retract-vote','action','retract-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref('');
 const dayExpanded = ref({});
 function isDayStart(m){return m.kind==='system'&&/Day\s+\d+(\s*:|\s+begins)/i.test(m.body);}
@@ -368,6 +368,16 @@ button.ghost.wide.stand-down-leading {
   letter-spacing: 0.08em;
   color: var(--pale);
   margin: 0 0 6px;
+  /* button reset */
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.role-name:hover {
+  color: var(--gold2);
 }
 .role-faction {
   display: inline-block;

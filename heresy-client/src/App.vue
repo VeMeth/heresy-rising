@@ -29,7 +29,7 @@
         @channel="changeChannel" @send="sendMessage" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
         @retract-action="retractAction" @respond="respondInterrogation" @ask-confession="askConfession"
-        @leave="leaveGame" />
+        @open-manual="openManual" @leave="leaveGame" />
     </main>
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
@@ -37,7 +37,7 @@
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
 
     <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
-      <iframe ref="manualFrame" class="manual-frame" src="/docs/how-to-play" title="Heresy Rising manual"></iframe>
+      <iframe ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual"></iframe>
     </div>
   </div>
 </template>
@@ -52,7 +52,7 @@ import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
-const showManual = ref(false); const manualMounted = ref(false); const manualFrame = ref(null);
+const showManual = ref(false); const manualMounted = ref(false); const manualFrame = ref(null); const manualUrl = ref('/docs/how-to-play');
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
@@ -89,7 +89,7 @@ async function respondInterrogation(response) { try { await command('interrogati
 async function askConfession(targetCode) { try { await command('confession:ask', { code: game.value.code, targetCode }); } catch {} }
 async function leaveGame() { try { if (game.value) await command('game:leave', { code: game.value.code }); } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
 function leaveToHome() { if (!game.value || confirm('Leave this game? You can return with the same player code.')) leaveGame(); }
-function openManual() { manualMounted.value = true; showManual.value = true; }
+function openManual(path) { manualUrl.value = path || '/docs/how-to-play'; manualMounted.value = true; showManual.value = true; }
 function closeManual() { showManual.value = false; }
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
 function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
