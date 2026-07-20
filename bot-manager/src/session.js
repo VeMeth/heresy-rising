@@ -94,6 +94,7 @@ export class BotSession {
     this._chatTimer = null;
     this._actTimer = null;
     this._consolidateTimer = null;
+    this._chatReplyInFlight = false;
     this._closing = false;
     // Per-bot random stagger to avoid all bots hitting the LLM API simultaneously.
     // Acts (night/vote prompts) get 0..botActionDelayMs of extra jitter;
@@ -272,7 +273,18 @@ export class BotSession {
       }
 
       if (this._chatTimer) clearTimeout(this._chatTimer);
-      this._chatTimer = setTimeout(() => this._act({ kind: 'chat_reply' }).catch(() => {}), this._config.chatDebounceMs + (this._chatJitterMs || 0));
+      this._chatTimer = setTimeout(() => {
+        // In-flight guard: a slow LLM call (3–10s typical) can outlive several
+        // chat messages that each re-arm the timer. Without this flag, every
+        // queued timer fires _act() and the per-phase cap is bypassed because
+        // each subsequent call sees the previous one still in flight.
+        if (this._chatReplyInFlight) return;
+        if ((this._chatSentThisPhase || 0) >= BotSession.CHAT_SENT_PER_PHASE_MAX) return;
+        this._chatReplyInFlight = true;
+        this._act({ kind: 'chat_reply' })
+          .catch(() => {})
+          .finally(() => { this._chatReplyInFlight = false; });
+      }, this._config.chatDebounceMs + (this._chatJitterMs || 0));
     }
   }
 

@@ -99,3 +99,19 @@ test('per-phase cap: counter resets when the phase changes', () => {
 
   assert.equal(steve._chatSentThisPhase, 0, 'counter cleared on phase transition');
 });
+
+test('inflight guard: a timer that fires while a previous reply is in flight is skipped', async () => {
+  const steve = makeChatSession({ id: 'HR-BOT-steve', peerIds: ['HR-BOT-bob'] });
+  // Pretend a previous _act({kind: 'chat_reply'}) is still running. The
+  // timer should observe the flag and bail out instead of stacking another
+  // _act on top of the in-flight one (which would bypass the per-phase cap).
+  steve._chatReplyInFlight = true;
+
+  steve._onChatMessage(chatMsg('HR-HUMAN-1', 'Town', 'seriously, anyone got info?'));
+  await new Promise((r) => setTimeout(r, 50));
+
+  // lastAction only changes after _act runs. If the inflight guard works,
+  // _act was never invoked, so lastAction is still 'init'.
+  assert.equal(steve.lastAction, 'init', 'timer skipped while a chat reply was already in flight');
+  steve._chatReplyInFlight = false;
+});
