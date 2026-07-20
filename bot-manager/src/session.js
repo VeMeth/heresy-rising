@@ -356,6 +356,15 @@ export class BotSession {
     this._save();
     if (action.kind === 'pass') { this.lastAction = 'pass'; this._logAction({ kind: 'pass' }); return; }
 
+    // Chat-reply turns may only emit chat (or pass). Forbid votes and night
+    // actions here so a chat reply cannot double-cast a vote or trigger a
+    // night action out of turn.
+    if (prompt?.kind === 'chat_reply' && (action.kind === 'vote' || action.kind === 'night_action')) {
+      this.lastAction = 'pass';
+      this._logAction({ kind: 'pass', note: `chat_reply cannot emit ${action.kind}` });
+      return;
+    }
+
     // Soft pre-validation. Engine is still the source of truth — but if our
     // validator catches an obvious violation (self-target, day-1 vote, etc.)
     // we downgrade to pass rather than waste a round-trip on a rejected
@@ -394,8 +403,8 @@ export class BotSession {
         if (ack?.ok === false) console.warn(`vote:submit rejected for ${this.id}: ${ack.error}`);
       });
       this.lastAction = 'vote';
-      this._lastVoteTarget = dispatch.payload?.target || 'skip';
-      this._logAction({ kind: 'vote', action, target: dispatch.payload?.target });
+      this._lastVoteTarget = dispatch.payload?.targetCode || 'skip';
+      this._logAction({ kind: 'vote', action, target: dispatch.payload?.targetCode });
     } else if (dispatch.type === 'action') {
       this._emit('action:submit', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`action:submit rejected for ${this.id}: ${ack.error}`);
