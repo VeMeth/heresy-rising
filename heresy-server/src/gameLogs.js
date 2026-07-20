@@ -93,10 +93,6 @@ function summarizeLog(log) {
   };
 }
 
-function hasCardsPlayed(log) {
-  return (log?.events || []).some(event => event.kind === 'card_played');
-}
-
 export function saveGameLogSnapshot(room) {
   if (!room?.gameLogId) return;
   migrateLegacyLogFile();
@@ -112,10 +108,6 @@ export function saveGameLogSnapshot(room) {
     history: room.history || [],
     events: room.debugLog || []
   };
-  if (!hasCardsPlayed(log)) {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    return;
-  }
   writeJsonFile(filePath, log);
 }
 
@@ -129,7 +121,6 @@ export function listGameLogs({ limit = 100 } = {}) {
   return files
     .map(readJsonFile)
     .filter(Boolean)
-    .filter(hasCardsPlayed)
     .map(summarizeLog)
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
     .slice(0, max);
@@ -140,7 +131,7 @@ export function getGameLog(id) {
   const filePath = logPathForId(id);
   if (!filePath || !fs.existsSync(filePath)) return null;
   const log = readJsonFile(filePath);
-  if (!log || !hasCardsPlayed(log)) return null;
+  if (!log) return null;
   return {
     ...log,
     events: (log.events || []).slice(-MAX_ADMIN_LOG_EVENTS),
