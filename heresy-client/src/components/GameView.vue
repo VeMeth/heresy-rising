@@ -99,11 +99,11 @@
             <span class="eyebrow">Ability</span>
             <p class="dossier-text">{{ role.ability }}</p>
           </section>
-          <section class="dossier-section">
+          <section v-if="game.phase !== 'day'" class="dossier-section">
             <span class="eyebrow">Objective</span>
             <p class="dossier-text objective">{{ role.objective }}</p>
           </section>
-          <div v-if="game.phase==='day'" class="order-block">
+          <div v-if="game.phase==='day' && (role.actions?.day?.kind==='forgery' || me?.crippleTier>=2 || pending)" class="order-block">
             <div v-if="role.actions?.day?.kind==='forgery'" class="preset">
               <span class="eyebrow">Forgery · Once today</span>
               <label>Attributed speaker
