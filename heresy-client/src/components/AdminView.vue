@@ -187,7 +187,7 @@
               <input v-model="spawnForm.conclaveCode" type="text" placeholder="ABC123" maxlength="8" />
             </label>
             <label>Name
-              <input v-model="spawnForm.name" type="text" placeholder="Heretic Bot" maxlength="20" />
+              <input v-model="spawnForm.name" type="text" placeholder="random W40k name" maxlength="20" />
             </label>
             <label>Seat hint (optional)
               <input v-model.number="spawnForm.seatHint" type="number" min="0" max="11" placeholder="auto" />
@@ -383,6 +383,7 @@
 
 <script setup>
 import { computed, ref } from 'vue';
+import { pickBotName } from '../botNames.js';
 
 const STORAGE_KEY = 'heresy-rising:adminPassword';
 const passwordInput = ref(sessionStorage.getItem(STORAGE_KEY) || '');
@@ -557,9 +558,10 @@ async function spawnBot() {
   botError.value = '';
   loadingBots.value = true;
   try {
+    const rawName = String(spawnForm.value.name || '').trim();
     const body = {
       conclaveCode: String(spawnForm.value.conclaveCode || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8),
-      name: String(spawnForm.value.name || '').slice(0, 20) || null,
+      name: (rawName || pickBotName()).slice(0, 20),
       seatHint: spawnForm.value.seatHint != null && spawnForm.value.seatHint !== '' ? Number(spawnForm.value.seatHint) : null,
       costCeiling: Number(spawnForm.value.costCeiling) > 0 ? Number(spawnForm.value.costCeiling) : null,
       personaOverrides: spawnForm.value.personaOverrides || null
