@@ -39,7 +39,7 @@
                   <span class="day-count">{{ day.messages.length }}</span>
                 </header>
                 <div class="day-messages" v-show="day.expanded">
-                  <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.kind==='faction'}]">
+                  <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction'}]">
                     <span v-if="m.kind==='system'" class="system-line">{{ m.body }}</span>
                     <template v-else>
                       <span class="avatar mini">{{ initial(m.author) }}</span>
@@ -52,7 +52,7 @@
                 </div>
               </section>
             </div>
-            <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.kind==='faction'}]">
+            <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction'}]">
               <span v-if="m.kind==='system'" class="system-line">{{ m.body }}</span>
               <template v-else>
                 <span class="avatar mini">{{ initial(m.author) }}</span>
