@@ -551,7 +551,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border, rgba(255,255,255,0.08));
   border-radius: 4px;
-  color: var(--text);
+  color: var(--pale);
 }
 
 .chat-panel { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: hidden; }
