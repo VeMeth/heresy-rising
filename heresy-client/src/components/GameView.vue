@@ -7,7 +7,6 @@
       </div>
       <div class="phase-time"><small>PHASE ENDS IN</small><strong>{{ timeLeft }}</strong></div>
     </div>
-    <div v-if="game.phase==='day' && !votingEnabled && game.round===1" class="day1-banner">Day 1 — no vote. Introduce yourself and observe.</div>
     <nav class="mobile-tabs"><button v-for="tab in ['roster','chat','orders']" :key="tab" :class="{active:mobileTab===tab}" @click="mobileTab=tab">{{ tab }}</button></nav>
     <div class="game-grid">
       <aside class="panel roster-panel" :class="{'mobile-hidden':mobileTab!=='roster'}">
@@ -24,6 +23,7 @@
           <button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small>{{ targetVoteCount('skip') }}/{{ voteThreshold }}</small></button>
           <button v-if="myVote" class="ghost wide" @click="$emit('retract-vote')">Retract vote</button>
         </template>
+        <p v-else-if="game.phase==='day' && game.round===1" class="day1-hint">Day 1 — no vote. Introduce yourself and observe.</p>
         <button class="ghost wide leave" @click="$emit('leave')">Leave session</button>
       </aside>
       <section class="panel chat-panel" :class="{'mobile-hidden':mobileTab!=='chat'}">
@@ -195,16 +195,16 @@ function targetName(code){return players.value.find(p=>p.playerCode===code)?.nam
 </script>
 
 <style scoped>
-.day1-banner {
-  padding: 12px 16px;
-  background: rgba(255, 193, 7, 0.15);
-  border: 1px solid #ffc107;
-  border-radius: 4px;
-  margin: 0 16px 12px;
+.day1-hint {
+  font: 400 11px/1.5 Inter, sans-serif;
+  color: #d4a84a;
   text-align: center;
-  font-weight: 600;
-  color: #ffc107;
-  font-size: 0.95rem;
+  padding: 8px 10px;
+  margin: 6px 0 10px;
+  background: rgba(255, 193, 7, 0.06);
+  border: 1px solid rgba(255, 193, 7, 0.25);
+  border-radius: 2px;
+  letter-spacing: 0.04em;
 }
 .player-list li.lynch-leader {
   border-color: #ff3333;
