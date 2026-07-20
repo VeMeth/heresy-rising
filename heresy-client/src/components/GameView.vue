@@ -95,11 +95,11 @@
               <div v-if="me?.crippleTier"><dt>Interrogation</dt><dd>Tier {{ me.crippleTier }}</dd></div>
             </dl>
           </div>
-          <section v-if="game.phase !== 'day'" class="dossier-section">
+          <section class="dossier-section">
             <span class="eyebrow">Ability</span>
             <p class="dossier-text">{{ role.ability }}</p>
           </section>
-          <section v-if="game.phase !== 'day'" class="dossier-section">
+          <section class="dossier-section">
             <span class="eyebrow">Objective</span>
             <p class="dossier-text objective">{{ role.objective }}</p>
           </section>
