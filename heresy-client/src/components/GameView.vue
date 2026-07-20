@@ -70,16 +70,94 @@
         </form>
       </section>
       <aside class="panel orders-panel" :class="{'mobile-hidden':mobileTab!=='orders'}">
-        <template v-if="game.phase==='ended'"><span class="eyebrow">FINAL JUDGEMENT</span><h2 :class="game.winner+'-win'">{{ game.winner }} victory</h2><div class="reveal-list"><div v-for="p in players" :key="p.playerCode"><strong>{{ p.name }}</strong><span>{{ p.role?.displayName }}</span></div></div></template>
-        <template v-else><span class="eyebrow">CLASSIFIED DOSSIER</span><div class="role-card"><h2>{{ role.displayName }}</h2><strong>{{ me.faction }}</strong><p>{{ role.ability }}</p><p>{{ role.objective }}</p></div>
+        <template v-if="game.phase==='ended'">
+          <div class="dossier-header">
+            <span class="eyebrow">FINAL JUDGEMENT</span>
+            <h2 :class="game.winner+'-win'">{{ game.winner }} victory</h2>
+          </div>
+          <ul class="reveal-list">
+            <li v-for="p in players" :key="p.playerCode">
+              <strong>{{ p.name }}</strong>
+              <span :class="['role-pill', p.faction]">{{ p.role?.displayName || '—' }}</span>
+            </li>
+          </ul>
+        </template>
+        <template v-else>
+          <div class="dossier-header">
+            <span class="eyebrow">CLASSIFIED DOSSIER</span>
+            <span class="dossier-stamp">SEALED · EYES ONLY</span>
+          </div>
+          <div class="role-card" :class="me?.faction">
+            <span class="role-sigil" aria-hidden="true">{{ me?.faction === 'heretic' ? '✶' : '☉' }}</span>
+            <h2 class="role-name">{{ role.displayName }}</h2>
+            <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
+            <dl class="role-meta">
+              <div><dt>Public claim</dt><dd>{{ role.claim || '—' }}</dd></div>
+              <div v-if="role.tier"><dt>Tier</dt><dd>{{ role.tier }}</dd></div>
+              <div v-if="me?.drift != null"><dt>Drift</dt><dd>{{ me.drift }} / {{ game.maxDrift }}</dd></div>
+              <div v-if="me?.crippleTier"><dt>Interrogation</dt><dd>Tier {{ me.crippleTier }}</dd></div>
+            </dl>
+          </div>
+          <section class="dossier-section">
+            <span class="eyebrow">Ability</span>
+            <p class="dossier-text">{{ role.ability }}</p>
+          </section>
+          <section class="dossier-section">
+            <span class="eyebrow">Objective</span>
+            <p class="dossier-text objective">{{ role.objective }}</p>
+          </section>
           <div v-if="game.phase==='day'" class="order-block">
-            <div v-if="role.actions?.day?.kind==='forgery'" class="preset"><span class="eyebrow">FORGERY · ONCE TODAY</span><label>Attributed speaker<select v-model="forgeAs"><option v-for="p in validTargets" :key="p.playerCode" :value="p.playerCode">{{ p.name }}</option></select></label><label>Forged transmission<textarea v-model="forgeBody" maxlength="500"></textarea></label><button class="ghost wide" :disabled="!forgeAs||!forgeBody" @click="forge">Plant transmission</button></div>
-            <label v-if="me.crippleTier>=2">Required vote justification<textarea v-model="voteJustification" maxlength="300"></textarea></label>
-            <template v-if="pending?.canRespond&&pending.tier<3"><span class="eyebrow">INTERROGATION RESPONSE</span><h2>Choose your answer</h2><button class="secondary wide" @click="$emit('respond','confess')">Confess</button><button class="ghost wide" @click="$emit('respond','resist')">Resist</button><button class="primary wide" @click="$emit('respond','refuse-break')">Refuse + Break</button></template>
-            <template v-else-if="pending?.tier===3"><span class="eyebrow">FORCED CONFESSION</span><h2>Ask the crippled suspect</h2><button class="primary wide" @click="$emit('ask-confession',pending.targetCode)">Demand confession</button></template>
+            <div v-if="role.actions?.day?.kind==='forgery'" class="preset">
+              <span class="eyebrow">Forgery · Once today</span>
+              <label>Attributed speaker
+                <select v-model="forgeAs"><option v-for="p in validTargets" :key="p.playerCode" :value="p.playerCode">{{ p.name }}</option></select>
+              </label>
+              <label>Forged transmission
+                <textarea v-model="forgeBody" maxlength="500"></textarea>
+              </label>
+              <button class="ghost wide" :disabled="!forgeAs||!forgeBody" @click="forge">Plant transmission</button>
+            </div>
+            <label v-if="me.crippleTier>=2" class="justify-label">
+              <span class="eyebrow">Required vote justification</span>
+              <textarea v-model="voteJustification" maxlength="300"></textarea>
+            </label>
+            <template v-if="pending?.canRespond&&pending.tier<3">
+              <div class="response-card">
+                <span class="eyebrow">Interrogation response · Tier {{ pending.tier }}</span>
+                <p class="dossier-text">Choose your answer. The conclave is listening.</p>
+                <button class="secondary wide" @click="$emit('respond','confess')">Confess</button>
+                <button class="ghost wide" @click="$emit('respond','resist')">Resist</button>
+                <button class="primary wide" @click="$emit('respond','refuse-break')">Refuse + break</button>
+              </div>
+            </template>
+            <template v-else-if="pending?.tier===3">
+              <div class="response-card">
+                <span class="eyebrow">Forced confession</span>
+                <p class="dossier-text">The suspect is crippled to Tier 3. You may demand their confession directly.</p>
+                <button class="primary wide" @click="$emit('ask-confession',pending.targetCode)">Demand confession</button>
+              </div>
+            </template>
             <p v-else-if="pending" class="notice">Waiting for the accused to answer.</p>
           </div>
-           <div v-else class="order-block"><span class="eyebrow">NIGHT DIRECTIVE</span><h2>{{ actionLabel }}</h2><template v-if="hasNightAction"><label v-if="variants.length">Intensity<select v-model="variant"><option v-for="v in variants" :key="v" :value="v">{{ intensityLabel(v) }}</option></select></label><div class="targets"><button v-for="p in actionTargets" :key="p.playerCode" :class="{selected:game.myAction?.targetCode===p.playerCode}" @click="act(p.playerCode)"><span>{{ initial(p.name) }}</span>{{ p.name }}</button></div><button v-if="game.myAction" class="ghost wide" @click="$emit('retract-action')">Retract directive</button></template><p v-else class="notice">No directive. Skipping the night counts as sleep.</p></div>
+          <div v-else class="order-block night-directive">
+            <span class="eyebrow">Night directive</span>
+            <h2 class="directive-title">{{ actionLabel }}</h2>
+            <template v-if="hasNightAction">
+              <label v-if="variants.length" class="intensity-label">
+                <span class="eyebrow">Intensity</span>
+                <select v-model="variant"><option v-for="v in variants" :key="v" :value="v">{{ intensityLabel(v) }}</option></select>
+              </label>
+              <div class="targets">
+                <button v-for="p in actionTargets" :key="p.playerCode" :class="{selected:game.myAction?.targetCode===p.playerCode}" @click="act(p.playerCode)">
+                  <span class="target-avatar">{{ initial(p.name) }}</span>
+                  <span class="target-name">{{ p.name }}</span>
+                </button>
+              </div>
+              <div v-if="game.myAction" class="selected-summary">Directive locked on <strong>{{ targetName(game.myAction.targetCode) }}</strong></div>
+              <button class="ghost wide" @click="$emit('retract-action')">Retract directive</button>
+            </template>
+            <p v-else class="notice">No directive tonight. Skipping the night counts as sleep.</p>
+          </div>
         </template>
       </aside>
     </div>
@@ -116,6 +194,7 @@ const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(pr
 const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeader=computed(()=>{if(!votingOpen.value)return null;const counts=voteCounts.value;let leader=null,max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max){max=count;leader=code;}}return leader}),standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 function castVote(choice){emit('vote',{choice,justification:voteJustification.value})}
 function voteFor(p){if(!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(draft.value&&canChat.value){emit('send',draft.value);draft.value=''}}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'Observing':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+function targetName(code){return players.value.find(p=>p.playerCode===code)?.name||'unknown';}
 </script>
 
 <style scoped>
@@ -218,4 +297,220 @@ button.ghost.wide.stand-down-leading {
 }
 .day-messages .message { margin-bottom: 8px; }
 .day-messages .message:last-child { margin-bottom: 0; }
+
+/* ── Classified Dossier ────────────────────────────────────────────────── */
+.orders-panel { padding-top: 22px; }
+.orders-panel > .eyebrow { margin-top: 0; }
+
+.dossier-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.dossier-header > .eyebrow { color: var(--gold); letter-spacing: 0.2em; }
+.dossier-header h2 {
+  font: 700 22px Cinzel;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 4px 0 0;
+}
+.dossier-stamp {
+  display: inline-block;
+  align-self: flex-start;
+  font: 700 9px/1 Inter, sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--red);
+  border: 1px solid var(--red);
+  padding: 4px 8px;
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
+.role-card {
+  position: relative;
+  text-align: center;
+  padding: 22px 18px 18px;
+  margin: 0 0 18px;
+  background: linear-gradient(180deg, rgba(24, 26, 22, 0.95), rgba(13, 15, 13, 0.95));
+  border: 1px solid #4a4530;
+  border-top: 2px solid var(--gold);
+  overflow: hidden;
+}
+.role-card.loyalist { border-top-color: #b69a5c; }
+.role-card.heretic { border-top-color: #c14545; background: linear-gradient(180deg, rgba(34, 18, 18, 0.95), rgba(15, 11, 11, 0.95)); border-color: #6b3030; }
+.role-card::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(182, 154, 92, 0.18);
+  pointer-events: none;
+}
+.role-card.heretic::before { border-color: rgba(193, 69, 69, 0.2); }
+
+.role-sigil {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 10px;
+  border: 1px solid var(--gold);
+  color: var(--gold2);
+  font: 700 28px Cinzel, serif;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 50%;
+}
+.role-card.heretic .role-sigil { border-color: #c14545; color: #d77272; }
+
+.role-name {
+  font: 700 20px Cinzel, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pale);
+  margin: 0 0 6px;
+}
+.role-faction {
+  display: inline-block;
+  font: 700 10px/1 Inter, sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  margin-bottom: 14px;
+  border: 1px solid currentColor;
+}
+.role-faction.loyalist { color: #c8dabc; background: rgba(76, 110, 60, 0.12); }
+.role-faction.heretic { color: #ff8a8a; background: rgba(140, 40, 40, 0.18); }
+
+.role-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 12px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(182, 154, 92, 0.15);
+  text-align: left;
+}
+.role-card.heretic .role-meta { border-color: rgba(193, 69, 69, 0.18); }
+.role-meta > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.role-meta dt {
+  font: 500 8px/1 Inter, sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.role-meta dd {
+  font: 600 12px Inter, sans-serif;
+  color: var(--pale);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dossier-section {
+  margin: 0 0 16px;
+  padding: 14px 14px 12px;
+  background: rgba(13, 15, 13, 0.6);
+  border-left: 2px solid var(--gold);
+}
+.dossier-section .eyebrow {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--gold);
+}
+.dossier-text {
+  font: 400 13px/1.55 Georgia, serif;
+  color: #d4d2c4;
+  margin: 0;
+}
+.dossier-text.objective {
+  color: var(--gold2);
+  font-style: italic;
+}
+
+.response-card {
+  margin-top: 14px;
+  padding: 14px;
+  background: rgba(40, 25, 25, 0.7);
+  border: 1px solid #6b3030;
+}
+.response-card .eyebrow { color: #ff8a8a; }
+.response-card .dossier-text { margin-bottom: 12px; }
+
+.justify-label,
+.intensity-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0;
+}
+.justify-label .eyebrow,
+.intensity-label .eyebrow {
+  color: var(--muted);
+  letter-spacing: 0.18em;
+}
+
+.night-directive { margin-top: 6px; }
+.directive-title {
+  font: 700 17px Cinzel, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold2);
+  margin: 6px 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.selected-summary {
+  font: 500 11px/1.5 Inter, sans-serif;
+  color: var(--muted);
+  text-align: center;
+  padding: 10px 12px;
+  margin: 0 0 10px;
+  background: rgba(182, 154, 92, 0.06);
+  border: 1px dashed rgba(182, 154, 92, 0.4);
+}
+.selected-summary strong { color: var(--gold2); font-weight: 600; }
+
+/* Final judgement — give the reveal list nicer pills instead of plain text rows */
+.reveal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.reveal-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  background: rgba(13, 15, 13, 0.6);
+  border-left: 2px solid var(--gold);
+}
+.role-pill {
+  font: 600 10px/1 Inter, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.role-pill.loyalist { color: #c8dabc; }
+.role-pill.heretic { color: #ff8a8a; }
+
+.notice {
+  font: 400 12px/1.55 Georgia, serif;
+  color: var(--muted);
+  font-style: italic;
+  padding: 10px 0;
+  margin: 0;
+  text-align: center;
+}
 </style>
