@@ -34,3 +34,4 @@ docs/specs/
 # VitePress
 site/.vitepress/cache/
 site/_site/
+reasonix.toml
