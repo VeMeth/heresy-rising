@@ -136,7 +136,7 @@
             </template>
             <p v-else-if="pending" class="notice">Waiting for the accused to answer.</p>
           </div>
-          <div v-else class="order-block night-directive">
+          <div v-else-if="game.phase !== 'day'" class="order-block night-directive">
             <span class="eyebrow">Night directive</span>
             <h2 class="directive-title">{{ actionLabel }}</h2>
             <template v-if="hasNightAction">
