@@ -91,8 +91,6 @@
             <h2 class="role-name">{{ role.displayName }}</h2>
             <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
             <dl class="role-meta">
-              <div><dt>Public claim</dt><dd>{{ role.claim || '—' }}</dd></div>
-              <div v-if="role.tier"><dt>Tier</dt><dd>{{ role.tier }}</dd></div>
               <div v-if="me?.drift != null"><dt>Drift</dt><dd>{{ me.drift }} / {{ game.maxDrift }}</dd></div>
               <div v-if="me?.crippleTier"><dt>Interrogation</dt><dd>Tier {{ me.crippleTier }}</dd></div>
             </dl>
