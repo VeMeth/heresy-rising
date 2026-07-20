@@ -342,12 +342,12 @@ button.ghost.wide.stand-down-leading {
 .role-sigil {
   display: inline-grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 10px;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 8px;
   border: 1px solid var(--gold);
   color: var(--gold2);
-  font: 700 28px Cinzel, serif;
+  font: 700 14px Cinzel, serif;
   background: rgba(0, 0, 0, 0.35);
   border-radius: 50%;
 }
