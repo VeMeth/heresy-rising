@@ -90,7 +90,7 @@
             <span class="role-sigil" aria-hidden="true">{{ me?.faction === 'heretic' ? '✶' : '☉' }}</span>
             <h2 class="role-name">{{ role.displayName }}</h2>
             <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
-            <dl class="role-meta">
+            <dl v-if="me?.drift != null || me?.crippleTier" class="role-meta">
               <div v-if="me?.drift != null"><dt>Drift</dt><dd>{{ me.drift }} / {{ game.maxDrift }}</dd></div>
               <div v-if="me?.crippleTier"><dt>Interrogation</dt><dd>Tier {{ me.crippleTier }}</dd></div>
             </dl>
