@@ -50,7 +50,7 @@
           >
             <strong>{{ game.code }}</strong>
             <span>{{ game.status }} · {{ game.phase }}{{ game.dayStage ? `/${game.dayStage}` : '' }}</span>
-            <small>{{ game.playerCount }} players · round {{ game.round }}</small>
+            <small>{{ game.playerCount }} players · avg drift {{ formatDrift(game.averageDrift) }} · round {{ game.round }}</small>
           </button>
           <p v-if="!games.length" class="empty">No conclaves found.</p>
         </aside>
@@ -78,6 +78,15 @@
           </div>
 
           <section>
+            <h3>Drift overview</h3>
+            <div class="facts drift-overview">
+              <span>Average <strong>{{ formatDrift(averageDrift) }}</strong></span>
+              <span>Highest <strong>{{ highestDriftPlayer ? `${highestDriftPlayer.name} · ${highestDriftPlayer.drift}` : '-' }}</strong></span>
+              <span>At maximum <strong>{{ playersAtMaxDrift }}</strong></span>
+            </div>
+          </section>
+
+          <section>
             <h3>Players</h3>
             <div class="table-wrap">
               <table>
@@ -99,7 +108,10 @@
                         <option value="heretic">heretic</option>
                       </select>
                     </td>
-                    <td><input v-model.number="player.drift" type="number" min="0" :max="detail.game.maxDrift"></td>
+                    <td class="drift-cell">
+                      <input v-model.number="player.drift" type="number" min="0" :max="detail.game.maxDrift">
+                      <span>/ {{ detail.game.maxDrift }}</span>
+                    </td>
                     <td class="checks">
                       <label><input v-model="player.alive" type="checkbox"> Alive</label>
                       <label><input v-model="player.ready" type="checkbox"> Ready</label>
@@ -423,6 +435,18 @@ const phaseSummaries = computed(() => {
     Object.entries(notes).filter(([k]) => k.startsWith('phase-'))
   );
 });
+const averageDrift = computed(() => {
+  const players = detail.value?.players || [];
+  return players.length ? players.reduce((sum, player) => sum + Number(player.drift || 0), 0) / players.length : 0;
+});
+const highestDriftPlayer = computed(() => {
+  const players = detail.value?.players || [];
+  return players.reduce((highest, player) => !highest || Number(player.drift || 0) > Number(highest.drift || 0) ? player : highest, null);
+});
+const playersAtMaxDrift = computed(() => {
+  const maxDrift = Number(detail.value?.game?.maxDrift || 0);
+  return (detail.value?.players || []).filter(player => Number(player.drift || 0) >= maxDrift).length;
+});
 
 const headers = computed(() => ({ 'Content-Type': 'application/json', 'X-Admin-Password': password.value }));
 
@@ -622,6 +646,10 @@ async function copyJson(value) {
 }
 function pretty(value) {
   return JSON.stringify(value || [], null, 2);
+}
+function formatDrift(value) {
+  const drift = Number(value);
+  return Number.isFinite(drift) ? drift.toFixed(1) : '0.0';
 }
 function formatDate(value) {
   if (!value) return '-';
