@@ -177,7 +177,93 @@
             </tbody>
           </table>
         </div>
-        <pre v-if="selectedLog">{{ pretty(selectedLog) }}</pre>
+        <article v-if="selectedLog" class="archive-detail">
+          <header class="detail-head">
+            <div>
+              <span>ARCHIVED CONCLAVE {{ selectedLog.roomCode || selectedLog.id }}</span>
+              <h2>{{ selectedLog.winner ? `${selectedLog.winner} victory` : selectedLog.phase || 'Archived game' }}</h2>
+            </div>
+            <div class="actions archive-actions">
+              <button type="button" @click="copyJson(selectedLog)">Copy JSON</button>
+              <button type="button" @click="selectedLog = null">Close</button>
+            </div>
+          </header>
+
+          <div class="facts">
+            <span>Phase <strong>{{ selectedLog.phase || '-' }}</strong></span>
+            <span>Round <strong>{{ selectedLog.round ?? '-' }}</strong></span>
+            <span>Mode <strong>{{ selectedLog.mode || '-' }}</strong></span>
+            <span>Winner <strong>{{ selectedLog.winner || '-' }}</strong></span>
+            <span>Players <strong>{{ archivePlayers.length }}</strong></span>
+            <span>Events <strong>{{ archiveEvents.length }}</strong></span>
+            <span>Created <strong>{{ formatDate(selectedLog.createdAt) }}</strong></span>
+            <span>Updated <strong>{{ formatDate(selectedLog.updatedAt) }}</strong></span>
+          </div>
+
+          <section>
+            <h3>Players</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Seat</th><th>Name</th><th>Role</th><th>Faction</th><th>Final drift</th><th>State</th></tr></thead>
+                <tbody>
+                  <tr v-for="player in archivePlayers" :key="player.playerCode || player.id">
+                    <td>{{ player.seat ?? '-' }}</td>
+                    <td><strong>{{ player.name }}</strong><code>{{ player.playerCode || player.id }}</code></td>
+                    <td>{{ player.roleId || player.hero || '-' }}</td>
+                    <td>{{ player.faction || '-' }}</td>
+                    <td>{{ player.finalDrift }} / {{ archiveMaxDrift }}</td>
+                    <td>{{ player.alive === null ? '-' : player.alive ? 'Alive' : 'Dead' }}<template v-if="player.crippleTier != null"> · T{{ player.crippleTier }}</template></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section>
+            <h3>Player drift history</h3>
+            <p v-if="!archiveDriftEntries.length" class="empty">No drift changes were recorded.</p>
+            <div v-else class="table-wrap">
+              <table>
+                <thead><tr><th>Time</th><th>Player</th><th>Round</th><th>Phase</th><th>Change</th><th>Drift</th><th>Zone</th><th>Reason</th></tr></thead>
+                <tbody>
+                  <tr v-for="entry in archiveDriftEntries" :key="entry.id">
+                    <td>{{ formatDate(entry.createdAt) }}</td>
+                    <td><strong>{{ entry.playerName }}</strong></td>
+                    <td>{{ entry.round ?? '-' }}</td>
+                    <td>{{ entry.phase || '-' }}</td>
+                    <td>{{ entry.delta > 0 ? '+' : '' }}{{ entry.delta }}</td>
+                    <td>{{ entry.before }} → {{ entry.after }}</td>
+                    <td>{{ entry.zone || '-' }}</td>
+                    <td>{{ entry.reason || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="columns">
+            <section>
+              <h3>Messages</h3>
+              <div class="scroll-list">
+                <p v-for="message in selectedLog.history || []" :key="message.id">
+                  <span>{{ formatDate(message.createdAt || message.created_at) }} · {{ message.channel }} · {{ message.author }}</span>
+                  {{ message.body }}
+                </p>
+                <p v-if="!(selectedLog.history || []).length" class="empty">No messages recorded.</p>
+              </div>
+            </section>
+            <section>
+              <h3>Event timeline</h3>
+              <div class="scroll-list">
+                <p v-for="event in archiveEvents" :key="event.id">
+                  <span>{{ formatDate(event.createdAt) }} · {{ event.type }}</span>
+                  <code>{{ pretty(event.payload) }}</code>
+                </p>
+                <p v-if="!archiveEvents.length" class="empty">No events recorded.</p>
+              </div>
+            </section>
+          </div>
+        </article>
       </section>
 
       <section v-if="tab === 'bots'" class="bots">
@@ -447,6 +533,45 @@ const playersAtMaxDrift = computed(() => {
   const maxDrift = Number(detail.value?.game?.maxDrift || 0);
   return (detail.value?.players || []).filter(player => Number(player.drift || 0) >= maxDrift).length;
 });
+const archiveMaxDrift = computed(() => Number(selectedLog.value?.maxDrift) || 20);
+const archiveEvents = computed(() => (selectedLog.value?.events || []).map(event => ({
+  ...event,
+  createdAt: event.createdAt || event.created_at,
+  payload: parsePayload(event.payload)
+})));
+const archiveDriftEntries = computed(() => {
+  const values = new Map();
+  const players = new Map((selectedLog.value?.players || []).map(player => [player.playerCode || player.id, player]));
+  return archiveEvents.value.filter(event => event.type === 'drift').map(event => {
+    const payload = event.payload || {};
+    const previous = values.get(payload.playerCode) || 0;
+    const before = Number.isFinite(Number(payload.before)) ? Number(payload.before) : previous;
+    const after = Number.isFinite(Number(payload.after)) ? Number(payload.after) : Math.max(0, Math.min(archiveMaxDrift.value, before + Number(payload.delta || 0)));
+    values.set(payload.playerCode, after);
+    return {
+      id: event.id,
+      createdAt: event.createdAt,
+      playerCode: payload.playerCode,
+      playerName: players.get(payload.playerCode)?.name || payload.playerCode || 'Unknown',
+      delta: Number(payload.delta || 0),
+      before,
+      after,
+      reason: payload.reason,
+      zone: payload.zone,
+      round: payload.round,
+      phase: payload.phase
+    };
+  });
+});
+const archivePlayers = computed(() => {
+  const finalByPlayer = new Map();
+  for (const entry of archiveDriftEntries.value) finalByPlayer.set(entry.playerCode, entry.after);
+  return (selectedLog.value?.players || []).map(player => ({
+    ...player,
+    alive: player.alive === undefined ? null : player.alive,
+    finalDrift: Number.isFinite(Number(player.drift)) ? Number(player.drift) : finalByPlayer.get(player.playerCode || player.id) || 0
+  }));
+});
 
 const headers = computed(() => ({ 'Content-Type': 'application/json', 'X-Admin-Password': password.value }));
 
@@ -646,6 +771,14 @@ async function copyJson(value) {
 }
 function pretty(value) {
   return JSON.stringify(value || [], null, 2);
+}
+function parsePayload(value) {
+  if (!value || typeof value !== 'string') return value || {};
+  try {
+    return JSON.parse(value);
+  } catch {
+    return { raw: value };
+  }
 }
 function formatDrift(value) {
   const drift = Number(value);
