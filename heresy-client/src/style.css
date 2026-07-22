@@ -69,3 +69,44 @@
 .message.vote header strong {
   color: var(--gold2);
 }
+
+/* Themed scrollbars for chat windows and admin scroll-lists.
+   Firefox: scrollbar-color + scrollbar-width (thin) keeps a slim,
+   themed track. WebKit/Chromium: the ::-webkit-scrollbar family lets
+   us draw a thin gold-on-dark rail that matches the panel chrome. */
+.message-feed,
+.scroll-list,
+.chat-panel {
+  scrollbar-color: var(--gold) transparent;
+  scrollbar-width: thin;
+}
+.message-feed::-webkit-scrollbar,
+.scroll-list::-webkit-scrollbar,
+.chat-panel::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.message-feed::-webkit-scrollbar-track,
+.scroll-list::-webkit-scrollbar-track,
+.chat-panel::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+.message-feed::-webkit-scrollbar-thumb,
+.scroll-list::-webkit-scrollbar-thumb,
+.chat-panel::-webkit-scrollbar-thumb {
+  background: linear-gradient(#4a432e,#33301f);
+  border: 1px solid #1c1a13;
+  border-radius: 4px;
+}
+.message-feed::-webkit-scrollbar-thumb:hover,
+.scroll-list::-webkit-scrollbar-thumb:hover,
+.chat-panel::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(#6a5d3a,#463f29);
+  border-color: #2a2418;
+}
+.message-feed::-webkit-scrollbar-corner,
+.scroll-list::-webkit-scrollbar-corner,
+.chat-panel::-webkit-scrollbar-corner {
+  background: transparent;
+}
