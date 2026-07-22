@@ -70,6 +70,27 @@
   color: var(--gold2);
 }
 
+/* Highlight the player's own row in the Conclave roster with a gold
+   border so they can pick themselves out at a glance. The avatar gets a
+   matching gold ring; the name shifts to the pale-gold accent. */
+.player-list li.me {
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+  background: linear-gradient(90deg,#2a281d,#25251d 40%);
+  padding-left: 11px;
+  padding-right: 11px;
+  margin-left: -2px;
+  margin-right: -2px;
+}
+.player-list li.me > div > strong {
+  color: var(--gold2);
+}
+.player-list li.me .avatar {
+  border-color: var(--gold);
+  color: var(--gold2);
+  box-shadow: 0 0 0 1px #b69a5c33;
+}
+
 /* Themed scrollbars for chat windows and admin scroll-lists.
    Firefox: scrollbar-color + scrollbar-width (thin) keeps a slim,
    themed track. WebKit/Chromium: the ::-webkit-scrollbar family lets
