@@ -38,7 +38,7 @@
 
     <div v-if="manualMounted && showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
       <button type="button" class="manual-close ghost" @click="closeManual" aria-label="Close manual">Close</button>
-      <iframe v-if="!manualLoadFailed" ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer" @error="onManualIframeError" @load="onManualIframeLoad"></iframe>
+      <iframe v-if="!manualLoadFailed" ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual" referrerpolicy="no-referrer" @error="onManualIframeError" @load="onManualIframeLoad"></iframe>
       <div v-else class="manual-fallback">
         <h2>The vox cannot reach the manual</h2>
         <p>The embedded manual failed to load (network or proxy refusal). Open it in a new tab to continue.</p>
@@ -123,6 +123,17 @@ function closeManual() {
 }
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
 function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
+// Detect when the iframe's content has navigated the parent window
+// (VitePress or any same-origin docs page can do this via window.top.location).
+// If we detect a navigation away from our SPA path, reopen the manual overlay
+// so the player isn't dumped onto the docs landing page.
+function onParentNavigateAway() {
+  if (showManual.value && !location.pathname.startsWith('/docs')) {
+    showManual.value = true;
+    history.replaceState({}, '', location.pathname.split('/docs')[0] || '/');
+  }
+}
+window.addEventListener('popstate', onParentNavigateAway);
 function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) { hasMoreByChannel.value = { ...hasMoreByChannel.value, [next]: true }; loadHistory(); } }
 function mergeMessages(ch, incoming, prepend = false) {
   const old = messagesByChannel.value[ch] || [];
