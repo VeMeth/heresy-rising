@@ -38,7 +38,7 @@
 
     <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
       <button type="button" class="manual-close" @click="closeManual" aria-label="Close manual">✕</button>
-      <iframe ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual"></iframe>
+      <iframe ref="manualFrame" class="manual-frame" :src="manualUrl + '?v=2'" title="Heresy Rising manual"></iframe>
     </div>
   </div>
 </template>
