@@ -38,7 +38,7 @@
 
     <div v-if="manualMounted && showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
       <button type="button" class="manual-close ghost" @click="closeManual" aria-label="Close manual">Close</button>
-      <iframe v-if="!manualLoadFailed" ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer" @error="onManualIframeError" @load="onManualIframeLoad"></iframe>
+      <iframe v-if="!manualLoadFailed" ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual" referrerpolicy="no-referrer" @error="onManualIframeError" @load="onManualIframeLoad"></iframe>
       <div v-else class="manual-fallback">
         <h2>The vox cannot reach the manual</h2>
         <p>The embedded manual failed to load (network or proxy refusal). Open it in a new tab to continue.</p>
