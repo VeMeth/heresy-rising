@@ -660,13 +660,7 @@ footer::after  { content: "✦"; color: rgba(182, 154, 92, .35); margin-left: 10
   transform: rotate(-2.5deg);
   text-shadow: 0 0 8px rgba(153, 182, 138, .35);
 }
-.panel > header h2::before {
-  content: "✦";
-  color: var(--gold);
-  margin-right: 8px;
-  font-size: .72em;
-  vertical-align: 2px;
-}
+
 .preset-option:hover,
 .role-row:hover {
   border-color: rgba(182, 154, 92, .5);
