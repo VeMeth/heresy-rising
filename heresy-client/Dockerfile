@@ -2,20 +2,24 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+# Install SPA deps first.
 COPY heresy-client/package.json heresy-client/package-lock.json* ./
 RUN npm install
 
-COPY heresy-client .
-COPY quotes.txt ../quotes.txt
-
-# Build the VitePress docs and copy them into the SPA's public/ dir so
-# Vite includes them in the SPA bundle as static assets. This means the
-# final nginx image only needs the SPA dist — no separate docs stage,
-# no combined stage, no try_files quirks, no Cloudflare routing splits.
+# Build the VitePress docs BEFORE copying the SPA source (which would
+# overwrite /app/package.json). Use a separate install dir for vitepress
+# so it doesn't pollute the SPA's node_modules.
+COPY package.json package-lock.json* /docs-deps/
+RUN cd /docs-deps && npm install
 COPY site ./site
-RUN npx vitepress build site
+RUN cd /docs-deps && npx vitepress build site
 RUN rm -rf ./public/docs && cp -r ./site/_site ./public/docs
 
+# Copy the SPA source and build. This overwrites /app/package.json with
+# the SPA's package.json, but vitepress is already installed in /docs-deps
+# and the docs are already copied into public/docs.
+COPY heresy-client .
+COPY quotes.txt ../quotes.txt
 RUN npm run build
 
 FROM nginx:1.27-alpine
