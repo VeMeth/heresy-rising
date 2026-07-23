@@ -14,13 +14,12 @@ RUN cd /docs-deps && npm install
 COPY site ./site
 RUN cp -r /app/site /docs-deps/site
 RUN cd /docs-deps && npx vitepress build site
-RUN mkdir -p /app/public && cp -r /docs-deps/site/_site /app/public/docs
 
-# Copy the SPA source and build. This overwrites /app/package.json with
-# the SPA's package.json, but vitepress is already installed in /docs-deps
-# and the docs are already copied into public/docs.
+# Copy the SPA source. This will overwrite /app/site but the
+# built docs are still in /docs-deps/site/_site (outside /app/).
 COPY heresy-client .
 COPY quotes.txt ../quotes.txt
+RUN mkdir -p ./public/docs && cp -r /docs-deps/site/_site/. ./public/docs/
 RUN npm run build
 
 FROM nginx:1.27-alpine
