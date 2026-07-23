@@ -14,7 +14,10 @@
       <aside class="panel roster-panel" :class="{'mobile-hidden':mobileTab!=='roster'}">
         <span class="panel-frame-corner tl"></span><span class="panel-frame-corner tr"></span>
         <span class="panel-frame-corner bl"></span><span class="panel-frame-corner br"></span>
-        <header><h2>Conclave</h2><span>{{ alive.length }} alive</span></header>
+        <header class="roster-header">
+          <div class="roster-heading"><span class="eyebrow">Roll Call</span><h2>Conclave</h2></div>
+          <span class="roster-count"><strong>{{ alive.length }}</strong><small>Alive</small></span>
+        </header>
         <ul class="player-list">
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)">
             <span class="avatar">{{ initial(p.name) }}</span>
@@ -23,10 +26,11 @@
             <i :class="{online:p.connected}"></i>
           </li>
         </ul>
-        <template v-if="votingOpen && !spectator">
+        <div v-if="votingOpen && !spectator" class="verdict-block">
+          <span class="eyebrow">Cast Your Verdict</span>
           <button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small>{{ targetVoteCount('skip') }}/{{ voteThreshold }}</small></button>
           <button v-if="myVote" class="ghost wide" @click="$emit('retract-vote')">Retract vote</button>
-        </template>
+        </div>
         <p v-else-if="game.phase==='day' && game.round===1 && !spectator" class="day1-hint">Day 1 — no vote. Introduce yourself and observe.</p>
         <button class="ghost wide leave" @click="$emit('leave')">Leave session</button>
       </aside>
@@ -218,6 +222,78 @@ function targetName(code){return players.value.find(p=>p.playerCode===code)?.nam
 </script>
 
 <style scoped>
+/* ── Conclave roster ───────────────────────────────────────────────────── */
+.roster-header {
+  align-items: center;
+}
+.roster-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.roster-heading .eyebrow {
+  color: var(--gold);
+  letter-spacing: 0.22em;
+}
+.roster-heading h2 { margin: 0; }
+.roster-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  min-width: 46px;
+  padding: 5px 12px 6px;
+  border: 1px solid rgba(182, 154, 92, 0.35);
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 1px 0 rgba(223, 194, 124, 0.08);
+}
+.roster-count strong {
+  font: 700 17px Cinzel, serif;
+  line-height: 1;
+  color: var(--gold2);
+  text-shadow: 0 0 8px rgba(223, 194, 124, 0.3);
+}
+.roster-count small {
+  font: 600 8px Inter, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.player-list li {
+  position: relative;
+  border-left: 2px solid transparent;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.player-list li.me { border-left-color: var(--gold); }
+.player-list li.dead { border-left-color: rgba(255, 255, 255, 0.05); }
+.player-list li:not(.dead):not(.unavailable):not(.voted):hover {
+  background: rgba(182, 154, 92, 0.05);
+}
+.player-list i.online {
+  box-shadow: 0 0 6px rgba(113, 144, 94, 0.65), 0 0 12px rgba(113, 144, 94, 0.3);
+}
+
+.verdict-block {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.verdict-block > .eyebrow {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--gold);
+  letter-spacing: 0.2em;
+}
+.verdict-block button + button { margin-top: 8px; }
+
+.leave {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
 .day1-hint {
   font: 400 11px/1.5 Inter, sans-serif;
   color: #d4a84a;
