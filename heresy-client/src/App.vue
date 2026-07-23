@@ -16,7 +16,7 @@
 
     <main>
       <JoinView v-if="!game" :busy="busy" :error="error" :initial-room-code="initialCode"
-        :profile="profile" @create="createGame" @join="form => joinGame(form).catch(() => {})" @recover="recoverProfile" />
+        :profile="profile" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
         :composition-errors="compositionErrors" :messages="messages" :channel="channel"
         :has-more="hasMoreByChannel[channel]"
@@ -80,6 +80,12 @@ function notify(text) { toast.value = text; clearTimeout(toastTimer); toastTimer
 async function command(event, payload = {}) { busy.value = true; error.value = ''; try { await ensureConnected(); const data = await emitWithAck(event, { ...payload, playerCode: getPlayerCode() }); const state = normalize(data); if (state?.code && state?.players) { game.value = state; saveGameCode(state.code); } if (data?.profile || data?.playerCode) saveProfile(data.profile || data); return data; } catch (e) { error.value = e.message; notify(e.message); throw e; } finally { busy.value = false; } }
 async function createGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:create', { name: form.name, mode: form.mode, options: {}, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if (data?.code&&game.value&&!game.value.code)game.value.code=data.code; if(game.value?.code){saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();}}catch{}}
 async function joinGame(form) { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if(game.value?.code)saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code||form.roomCode}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();}
+async function joinOrSpectate(form) {
+  // A player who isn't already in the game will fail to join once it has
+  // started (or is full) — fall back to read-only spectating instead of
+  // leaving them stuck on the join screen.
+  await joinGame(form).catch(() => spectateGame(form.roomCode));
+}
 async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); notify('Identity restored'); }
 async function spectateGame(code) {
   if (!code) return;
@@ -193,10 +199,7 @@ async function maybeAutoJoin() {
   const savedCode = profile.value?.playerCode;
   const target = initialCode.value;
   if (!target || !savedName || !savedCode) return;
-  await joinGame({ name: savedName, roomCode: target }).catch(() => {
-    // If the game already started the join will fail — try spectating.
-    if (target) spectateGame(target);
-  });
+  await joinOrSpectate({ name: savedName, roomCode: target });
 }
 onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
 onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
