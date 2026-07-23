@@ -157,6 +157,10 @@ function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...g
 function receiveAnnouncement(payload) {
   const a = payload?.announcement || payload;
   if (!a) return;
+  // The server broadcasts every player's role-reveal announcement to the
+  // whole room. Only render the one addressed to this player; non-targeted
+  // announcements (kill, lynch, execution, …) show for everyone.
+  if (a.targetCode && a.targetCode !== getPlayerCode()) return;
   announcement.value = a;
   clearTimeout(announcementTimer);
   const duration = a.type === 'gameover' ? 8000 : 5000;

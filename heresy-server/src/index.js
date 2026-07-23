@@ -112,7 +112,20 @@ export function createHeresyServer({ databasePath, now } = {}) {
   function auth(socket,payload){const playerCode=requirePlayerCode(payload.playerCode||socket.data.playerCode||socket.handshake.auth?.playerCode);socket.data.playerCode=playerCode;return playerCode;}
   function broadcast(code,event='game:state'){for(const socket of io.sockets.sockets.values()){if(socket.rooms.has(code)&&socket.data.playerCode){try{const state=gameManager.state(code,socket.data.playerCode);socket.emit(event,{state});if(state.status==='ended')socket.emit('game:ended',{state});}catch{}}}}
   function broadcastMessage(code,message){for(const client of io.sockets.sockets.values()){try{if(!client.rooms.has(code)||!client.data.playerCode)continue;const player=gameManager.player(code,client.data.playerCode);if(!player)continue;if(message.channel==='public'||(message.channel==='faction'&&player.faction==='heretic')||(message.channel==='graveyard'&&!player.alive)||(message.channel==='private'&&message.recipient_code===client.data.playerCode))client.emit('chat:message',{message});}catch{}}}
-  function broadcastAnnouncement(code,announcement){io.to(code).emit('game:announcement',{announcement});}
+  function broadcastAnnouncement(code,announcement){
+    // Targeted announcements (role-reveal per-player) must never be
+    // broadcast to the whole room — deliver only to the intended socket.
+    if (announcement.targetCode) {
+      for (const s of io.sockets.sockets.values()) {
+        if (s.rooms.has(code) && s.data.playerCode === announcement.targetCode) {
+          s.emit('game:announcement',{announcement});
+          return;
+        }
+      }
+      return;
+    }
+    io.to(code).emit('game:announcement',{announcement});
+  }
   // Targeted delivery to a single bot socket (identified by payload.playerCode).
   function broadcastBotPrompt(code,payload){const evt=payload.kind;for(const s of io.sockets.sockets.values()){if(!s.rooms.has(code)||!s.data.playerCode||s.data.playerCode!==payload.playerCode)continue;s.emit(evt,payload);}}
   // Fan-out to every bot socket joined to `code`. `payloadFor(botPlayer)` builds
