@@ -36,8 +36,16 @@
     <AnnouncementOverlay :announcement="announcement" />
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
 
-    <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
-      <iframe ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual"></iframe>
+    <div v-if="manualMounted && showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
+      <iframe v-if="!manualLoadFailed" ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual" @error="onManualIframeError" @load="onManualIframeLoad"></iframe>
+      <div v-else class="manual-fallback">
+        <h2>The vox cannot reach the manual</h2>
+        <p>The embedded manual failed to load (network or proxy refusal). Open it in a new tab to continue.</p>
+        <div class="manual-fallback-actions">
+          <a :href="manualUrl" target="_blank" rel="noopener" class="secondary">Open manual in new tab</a>
+          <button type="button" class="ghost" @click="closeManual">Close</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -52,7 +60,15 @@ import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
-const showManual = ref(false); const manualMounted = ref(false); const manualFrame = ref(null); const manualUrl = ref('/docs/how-to-play');
+const showManual = ref(false); const manualMounted = ref(false); const manualFrame = ref(null); const manualUrl = ref('/docs/how-to-play'); const manualLoadFailed = ref(false); let manualLoadTimer = null;
+function onManualIframeLoad() {
+  if (manualLoadTimer) { clearTimeout(manualLoadTimer); manualLoadTimer = null; }
+  manualLoadFailed.value = false;
+}
+function onManualIframeError() {
+  if (manualLoadTimer) { clearTimeout(manualLoadTimer); manualLoadTimer = null; }
+  manualLoadFailed.value = true;
+}
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
@@ -89,8 +105,21 @@ async function respondInterrogation(response) { try { await command('interrogati
 async function askConfession(targetCode) { try { await command('confession:ask', { code: game.value.code, targetCode }); } catch {} }
 async function leaveGame() { try { if (game.value) await command('game:leave', { code: game.value.code }); } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
 function leaveToHome() { if (!game.value || confirm('Leave this game? You can return with the same player code.')) leaveGame(); }
-function openManual(path) { manualUrl.value = path || '/docs/how-to-play'; manualMounted.value = true; showManual.value = true; }
-function closeManual() { showManual.value = false; }
+function openManual(path) {
+  manualUrl.value = path || '/docs/how-to-play';
+  manualMounted.value = true;
+  manualLoadFailed.value = false;
+  showManual.value = true;
+  if (manualLoadTimer) clearTimeout(manualLoadTimer);
+  manualLoadTimer = setTimeout(() => {
+    manualLoadTimer = null;
+    if (showManual.value) manualLoadFailed.value = true;
+  }, 8000);
+}
+function closeManual() {
+  showManual.value = false;
+  if (manualLoadTimer) { clearTimeout(manualLoadTimer); manualLoadTimer = null; }
+}
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
 function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
 function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) { hasMoreByChannel.value = { ...hasMoreByChannel.value, [next]: true }; loadHistory(); } }
@@ -177,5 +206,43 @@ onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.o
   height: 100%;
   border: 0;
   background: #090a09;
+}
+.manual-fallback {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  text-align: center;
+  color: var(--pale, #e8e4d5);
+}
+.manual-fallback h2 {
+  font: 700 22px Cinzel, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #b69a5c;
+  margin: 0;
+}
+.manual-fallback p {
+  font: 400 14px/1.55 Georgia, serif;
+  color: #aaa99d;
+  max-width: 480px;
+  margin: 0;
+}
+.manual-fallback-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+.manual-fallback-actions a.secondary,
+.manual-fallback-actions button {
+  padding: 12px 20px;
+  font: 700 10px Inter, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  display: inline-block;
 }
 </style>
