@@ -100,26 +100,37 @@ async function loadManualContent() {
   try {
     const res = await fetch(manualUrl.value + '?_=' + Date.now());
     const html = await res.text();
-    // Parse out the VitePress content — extract stylesheets, then body content.
-    // Strip <script> tags (VitePress client-side hydration would conflict with the SPA).
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    // Pull all <link rel="stylesheet"> and <style> tags from <head>
-    const headFragments = [];
+
+    // Collect ALL styles from <head> — VitePress uses scoped CSS (data-v-xxx)
+    // that only matches elements with matching data-v attributes, so we need
+    // the scoped style blocks too, not just the global stylesheet.
+    const styleFragments = [];
     doc.querySelectorAll('head link[rel="stylesheet"]').forEach(el => {
       const href = el.getAttribute('href');
-      if (href) headFragments.push(`<link rel="stylesheet" href="${href}">`);
+      if (href) styleFragments.push(`<link rel="stylesheet" href="${href}">`);
     });
     doc.querySelectorAll('head style').forEach(el => {
-      headFragments.push(`<style>${el.textContent}</style>`);
+      styleFragments.push(`<style>${el.textContent}</style>`);
     });
-    // Get the main content — VitePress wraps it in <div id="app">...<div class="VPDoc ...">...
-    const vpContent = doc.querySelector('.VPDoc') || doc.querySelector('#app > div') || doc.querySelector('#app');
-    if (vpContent) {
-      manualHtml.value = headFragments.join('\n') + vpContent.outerHTML;
-    } else {
-      manualHtml.value = '<p style="color:#aaa;padding:40px;text-align:center">Manual content unavailable.</p>';
+
+    // Get the full body content. VitePress puts everything inside
+    // <div id="app"><div class="Layout">...<div class="VPDoc">...content...</div></div></div>
+    const body = doc.querySelector('body');
+    if (!body) {
+      manualHtml.value = '<p style="color:#aaa;padding:40px;text-align:center">Manual body not found.</p>';
+      return;
     }
+
+    // Clone the body, strip <script> tags (VitePress hydration conflicts with the SPA),
+    // keep everything else including scoped style attributes on elements.
+    const cleanBody = body.cloneNode(true);
+    cleanBody.querySelectorAll('script').forEach(el => el.remove());
+    // Also strip any <noscript> content
+    cleanBody.querySelectorAll('noscript').forEach(el => el.remove());
+
+    manualHtml.value = styleFragments.join('\n') + cleanBody.innerHTML;
   } catch (e) {
     manualHtml.value = '<p style="color:#aaa;padding:40px;text-align:center">Failed to load manual: ' + e.message + '</p>';
   }
@@ -230,10 +241,11 @@ onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.o
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: 20px 40px;
+  padding: 0;
   background: #090a09;
   color: #d9d7cc;
   font: 400 15px/1.7 Georgia, serif;
+  position: relative;
 }
 .manual-content h1 {
   font: 700 28px Cinzel, serif;
@@ -251,6 +263,24 @@ onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.o
   font: 600 16px Cinzel, serif;
   color: #b69a5c;
   margin: 24px 0 8px;
+}
+.manual-content h1 {
+  padding: 0 40px;
+  margin: 0 0 8px;
+}
+.manual-content > * {
+  padding-left: 40px;
+  padding-right: 40px;
+}
+.manual-content > h1 {
+  padding-top: 24px;
+}
+.manual-content > div,
+.manual-content > section,
+.manual-content > article,
+.manual-content > main {
+  padding-left: 40px;
+  padding-right: 40px;
 }
 .manual-content p { margin: 0 0 16px; }
 .manual-content a { color: #dfc27c; text-decoration: underline; }
