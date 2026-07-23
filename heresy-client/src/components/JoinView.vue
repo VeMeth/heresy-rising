@@ -14,6 +14,7 @@
     <div class="join-panel">
       <div class="sigil" aria-hidden="true">⅋</div>
       <h2>Enter the conclave</h2><p class="muted">Your words will be recorded. Choose them carefully.</p>
+      <span class="data-chit" aria-hidden="true"></span>
       <form @submit.prevent="join">
         <label>Operative name<input v-model.trim="name" required maxlength="30" autocomplete="nickname" placeholder="Enter a callsign"></label>
         <label>Conclave code<input v-model.trim="code" maxlength="8" autocapitalize="characters" placeholder="e.g. CADIA" @input="code = code.toUpperCase()"></label>

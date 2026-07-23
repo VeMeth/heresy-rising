@@ -10,6 +10,8 @@
     <nav class="mobile-tabs"><button v-for="tab in ['roster','chat','orders']" :key="tab" :class="{active:mobileTab===tab}" @click="mobileTab=tab">{{ tab }}</button></nav>
     <div class="game-grid">
       <aside class="panel roster-panel" :class="{'mobile-hidden':mobileTab!=='roster'}">
+        <span class="panel-frame-corner tl"></span><span class="panel-frame-corner tr"></span>
+        <span class="panel-frame-corner bl"></span><span class="panel-frame-corner br"></span>
         <header><h2>Conclave</h2><span>{{ alive.length }} alive</span></header>
         <ul class="player-list">
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)">
@@ -27,6 +29,8 @@
         <button class="ghost wide leave" @click="$emit('leave')">Leave session</button>
       </aside>
       <section class="panel chat-panel" :class="{'mobile-hidden':mobileTab!=='chat'}">
+        <span class="panel-frame-corner tl"></span><span class="panel-frame-corner tr"></span>
+        <span class="panel-frame-corner bl"></span><span class="panel-frame-corner br"></span>
         <div class="channel-tabs"><button v-for="c in channels" :key="c.id" :class="{active:channel===c.id}" @click="$emit('channel',c.id)">{{ c.label }}<small>{{ c.note }}</small></button></div>
         <div ref="feed" class="message-feed">
           <div v-if="!messages.length" class="empty-chat"><strong>No transmissions recorded</strong></div>
@@ -70,6 +74,8 @@
         </form>
       </section>
       <aside class="panel orders-panel" :class="{'mobile-hidden':mobileTab!=='orders'}">
+        <span class="panel-frame-corner tl"></span><span class="panel-frame-corner tr"></span>
+        <span class="panel-frame-corner bl"></span><span class="panel-frame-corner br"></span>
         <template v-if="game.phase==='ended'">
           <div class="dossier-header">
             <span class="eyebrow">FINAL JUDGEMENT</span>
@@ -281,6 +287,14 @@ button.ghost.wide.stand-down-leading {
   user-select: none;
 }
 .day-header:hover { background: #1a1d18; }
+.day-header::before {
+  content: "";
+  width: 3px; height: 14px;
+  background: var(--gold);
+  border-radius: 1px;
+  margin-right: 2px;
+  opacity: 0.6;
+}
 .day-toggle {
   font-size: 10px;
   color: var(--gold);

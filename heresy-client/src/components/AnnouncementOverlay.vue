@@ -73,6 +73,18 @@ const animationKey = computed(() => {
   border: 1px solid;
   background: rgba(10, 12, 10, 0.95);
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
+  animation: announce-in 0.35s ease, announce-glow 2s ease-in-out 0.4s infinite alternate;
+  overflow: hidden;
+}
+.announcement-card::before {
+  content: "\24B8";
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  font: 700 180px 'Times New Roman', serif;
+  opacity: 0.025;
+  pointer-events: none;
+  line-height: 1;
 }
 
 .announcement-badge {
