@@ -120,7 +120,7 @@ async function loadManualContent() {
     // that only matches elements with matching data-v attributes, so we need
     // the scoped style blocks too, not just the global stylesheet.
     const styleFragments = [];
-    doc.querySelectorAll('head link[rel="stylesheet"]').forEach(el => {
+    doc.querySelectorAll('head link[rel~="stylesheet"]').forEach(el => {
       const href = el.getAttribute('href');
       if (href) styleFragments.push(`<link rel="stylesheet" href="${href}">`);
     });
