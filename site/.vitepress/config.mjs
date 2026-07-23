@@ -4,6 +4,7 @@ export default defineConfig({
   title: 'Heresy Rising',
   description: 'A Game of Hidden Faith',
   base: '/docs/',
+  cleanUrls: true,
   appearance: 'force-dark',
   outDir: '_site',
   head: [
