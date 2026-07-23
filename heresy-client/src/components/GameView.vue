@@ -260,17 +260,29 @@ button.ghost.wide.stand-down-leading {
   to   { box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.5), 0 0 22px rgba(76, 175, 80, 0.4); }
 }
 
-.message.faction {
-  border-left: 3px solid #ff6b6b;
-  background: rgba(255, 107, 107, 0.08);
+/* Cabal transmissions: oxblood variant of the vox frame (global
+   message chrome lives in fx.css). */
+.message.faction .avatar.mini {
+  border-color: rgba(255, 107, 107, .55);
+  color: #ff8a8a;
+  box-shadow:
+    0 0 0 1px #0a0b09,
+    0 0 10px rgba(255, 107, 107, .22),
+    inset 0 1px 0 rgba(255, 138, 138, .15);
+  text-shadow: 0 0 8px rgba(255, 107, 107, .55);
 }
 
 .message.faction header strong {
-  color: #ff6b6b;
+  color: #ff8a8a;
 }
 
 .message.faction p {
-  color: #ff6b6b;
+  color: #d99b95;
+  border-left-color: #6b3030;
+  background: linear-gradient(160deg, #231a18, #151010);
+}
+.message.faction p::before {
+  border-color: rgba(255, 107, 107, .5);
 }
 
 .day-sections {

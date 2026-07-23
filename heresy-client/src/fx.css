@@ -273,6 +273,107 @@ footer::after  { content: "✦"; color: rgba(182, 154, 92, .35); margin-left: 10
 .composer textarea:focus {
   box-shadow: 0 0 0 2px #b69a5c22, 0 0 20px rgba(182, 154, 92, .1);
 }
+
+/* ----- 8b · Vox transmission rework -----
+   Every message becomes a stamped transmission: a heraldic avatar
+   tile threaded on the gold vox-rail, a Cinzel dossier name with
+   the timestamp riding beside it, and a notched dark bubble. */
+.message-feed::before {
+  left: 39px;
+  background: linear-gradient(180deg,
+      transparent,
+      rgba(182, 154, 92, .16) 8%,
+      rgba(182, 154, 92, .16) 92%,
+      transparent);
+}
+/* Archive cards sit on the rail, so it never cuts through them. */
+.day-section { position: relative; }
+
+.message .avatar.mini {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  border: 1px solid rgba(182, 154, 92, .5);
+  background: linear-gradient(145deg, #262920, #12140e);
+  box-shadow:
+    0 0 0 1px #0a0b09,
+    0 0 10px rgba(182, 154, 92, .16),
+    inset 0 1px 0 rgba(223, 194, 124, .15);
+  text-shadow: 0 0 8px rgba(223, 194, 124, .55);
+}
+/* Outranks the blanket `.panel header{justify-content:space-between}`
+   which would otherwise fling the timestamp to the far edge. */
+.message > div > header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 4px;
+}
+.message header strong {
+  font: 700 11px Cinzel, serif;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #cfcab5;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+}
+.message time {
+  font-size: 9px;
+  letter-spacing: .1em;
+  color: #6f7266;
+}
+.message time::before {
+  content: "✦";
+  color: rgba(182, 154, 92, .45);
+  font-size: 7px;
+  margin: 0 7px 0 3px;
+  vertical-align: 1px;
+}
+.message p {
+  position: relative;
+  background: linear-gradient(160deg, #21251c, #15170f);
+  border: 1px solid #34362c;
+  border-left: 2px solid #554e38;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(223, 194, 124, .06);
+  padding: 8px 14px 9px;
+  margin: 6px 0 0;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.message p::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-top: 1px solid rgba(182, 154, 92, .55);
+  border-right: 1px solid rgba(182, 154, 92, .55);
+  pointer-events: none;
+}
+.message:hover p {
+  border-color: #41443a;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, .36), inset 0 1px 0 rgba(223, 194, 124, .09);
+}
+/* Ballot transmissions keep their gold seal, now in the new frame. */
+.message.vote p {
+  border-color: var(--gold);
+  border-left: 2px solid var(--gold2);
+  background: linear-gradient(160deg, #26200f, #17130a);
+  color: var(--gold2);
+}
+.message.vote p::before {
+  border-color: var(--gold2);
+}
+.message.vote .avatar.mini {
+  border-color: var(--gold2);
+  box-shadow:
+    0 0 0 1px #0a0b09,
+    0 0 12px rgba(223, 194, 124, .3),
+    inset 0 1px 0 rgba(223, 194, 124, .2);
+}
+/* Mobile feed padding shifts the avatar centre — move the rail. */
+@media (max-width: 460px) {
+  .message-feed::before { left: 26px; }
+}
 .message-feed,
 .orders-panel,
 .player-list,

@@ -1,11 +1,11 @@
 <template>
-  <div v-if="announcement" :key="animationKey" class="announcement-wrapper" :class="`type-${announcement.type}`" role="alert">
+  <div v-if="announcement" :key="animationKey" class="announcement-wrapper" :class="[`type-${announcement.type}`, factionClass]" role="alert">
     <div class="announcement-backdrop"></div>
     <div class="letterbox top" aria-hidden="true"></div>
     <div class="letterbox bottom" aria-hidden="true"></div>
     <div class="announcement-card">
       <span class="announcement-badge">{{ badgeLabel }}</span>
-      <h1 class="announcement-title">{{ announcement.title }}</h1>
+      <h1 class="announcement-title">{{ displayTitle }}</h1>
       <p class="announcement-message">{{ announcement.message }}</p>
     </div>
   </div>
@@ -33,6 +33,21 @@ const badgeLabels = {
 const badgeLabel = computed(() => {
   if (!props.announcement) return '';
   return badgeLabels[props.announcement.type] || 'ANNOUNCEMENT';
+});
+
+// The dossier reveal's main focus is the role itself — put it in the
+// giant title slot instead of the generic "YOUR DOSSIER" heading.
+const displayTitle = computed(() => {
+  const a = props.announcement;
+  if (!a) return '';
+  return (a.type === 'role-reveal' && a.role) ? a.role : (a.title || '');
+});
+
+// Faction tint for the role reveal: heretic oxblood vs loyalist gold.
+const factionClass = computed(() => {
+  const a = props.announcement;
+  if (!a || a.type !== 'role-reveal' || !a.faction) return '';
+  return `faction-${a.faction}`;
 });
 
 // Force a fresh render every time the announcement changes so the CSS
@@ -205,6 +220,11 @@ const animationKey = computed(() => {
 
 .type-role-reveal .announcement-backdrop { background: rgba(20, 30, 40, 0.6); }
 .type-role-reveal .announcement-card { border-color: #3a5a7a; color: #a8d0e8; }
+.type-role-reveal .announcement-title { font-size: 2.9rem; }
+.type-role-reveal.faction-heretic .announcement-backdrop { background: rgba(60, 10, 10, 0.62); }
+.type-role-reveal.faction-heretic .announcement-card { border-color: #6b3030; color: #ff8a8a; }
+.type-role-reveal.faction-loyalist .announcement-backdrop { background: rgba(28, 24, 12, 0.6); }
+.type-role-reveal.faction-loyalist .announcement-card { border-color: #5b533d; color: #dfc27c; }
 
 .type-gameover .announcement-backdrop { background: rgba(0, 0, 0, 0.75); }
 .type-gameover .announcement-card { border-color: #8b0000; color: #ff3333; }
