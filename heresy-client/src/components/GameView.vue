@@ -23,11 +23,11 @@
             <i :class="{online:p.connected}"></i>
           </li>
         </ul>
-        <template v-if="votingOpen">
+        <template v-if="votingOpen && !spectator">
           <button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small>{{ targetVoteCount('skip') }}/{{ voteThreshold }}</small></button>
           <button v-if="myVote" class="ghost wide" @click="$emit('retract-vote')">Retract vote</button>
         </template>
-        <p v-else-if="game.phase==='day' && game.round===1" class="day1-hint">Day 1 — no vote. Introduce yourself and observe.</p>
+        <p v-else-if="game.phase==='day' && game.round===1 && !spectator" class="day1-hint">Day 1 — no vote. Introduce yourself and observe.</p>
         <button class="ghost wide leave" @click="$emit('leave')">Leave session</button>
       </aside>
       <section class="panel chat-panel" :class="{'mobile-hidden':mobileTab!=='chat'}">
@@ -70,10 +70,11 @@
             </article>
           </template>
         </div>
-        <form class="composer" @submit.prevent="post">
+        <form v-if="!spectator" class="composer" @submit.prevent="post">
           <textarea v-model.trim="draft" maxlength="1000" rows="2" :disabled="!canChat" :placeholder="canChat?'Transmit… (Enter to send, Shift+Enter for newline)':'Channel sealed'" @keydown.enter.exact.prevent="post"></textarea>
           <button class="primary" :disabled="!draft||!canChat">Transmit</button>
         </form>
+        <div v-else class="composer"><p class="spectator-composer-note">Spectating — transmissions sealed.</p></div>
       </section>
       <aside class="panel orders-panel" :class="{'mobile-hidden':mobileTab!=='orders'}">
         <span class="panel-frame-corner tl"></span><span class="panel-frame-corner tr"></span>
@@ -89,6 +90,12 @@
               <span :class="['role-pill', p.faction]">{{ p.role?.displayName || '—' }}</span>
             </li>
           </ul>
+        </template>
+        <template v-else-if="spectator">
+          <div class="spectator-notice">
+            <span class="eyebrow">OBSERVING</span>
+            <p>You are observing this conclave. The dossier is sealed until the final judgement.</p>
+          </div>
         </template>
         <template v-else>
           <div class="dossier-header">
@@ -175,7 +182,7 @@
 <script setup>
 import { computed,nextTick,ref,watch } from 'vue';
 // TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
-const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','history','vote','retract-vote','action','retract-action','respond','ask-confession','open-manual','leave']);
+const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','history','vote','retract-vote','action','retract-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref('');
 const dayExpanded = ref({});
 function isDayStart(m){return m.kind==='system'&&/Day\s+\d+(\s*:|\s+begins)/i.test(m.body);}
@@ -199,14 +206,14 @@ watch(()=>props.messages,()=>nextTick(()=>{
 }),{deep:false});
 watch(()=>props.channel,()=>{dayExpanded.value={};});
 const actionTargets=computed(()=>alive.value.filter(p=>{if(nightAction.value?.target==='any')return true;if(p.playerCode===props.me?.playerCode){return nightAction.value?.kind==='protect';}if(nightAction.value?.target==='hostile')return p.faction!=='heretic';return true}));
-const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(props.me?.faction==='heretic'?[{id:'faction',label:'Cabal',note:'heretics'}]:[]),...(!props.me?.alive?[{id:'graveyard',label:'Graveyard',note:'dead'}]:[])]),canChat=computed(()=>props.game.phase!=='ended'&&(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard'));
+const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(!props.spectator&&props.me?.faction==='heretic'?[{id:'faction',label:'Cabal',note:'heretics'}]:[]),...(!props.spectator&&!props.me?.alive?[{id:'graveyard',label:'Graveyard',note:'dead'}]:[])]),canChat=computed(()=>props.game.phase!=='ended'&&(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard'));
 const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeader=computed(()=>{if(!votingOpen.value)return null;const counts=voteCounts.value;let leader=null,max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max){max=count;leader=code;}}return leader}),standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 const secondsLeft=computed(()=>{if(!deadline.value)return null;return Math.max(0,Math.floor((deadline.value-props.now)/1000));});
 const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.game.nightMs:props.game.dayMs)||0;if(!total||secondsLeft.value==null)return 0;return Math.min(1,Math.max(0,1-(secondsLeft.value*1000)/total));});
 const driftPct=computed(()=>{const max=props.game.maxDrift||20;const d=props.me?.drift||0;return Math.min(100,Math.round((d/max)*100));});
 function tallyStyle(choice){return{'--fill':Math.min(1,(voteCounts.value[choice]||0)/voteThreshold.value)};}
 function castVote(choice){emit('vote',{choice,justification:voteJustification.value})}
-function voteFor(p){if(!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(draft.value&&canChat.value){emit('send',draft.value);draft.value=''}}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'Observing':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(draft.value&&canChat.value){emit('send',draft.value);draft.value=''}}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'Observing':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 function targetName(code){return players.value.find(p=>p.playerCode===code)?.name||'unknown';}
 </script>
 
@@ -588,5 +595,25 @@ button.ghost.wide.stand-down-leading {
   padding: 10px 0;
   margin: 0;
   text-align: center;
+}
+.spectator-notice {
+  padding: 30px 18px;
+  text-align: center;
+}
+.spectator-notice p {
+  font: 400 13px/1.6 Georgia, serif;
+  color: var(--muted);
+  font-style: italic;
+  margin: 10px 0 0;
+}
+.spectator-composer-note {
+  font: 400 10px/1 Inter, sans-serif;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
+  padding: 12px 0;
+  width: 100%;
+  letter-spacing: .06em;
+  text-transform: uppercase;
 }
 </style>

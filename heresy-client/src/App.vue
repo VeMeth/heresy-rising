@@ -26,7 +26,7 @@
         @kick="kickPlayer" />
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :has-more="hasMoreByChannel[channel]"
-        :busy="busy" :now="now" :voting-enabled="game?.votingEnabled"
+        :busy="busy" :now="now" :spectator="spectator" :voting-enabled="game?.votingEnabled"
         @channel="changeChannel" @send="sendMessage" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
         @retract-action="retractAction" @respond="respondInterrogation" @ask-confession="askConfession"
@@ -70,6 +70,7 @@ const messages = computed(() => messagesByChannel.value[channel.value] || []);
 const me = computed(() => { const g = game.value; if (!g) return null; const myCode = getPlayerCode(); const found = g.players?.find(p => p.playerCode === myCode || p.isYou || (p.id != null && (p.id === g.you || p.id === g.youId))); return found || g.me || null; });
 const connectionState = computed(() => connected.value ? 'online' : reconnecting.value ? 'reconnecting' : 'offline');
 const connectionLabel = computed(() => connected.value ? 'Vox online' : reconnecting.value ? 'Reconnecting' : 'Vox offline');
+const spectator = computed(() => game.value?.isSpectator === true);
 
 function readJson(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
 function saveProfile(data) { if (!data) return; profile.value = { ...(profile.value || {}), ...data }; localStorage.setItem('heresy-rising:profile', JSON.stringify(profile.value)); if (data.playerCode) setPlayerCode(data.playerCode); }
@@ -80,6 +81,24 @@ async function command(event, payload = {}) { busy.value = true; error.value = '
 async function createGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:create', { name: form.name, mode: form.mode, options: {}, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if (data?.code&&game.value&&!game.value.code)game.value.code=data.code; if(game.value?.code){saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();}}catch{}}
 async function joinGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if(game.value?.code)saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code||form.roomCode}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();}catch{}}
 async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); notify('Identity restored'); }
+async function spectateGame(code) {
+  if (!code) return;
+  try {
+    await ensureConnected();
+    const data = await emitWithAck('game:spectate', { code });
+    const state = normalize(data);
+    if (state) {
+      game.value = state;
+      saveGameCode(state.code);
+      history.replaceState({}, '', `?game=${state.code}`);
+      if (data.playerCode) setPlayerCode(data.playerCode);
+      saveProfile({ playerCode: getPlayerCode(), isSpectator: true });
+      messagesByChannel.value = { public: [], faction: [], graveyard: [] };
+      hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
+      await loadHistory();
+    }
+  } catch (e) { error.value = e.message; notify(e.message); }
+}
 async function toggleReady() { try { await command('game:ready', { code: game.value.code, ready: !me.value?.ready }); } catch {} }
 async function kickPlayer(targetCode) { if (!targetCode || !game.value?.code) return; try { await command('game:kick', { code: game.value.code, targetCode }); } catch (e) { notify(e.message || 'Kick failed'); } }
 function receiveKicked() { notify('You were removed from the conclave.'); leaveGame(); }
@@ -166,7 +185,7 @@ function receiveAnnouncement(payload) {
   const duration = a.type === 'gameover' ? 8000 : 5000;
   announcementTimer = setTimeout(() => { announcement.value = null; }, duration);
 }
-function onConnect() { connected.value = true; reconnecting.value = false; const code=game.value?.code||readJson('heresy-rising:game'); if(code) emitWithAck('game:state', { code, playerCode:getPlayerCode() }).then(data=>{ receiveState(data); return loadHistory(); }).catch(()=>{}); }
+function onConnect() { connected.value = true; reconnecting.value = false; const code=game.value?.code||readJson('heresy-rising:game');const profile=readJson('heresy-rising:profile',{});if(code){if(profile.isSpectator){spectateGame(code).catch(()=>{});}else{emitWithAck('game:state',{code,playerCode:getPlayerCode()}).then(data=>{receiveState(data);return loadHistory();}).catch(()=>{});}}}
 function onDisconnect() { connected.value = false; reconnecting.value = true; }
 async function maybeAutoJoin() {
   if (game.value) return;
@@ -174,7 +193,10 @@ async function maybeAutoJoin() {
   const savedCode = profile.value?.playerCode;
   const target = initialCode.value;
   if (!target || !savedName || !savedCode) return;
-  await joinGame({ name: savedName, roomCode: target }).catch(() => {});
+  await joinGame({ name: savedName, roomCode: target }).catch(() => {
+    // If the game already started the join will fail — try spectating.
+    if (target) spectateGame(target);
+  });
 }
 onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
 onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
