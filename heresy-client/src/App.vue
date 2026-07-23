@@ -6,7 +6,7 @@
         <span class="brand-mark">H</span><span><strong>HERESY RISING</strong><small>A game of accusation and survival</small></span>
       </button>
       <div class="mast-actions">
-        <a class="ghost compact" :href="manualUrl" target="_blank" rel="noopener">Manual</a>
+        <button class="ghost compact" @click="openManual" aria-haspopup="dialog">Manual</button>
         <span v-if="game" class="game-code">CONCLAVE {{ game.code }}</span>
         <span class="connection" :class="connectionState"><i></i>{{ connectionLabel }}</span>
         <button v-if="game" class="ghost compact" @click="copyInvite">Copy invite</button>
@@ -35,6 +35,11 @@
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
     <AnnouncementOverlay :announcement="announcement" />
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
+
+    <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
+      <button type="button" class="manual-close" @click="closeManual" aria-label="Close manual">✕</button>
+      <iframe ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual"></iframe>
+    </div>
   </div>
 </template>
 
@@ -48,7 +53,7 @@ import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
-const manualUrl = ref('/docs/how-to-play');
+const showManual = ref(false); const manualMounted = ref(false); const manualFrame = ref(null); const manualUrl = ref('/docs/how-to-play');
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
@@ -85,10 +90,10 @@ async function respondInterrogation(response) { try { await command('interrogati
 async function askConfession(targetCode) { try { await command('confession:ask', { code: game.value.code, targetCode }); } catch {} }
 async function leaveGame() { try { if (game.value) await command('game:leave', { code: game.value.code }); } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
 function leaveToHome() { if (!game.value || confirm('Leave this game? You can return with the same player code.')) leaveGame(); }
-function openManual(path) {
-  const url = path || '/docs/how-to-play';
-  window.open(url, '_blank', 'noopener,noreferrer');
-}
+function openManual(path) { manualUrl.value = path || '/docs/how-to-play'; manualMounted.value = true; showManual.value = true; }
+function closeManual() { showManual.value = false; }
+function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
+function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
 
 function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) { hasMoreByChannel.value = { ...hasMoreByChannel.value, [next]: true }; loadHistory(); } }
 function mergeMessages(ch, incoming, prepend = false) {
@@ -155,9 +160,43 @@ async function maybeAutoJoin() {
   if (!target || !savedName || !savedCode) return;
   await joinGame({ name: savedName, roomCode: target }).catch(() => {});
 }
-onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
-onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); });
+onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
+onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
 </script>
 
 <style scoped>
+.manual-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(6, 7, 6, 0.96);
+  display: flex;
+  flex-direction: column;
+}
+.manual-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 51;
+  background: #1a1a18;
+  border: 1px solid #43463d;
+  color: #c4c1b5;
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.manual-close:hover {
+  border-color: var(--gold);
+  color: var(--gold2);
+}
+.manual-frame {
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #090a09;
+}
 </style>
