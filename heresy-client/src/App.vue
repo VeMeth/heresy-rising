@@ -38,7 +38,7 @@
 
     <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
       <button type="button" class="manual-close" @click="closeManual" aria-label="Close manual">✕</button>
-      <div class="manual-content" v-html="manualContentHtml"></div>
+      <div class="manual-content" v-html="manualContentHtml" @click="onManualLinkClick"></div>
     </div>
   </div>
 </template>
@@ -146,6 +146,15 @@ async function loadManualContent() {
   } catch (e) {
     manualHtml.value = '<p style="color:#aaa;padding:40px;text-align:center">Failed to load manual: ' + e.message + '</p>';
   }
+}
+function onManualLinkClick(e) {
+  const link = e.target.closest('a');
+  if (!link) return;
+  const href = link.getAttribute('href');
+  // Only intercept internal docs navigation — let anchors, externals, and root pass.
+  if (!href || !href.startsWith('/docs/')) return;
+  e.preventDefault();
+  openManual(href);
 }
 function closeManual() { showManual.value = false; manualHtml.value = ''; }
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
