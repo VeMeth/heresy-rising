@@ -12,7 +12,7 @@
       <div class="feature-row"><span>5–12 players</span><span>Live or asynchronous</span><span>Persistent campaigns</span></div>
     </div>
     <div class="join-panel">
-      <div class="sigil" aria-hidden="true">⅋</div>
+      <div class="sigil" aria-hidden="true"><span class="wax-seal">⅋</span><span class="seal-ribbons"><i></i><i></i></span></div>
       <h2>Enter the conclave</h2><p class="muted">Your words will be recorded. Choose them carefully.</p>
       <span class="data-chit" aria-hidden="true"></span>
       <form @submit.prevent="join">

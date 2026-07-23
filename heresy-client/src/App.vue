@@ -1,6 +1,7 @@
 <template>
   <AdminView v-if="isAdminRoute" />
   <div v-else class="app">
+    <EmberField />
     <header class="masthead">
       <button class="brand" @click="leaveToHome" aria-label="Heresy Rising home">
         <span class="brand-mark">H</span><span><strong>HERESY RISING</strong><small>A game of accusation and survival</small></span>
@@ -52,6 +53,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ensureConnected, emitWithAck, getPlayerCode, setPlayerCode, socket } from './socket';
 import AdminView from './components/AdminView.vue';
 import AnnouncementOverlay from './components/AnnouncementOverlay.vue';
+import EmberField from './components/EmberField.vue';
 import JoinView from './components/JoinView.vue';
 import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';

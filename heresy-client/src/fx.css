@@ -1,0 +1,592 @@
+/* ============================================================
+   HERESY RISING — FX LAYER (spectacle pass)
+   Fully additive: imported AFTER style.css. No layout, no
+   palette changes — only light, motion and texture drawn from
+   the existing antique-gold / oxblood / bone scheme.
+   Sections:
+     1  Ambient room: vignette + brazier glow
+     2  Panel grain, inner top-light, corner bracket glow
+     3  Masthead energy line + brand mark glow
+     4  Buttons: letterpress + hover lift
+     5  Footer ornaments
+     6  Phase strip: day rays, night stars, urgent countdown
+     7  Phase transition flash
+     8  Vox chat: message static, channel glow, composer focus
+     9  Roster: targeting reticles, vote tally bar
+    10  Dossier: EYES ONLY stamp, role-card holo shine, drift gauge
+    11  Join: wax seal, hero reveal, landing watermark, chit scan
+    12  Lobby: ready stamp, panel header ornament
+    13  Toast entrance
+    14  Ember canvas
+    15  Reduced motion
+   ============================================================ */
+
+/* ---------- 1 · Ambient room: vignette + brazier glow ---------- */
+/* Player-facing shell only (.app is absent on /admin). Fixed,
+   click-through overlays above content, under the scanlines. */
+.app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  pointer-events: none;
+  background: radial-gradient(ellipse 118% 88% at 50% 42%,
+      transparent 52%, rgba(0, 0, 0, .36) 100%);
+}
+.app::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9996;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 32% at 50% -12%, rgba(223, 194, 124, .075), transparent 70%),
+    radial-gradient(ellipse 30% 22% at 8% 108%, rgba(159, 57, 49, .05), transparent 70%),
+    radial-gradient(ellipse 30% 22% at 92% 108%, rgba(159, 57, 49, .05), transparent 70%);
+  animation: brazier-flicker 5.5s ease-in-out infinite;
+}
+@keyframes brazier-flicker {
+  0%, 100% { opacity: .75; }
+  18%      { opacity: .95; }
+  37%      { opacity: .7; }
+  55%      { opacity: 1; }
+  74%      { opacity: .82; }
+  89%      { opacity: .93; }
+}
+
+/* ---------- 2 · Panel grain, inner top-light, bracket glow ---------- */
+/* Fine parchment/metal grain over every panel's inner frame.
+   The SVG turbulence rect carries its own low alpha, so the
+   existing frame border is unaffected. */
+.panel::after,
+.join-panel::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.86 0 0 0 0 0.82 0 0 0 0 0.68 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.join-panel::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  pointer-events: none;
+}
+.join-panel,
+.panel {
+  box-shadow: 0 24px 80px #0008, inset 0 1px 0 rgba(223, 194, 124, .055);
+}
+.panel .panel-frame-corner {
+  box-shadow: 0 0 6px rgba(182, 154, 92, .4), inset 0 0 3px rgba(182, 154, 92, .25);
+  animation: corner-pulse 5s ease-in-out infinite alternate;
+}
+.panel .panel-frame-corner.tr { animation-delay: 1.2s; }
+.panel .panel-frame-corner.bl { animation-delay: 2.4s; }
+.panel .panel-frame-corner.br { animation-delay: 3.6s; }
+@keyframes corner-pulse {
+  from { opacity: .55; }
+  to   { opacity: 1; }
+}
+
+/* ---------- 3 · Masthead energy line + brand mark glow ---------- */
+.masthead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(223, 194, 124, .85), transparent);
+  background-size: 180px 100%;
+  background-repeat: no-repeat;
+  animation: energy-sweep 8s linear infinite;
+  pointer-events: none;
+}
+@keyframes energy-sweep {
+  from { background-position: -180px 0; }
+  to   { background-position: calc(100% + 180px) 0; }
+}
+.brand-mark {
+  box-shadow: 0 0 10px rgba(182, 154, 92, .28), inset 0 0 6px rgba(182, 154, 92, .18);
+  animation: brand-glow 4s ease-in-out infinite alternate;
+}
+@keyframes brand-glow {
+  to { box-shadow: 0 0 18px rgba(182, 154, 92, .5), inset 0 0 10px rgba(182, 154, 92, .3); }
+}
+.game-code {
+  text-shadow: 0 0 12px rgba(223, 194, 124, .3);
+}
+
+/* ---------- 4 · Buttons: letterpress + hover lift ---------- */
+.primary, .secondary, .ghost {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .65);
+  transition: filter .15s ease, box-shadow .2s ease, transform .15s ease, border-color .15s ease;
+}
+.primary:not(:disabled):hover,
+.secondary:not(:disabled):hover,
+.ghost:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+.primary:not(:disabled):active,
+.secondary:not(:disabled):active,
+.ghost:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* ---------- 5 · Footer ornaments ---------- */
+footer::before { content: "✦"; color: rgba(182, 154, 92, .35); margin-right: 10px; }
+footer::after  { content: "✦"; color: rgba(182, 154, 92, .35); margin-left: 10px; }
+
+/* ---------- 6 · Phase strip: day rays, night stars, urgency ---------- */
+.phase-strip {
+  position: relative;
+  overflow: hidden;
+}
+.phase-strip.day::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(115deg,
+      transparent 0 26px, rgba(223, 194, 124, .03) 26px 52px);
+  animation: rays-pan 16s linear infinite;
+}
+@keyframes rays-pan {
+  from { background-position: 0 0; }
+  to   { background-position: 140px 0; }
+}
+.phase-strip.night::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 8% 30%, rgba(200, 210, 255, .8), transparent),
+    radial-gradient(1px 1px at 22% 65%, rgba(200, 210, 255, .55), transparent),
+    radial-gradient(1.5px 1.5px at 34% 22%, rgba(220, 220, 255, .7), transparent),
+    radial-gradient(1px 1px at 47% 72%, rgba(200, 210, 255, .5), transparent),
+    radial-gradient(1px 1px at 58% 38%, rgba(220, 220, 255, .65), transparent),
+    radial-gradient(1.5px 1.5px at 71% 60%, rgba(200, 210, 255, .6), transparent),
+    radial-gradient(1px 1px at 83% 26%, rgba(220, 220, 255, .7), transparent),
+    radial-gradient(1px 1px at 93% 70%, rgba(200, 210, 255, .5), transparent);
+  animation: star-twinkle 3.2s ease-in-out infinite alternate;
+}
+@keyframes star-twinkle {
+  from { opacity: .25; }
+  to   { opacity: .7; }
+}
+.phase-strip.night .phase-icon {
+  color: #b9c4e8;
+  text-shadow: 0 0 14px rgba(120, 140, 220, .5);
+}
+.phase-strip.ended .phase-icon {
+  color: #d99b95;
+}
+/* Rotating halo of light circling the phase icon. */
+.phase-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  position: relative;
+}
+.phase-icon::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg,
+      transparent 0 62%, rgba(223, 194, 124, .75) 82%, transparent 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  animation: halo-spin 9s linear infinite;
+  pointer-events: none;
+}
+@keyframes halo-spin {
+  to { transform: rotate(1turn); }
+}
+/* Phase progress: gold bar creeping along the strip's bottom edge. */
+.phase-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: calc(var(--p, 0) * 100%);
+  background: linear-gradient(90deg, #8f7543, var(--gold) 60%, var(--gold2));
+  box-shadow: 0 0 8px rgba(223, 194, 124, .55);
+  transition: width 1s linear;
+  pointer-events: none;
+}
+.phase-strip.night .phase-progress {
+  background: linear-gradient(90deg, #4a5480, #7c8ac0 60%, #aab6e0);
+  box-shadow: 0 0 8px rgba(140, 160, 220, .5);
+}
+.phase-time.urgent ~ .phase-progress,
+.phase-time.critical ~ .phase-progress {
+  background: linear-gradient(90deg, #72241e, #9f3931 60%, #c46a5d);
+  box-shadow: 0 0 10px rgba(159, 57, 49, .6);
+}
+.phase-time.urgent strong {
+  color: #d99b95;
+  animation: urgent-blink 1s steps(2) infinite;
+}
+.phase-time.critical strong {
+  color: #ff8a8a;
+  text-shadow: 0 0 14px rgba(255, 60, 60, .5);
+  animation: urgent-blink .5s steps(2) infinite;
+}
+@keyframes urgent-blink {
+  50% { opacity: .3; }
+}
+
+/* ---------- 7 · Phase transition flash ---------- */
+.phase-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0;
+  animation: phase-flash 1.15s ease-out forwards;
+}
+.phase-flash.day {
+  background: radial-gradient(ellipse at 50% 0%, rgba(223, 194, 124, .26), transparent 62%);
+}
+.phase-flash.night {
+  background: radial-gradient(ellipse at 50% 0%, rgba(60, 80, 160, .3), rgba(9, 10, 9, .35) 72%);
+}
+.phase-flash.ended {
+  background: radial-gradient(ellipse at 50% 30%, rgba(159, 57, 49, .3), transparent 66%);
+}
+@keyframes phase-flash {
+  0%   { opacity: 0; }
+  14%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------- 8 · Vox chat: static, channel glow, composer ---------- */
+.message {
+  animation: message-in .25s ease, vox-flicker .14s steps(2) 2;
+}
+@keyframes vox-flicker {
+  0%   { opacity: .5; }
+  100% { opacity: 1; }
+}
+.channel-tabs button.active {
+  text-shadow: 0 0 12px rgba(223, 194, 124, .45);
+}
+.composer textarea:focus {
+  box-shadow: 0 0 0 2px #b69a5c22, 0 0 20px rgba(182, 154, 92, .1);
+}
+.message-feed,
+.orders-panel,
+.player-list,
+.day-messages {
+  scrollbar-color: var(--gold) transparent;
+  scrollbar-width: thin;
+}
+.orders-panel::-webkit-scrollbar,
+.player-list::-webkit-scrollbar,
+.day-messages::-webkit-scrollbar { width: 9px; height: 9px; }
+.orders-panel::-webkit-scrollbar-track,
+.player-list::-webkit-scrollbar-track,
+.day-messages::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+.orders-panel::-webkit-scrollbar-thumb,
+.player-list::-webkit-scrollbar-thumb,
+.day-messages::-webkit-scrollbar-thumb {
+  background: linear-gradient(#4a432e, #33301f);
+  border: 1px solid #1c1a13;
+  border-radius: 4px;
+}
+.orders-panel::-webkit-scrollbar-thumb:hover,
+.player-list::-webkit-scrollbar-thumb:hover,
+.day-messages::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(#6a5d3a, #463f29);
+  border-color: #2a2418;
+}
+
+/* ---------- 9 · Roster: targeting reticles, vote tally ---------- */
+/* Gold corner reticle on hoverable vote targets — eight tiny
+   gradients draw four L-brackets inside the row. */
+.player-list li.selectable:hover {
+  background-image:
+    linear-gradient(var(--gold), var(--gold)), linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold)), linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold)), linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold)), linear-gradient(var(--gold), var(--gold));
+  background-repeat: no-repeat;
+  background-size: 9px 2px, 2px 9px, 9px 2px, 2px 9px, 9px 2px, 2px 9px, 9px 2px, 2px 9px;
+  background-position:
+    3px 3px, 3px 3px,
+    right 3px top 3px, right 3px top 3px,
+    left 3px bottom 3px, left 3px bottom 3px,
+    right 3px bottom 3px, right 3px bottom 3px;
+}
+/* Same reticle, blood red, on the lynch leader. */
+.player-list li.lynch-leader {
+  background-image:
+    linear-gradient(#ff3333, #ff3333), linear-gradient(#ff3333, #ff3333),
+    linear-gradient(#ff3333, #ff3333), linear-gradient(#ff3333, #ff3333),
+    linear-gradient(#ff3333, #ff3333), linear-gradient(#ff3333, #ff3333),
+    linear-gradient(#ff3333, #ff3333), linear-gradient(#ff3333, #ff3333);
+  background-repeat: no-repeat;
+  background-size: 9px 2px, 2px 9px, 9px 2px, 2px 9px, 9px 2px, 2px 9px, 9px 2px, 2px 9px;
+  background-position:
+    3px 3px, 3px 3px,
+    right 3px top 3px, right 3px top 3px,
+    left 3px bottom 3px, left 3px bottom 3px,
+    right 3px bottom 3px, right 3px bottom 3px;
+}
+/* Vote tally chip becomes a gauge: gold fill creeps toward the
+   threshold along the chip's bottom edge (--fill set inline). */
+.player-list .vote-count {
+  position: relative;
+  overflow: hidden;
+}
+.player-list .vote-count::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: calc(var(--fill, 0) * 100%);
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(223, 194, 124, .7);
+  transition: width .35s ease;
+}
+
+/* ---------- 10 · Dossier: stamp, holo shine, drift gauge ---------- */
+.dossier-header {
+  position: relative;
+}
+.dossier-header::after {
+  content: "EYES ONLY";
+  position: absolute;
+  right: 2px;
+  top: 0;
+  font: 700 8px Inter, sans-serif;
+  letter-spacing: .24em;
+  color: #d77272;
+  border: 1.5px solid rgba(193, 69, 69, .55);
+  border-radius: 2px;
+  padding: 3px 6px 2px 8px;
+  transform: rotate(-10deg);
+  opacity: .75;
+  box-shadow: inset 0 0 8px rgba(193, 69, 69, .12);
+  pointer-events: none;
+}
+/* Slow holographic sweep across the role card. */
+.role-shine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(105deg,
+      transparent,
+      rgba(223, 194, 124, .06) 42%,
+      rgba(223, 194, 124, .13) 50%,
+      rgba(223, 194, 124, .06) 58%,
+      transparent);
+  transform: translateX(-170%) skewX(-12deg);
+  animation: role-shine 7.5s ease-in-out infinite;
+}
+.role-card.heretic .role-shine {
+  background: linear-gradient(105deg,
+      transparent,
+      rgba(193, 69, 69, .07) 42%,
+      rgba(255, 138, 138, .14) 50%,
+      rgba(193, 69, 69, .07) 58%,
+      transparent);
+}
+@keyframes role-shine {
+  0%, 55%  { transform: translateX(-170%) skewX(-12deg); }
+  85%, 100% { transform: translateX(360%) skewX(-12deg); }
+}
+/* Drift bar: fill creeps green → amber → orange → oxblood. */
+.drift-gauge {
+  display: block;
+  height: 5px;
+  margin-top: 5px;
+  background: #0d0f0d;
+  border: 1px solid #34372f;
+}
+.drift-gauge i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #668a59, #d4a84a 45%, #c17a3a 70%, #9f3931);
+  box-shadow: 0 0 6px rgba(182, 154, 92, .25);
+  transition: width .6s ease;
+}
+
+/* ---------- 11 · Join: wax seal, hero reveal, watermark, scan ---------- */
+/* Blood-wax purity seal stamped over the join panel's sigil. */
+.wax-seal {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  font: 700 32px Cinzel, serif;
+  color: #4e120d;
+  background: radial-gradient(circle at 34% 28%, #b44b42, #9f3931 42%, #72241e 78%, #571510);
+  border-radius: 47% 53% 51% 49% / 52% 46% 54% 48%;
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, .55),
+    inset 0 2px 3px rgba(255, 180, 150, .3),
+    inset 0 -4px 8px rgba(40, 5, 5, .55),
+    inset 0 0 0 6px rgba(60, 10, 10, .22);
+  text-shadow: 0 1px 0 rgba(255, 170, 140, .26), 0 -1px 1px rgba(30, 0, 0, .65);
+  transform: rotate(-7deg);
+}
+.wax-seal::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 46% 54% 50% 50% / 53% 47% 52% 48%;
+  border: 1.5px solid rgba(255, 190, 160, .26);
+  box-shadow: inset 0 1px 2px rgba(30, 0, 0, .5);
+}
+.wax-seal::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 24px;
+  width: 11px;
+  height: 15px;
+  background: linear-gradient(#72241e, #571510);
+  border-radius: 0 0 60% 60% / 0 0 85% 85%;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .4);
+}
+/* Purity-seal parchment ribbons hanging beneath the wax. */
+.sigil {
+  position: relative;
+}
+.seal-ribbons {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 14px);
+  z-index: -1;
+  pointer-events: none;
+}
+.seal-ribbons i {
+  position: absolute;
+  top: 0;
+  width: 15px;
+  height: 52px;
+  background: linear-gradient(180deg, #cfc9b4, #a9a48f 55%, #8d8977);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .45), inset 0 0 6px rgba(0, 0, 0, .18);
+  clip-path: polygon(0 0, 100% 0, 100% 78%, 72% 88%, 100% 96%, 50% 100%, 0 92%, 24% 84%, 0 76%);
+}
+.seal-ribbons i:first-child {
+  left: -19px;
+  transform: rotate(7deg);
+}
+.seal-ribbons i:last-child {
+  left: 4px;
+  height: 46px;
+  transform: rotate(-6deg);
+  background: linear-gradient(180deg, #c4bfab, #9c9783 55%, #817d6b);
+}
+/* Hero + panel entrance choreography. */
+.hero-copy > * {
+  animation: rise-in .8s cubic-bezier(.2, .7, .3, 1) both;
+}
+.hero-copy > *:nth-child(1) { animation-delay: .05s; }
+.hero-copy > *:nth-child(2) { animation-delay: .16s; }
+.hero-copy > *:nth-child(3) { animation-delay: .28s; }
+.hero-copy > *:nth-child(4) { animation-delay: .4s; }
+.join-panel {
+  animation: rise-in .8s cubic-bezier(.2, .7, .3, 1) .22s both;
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Giant faded company sigil behind the landing columns. */
+.landing {
+  position: relative;
+}
+.landing::before {
+  content: "⅋";
+  position: absolute;
+  left: 6vw;
+  top: 50%;
+  transform: translateY(-50%) rotate(8deg);
+  font: 700 58vh Cinzel, serif;
+  line-height: 1;
+  color: rgba(182, 154, 92, .055);
+  text-shadow: 0 0 60px rgba(182, 154, 92, .12);
+  pointer-events: none;
+}
+.landing > * {
+  position: relative;
+  z-index: 1;
+}
+/* Travelling scan-light across the data-chit barcode. */
+.join-panel .data-chit {
+  position: relative;
+}
+.join-panel .data-chit::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  left: 0;
+  width: 42px;
+  background: linear-gradient(90deg, transparent, rgba(223, 194, 124, .4), transparent);
+  animation: chit-scan 3.8s linear infinite;
+}
+@keyframes chit-scan {
+  from { transform: translateX(-46px); }
+  to   { transform: translateX(230px); }
+}
+
+/* ---------- 12 · Lobby: ready stamp, panel header ornament ---------- */
+.ready.yes {
+  border: 1px solid rgba(153, 182, 138, .45);
+  padding: 1px 6px;
+  transform: rotate(-2.5deg);
+  text-shadow: 0 0 8px rgba(153, 182, 138, .35);
+}
+.panel > header h2::before {
+  content: "✦";
+  color: var(--gold);
+  margin-right: 8px;
+  font-size: .72em;
+  vertical-align: 2px;
+}
+.preset-option:hover,
+.role-row:hover {
+  border-color: rgba(182, 154, 92, .5);
+  box-shadow: 0 0 12px rgba(182, 154, 92, .08);
+}
+.roster-chip:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(182, 154, 92, .12);
+}
+
+/* ---------- 13 · Toast entrance ---------- */
+.toast {
+  animation: toast-in .32s cubic-bezier(.2, .9, .3, 1.15);
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ---------- 14 · Ember canvas ---------- */
+.ember-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* ---------- 15 · Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+  .ember-canvas { display: none !important; }
+  .app::after { animation: none; opacity: .8; }
+}
