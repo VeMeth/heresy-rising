@@ -38,7 +38,12 @@
 
     <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
       <button type="button" class="manual-close" @click="closeManual" aria-label="Close manual">✕</button>
-      <div class="manual-content" v-html="manualContentHtml" @click="onManualLinkClick"></div>
+      <iframe
+        class="manual-frame"
+        :src="manualUrl"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        title="Heresy Rising manual"
+      ></iframe>
     </div>
   </div>
 </template>
@@ -53,8 +58,7 @@ import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
-const showManual = ref(false); const manualMounted = ref(false); const manualUrl = ref('/docs/how-to-play'); const manualHtml = ref('');
-const manualContentHtml = computed(() => manualHtml.value || '<p style="color:#aaa;padding:40px;text-align:center">Loading manual…</p>');
+const showManual = ref(false); const manualMounted = ref(false); const manualUrl = ref('/docs/how-to-play');
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
@@ -92,71 +96,13 @@ async function askConfession(targetCode) { try { await command('confession:ask',
 async function leaveGame() { try { if (game.value) await command('game:leave', { code: game.value.code }); } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
 function leaveToHome() { if (!game.value || confirm('Leave this game? You can return with the same player code.')) leaveGame(); }
 function openManual(path) {
-  manualUrl.value = typeof path === 'string' ? path : '/docs/how-to-play';
   manualMounted.value = true;
+  // Only change src if a new path is given, otherwise the iframe keeps
+  // its current page. Always show the overlay.
+  if (typeof path === 'string') manualUrl.value = path;
   showManual.value = true;
-  loadManualContent();
 }
-async function loadManualContent() {
-  try {
-    const res = await fetch(manualUrl.value + '?_=' + Date.now());
-    const html = await res.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    // Check if we got the VitePress page or the SPA shell.
-    // VitePress has a <div id="app" data-v-app> wrapper; the SPA doesn't.
-    const isVitePress = doc.querySelector('div#app') !== null && (html.includes('VitePress') || html.includes('VPContent') || html.includes('VPDoc') || html.includes('theme-default-content'));
-
-    if (!isVitePress) {
-      // The docs aren't embedded (stale Docker image, or not built in dev).
-      // Fall back to opening the manual in a new tab.
-      closeManual();
-      window.open(manualUrl.value, '_blank', 'noopener');
-      return;
-    }
-
-    // Collect ALL styles from <head> — VitePress uses scoped CSS (data-v-xxx)
-    // that only matches elements with matching data-v attributes, so we need
-    // the scoped style blocks too, not just the global stylesheet.
-    const styleFragments = [];
-    doc.querySelectorAll('head link[rel~="stylesheet"]').forEach(el => {
-      const href = el.getAttribute('href');
-      if (href) styleFragments.push(`<link rel="stylesheet" href="${href}">`);
-    });
-    doc.querySelectorAll('head style').forEach(el => {
-      styleFragments.push(`<style>${el.textContent}</style>`);
-    });
-
-    // Get the full body content. VitePress puts everything inside
-    // <div id="app"><div class="Layout">...<div class="VPDoc">...content...</div></div></div>
-    const body = doc.querySelector('body');
-    if (!body) {
-      manualHtml.value = '<p style="color:#aaa;padding:40px;text-align:center">Manual body not found.</p>';
-      return;
-    }
-
-    // Clone the body, strip <script> tags (VitePress hydration conflicts with the SPA),
-    // keep everything else including scoped style attributes on elements.
-    const cleanBody = body.cloneNode(true);
-    cleanBody.querySelectorAll('script').forEach(el => el.remove());
-    cleanBody.querySelectorAll('noscript').forEach(el => el.remove());
-
-    manualHtml.value = styleFragments.join('\n') + cleanBody.innerHTML;
-  } catch (e) {
-    manualHtml.value = '<p style="color:#aaa;padding:40px;text-align:center">Failed to load manual: ' + e.message + '</p>';
-  }
-}
-function onManualLinkClick(e) {
-  const link = e.target.closest('a');
-  if (!link) return;
-  const href = link.getAttribute('href');
-  // Only intercept internal docs navigation — let anchors, externals, and root pass.
-  if (!href || !href.startsWith('/docs/')) return;
-  e.preventDefault();
-  openManual(href);
-}
-function closeManual() { showManual.value = false; manualHtml.value = ''; }
+function closeManual() { showManual.value = false; }
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
 function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
 
@@ -257,90 +203,11 @@ onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.o
   border-color: var(--gold);
   color: var(--gold2);
 }
-.manual-content {
+.manual-frame {
   flex: 1 1 0;
   width: 100%;
   height: 100%;
-  overflow-y: auto;
-  padding: 0;
+  border: 0;
   background: #090a09;
-  color: #d9d7cc;
-  font: 400 15px/1.7 Georgia, serif;
-  position: relative;
 }
-.manual-content h1 {
-  font: 700 28px Cinzel, serif;
-  color: #dfc27c;
-  border-bottom: 1px solid #34372f;
-  padding-bottom: 12px;
-  margin: 0 0 24px;
-}
-.manual-content h2 {
-  font: 700 20px Cinzel, serif;
-  color: #b69a5c;
-  margin: 32px 0 12px;
-}
-.manual-content h3 {
-  font: 600 16px Cinzel, serif;
-  color: #b69a5c;
-  margin: 24px 0 8px;
-}
-.manual-content h1 {
-  padding: 0 40px;
-  margin: 0 0 8px;
-}
-.manual-content > * {
-  padding-left: 40px;
-  padding-right: 40px;
-}
-.manual-content > h1 {
-  padding-top: 24px;
-}
-.manual-content > div,
-.manual-content > section,
-.manual-content > article,
-.manual-content > main {
-  padding-left: 40px;
-  padding-right: 40px;
-}
-.manual-content p { margin: 0 0 16px; }
-.manual-content a { color: #dfc27c; text-decoration: underline; }
-.manual-content blockquote {
-  border-left: 3px solid #b69a5c;
-  padding: 8px 16px;
-  margin: 16px 0;
-  background: rgba(182, 154, 92, 0.06);
-  font-style: italic;
-  color: #e8e4d5;
-}
-.manual-content table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 16px 0;
-  font-size: 14px;
-}
-.manual-content th,
-.manual-content td {
-  border: 1px solid #34372f;
-  padding: 8px 12px;
-  text-align: left;
-}
-.manual-content th {
-  background: rgba(182, 154, 92, 0.1);
-  color: #b69a5c;
-  font-family: Cinzel, serif;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.manual-content code {
-  background: #0d0f0d;
-  border: 1px solid #34372f;
-  padding: 2px 6px;
-  border-radius: 2px;
-  font-size: 13px;
-}
-.manual-content ul,
-.manual-content ol { margin: 0 0 16px 24px; }
-.manual-content li { margin: 4px 0; }
 </style>
