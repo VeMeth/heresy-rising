@@ -37,7 +37,8 @@
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
 
     <div v-if="manualMounted && showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
-      <iframe v-if="!manualLoadFailed" ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual" @error="onManualIframeError" @load="onManualIframeLoad"></iframe>
+      <button type="button" class="manual-close ghost" @click="closeManual" aria-label="Close manual">Close</button>
+      <iframe v-if="!manualLoadFailed" ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer" @error="onManualIframeError" @load="onManualIframeLoad"></iframe>
       <div v-else class="manual-fallback">
         <h2>The vox cannot reach the manual</h2>
         <p>The embedded manual failed to load (network or proxy refusal). Open it in a new tab to continue.</p>
@@ -199,6 +200,16 @@ onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.o
   background: rgba(6, 7, 6, 0.96);
   display: flex;
   flex-direction: column;
+}
+.manual-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 51;
+  padding: 8px 16px;
+  font: 700 10px Inter, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 .manual-frame {
   flex: 1 1 0;
