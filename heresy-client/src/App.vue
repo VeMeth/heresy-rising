@@ -37,7 +37,6 @@
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
 
     <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
-      <button type="button" class="manual-close" @click="closeManual" aria-label="Close manual">✕</button>
       <iframe
         class="manual-frame"
         :src="manualUrl"
@@ -183,25 +182,6 @@ onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.o
   background: rgba(6, 7, 6, 0.96);
   display: flex;
   flex-direction: column;
-}
-.manual-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 51;
-  background: #1a1a18;
-  border: 1px solid #43463d;
-  color: #c4c1b5;
-  width: 34px;
-  height: 34px;
-  font-size: 16px;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
-.manual-close:hover {
-  border-color: var(--gold);
-  color: var(--gold2);
 }
 .manual-frame {
   flex: 1 1 0;
