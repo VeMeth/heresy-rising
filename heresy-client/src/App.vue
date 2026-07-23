@@ -38,7 +38,7 @@
 
     <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
       <button type="button" class="manual-close" @click="closeManual" aria-label="Close manual">✕</button>
-      <div ref="manualContent" class="manual-content" v-html="manualHtml"></div>
+      <div class="manual-content" v-html="manualContentHtml"></div>
     </div>
   </div>
 </template>
@@ -54,6 +54,7 @@ import GameView from './components/GameView.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
 const showManual = ref(false); const manualMounted = ref(false); const manualUrl = ref('/docs/how-to-play'); const manualHtml = ref('');
+const manualContentHtml = computed(() => manualHtml.value || '<p style="color:#aaa;padding:40px;text-align:center">Loading manual…</p>');
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
@@ -103,6 +104,22 @@ async function loadManualContent() {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
+    // Check if we got the VitePress page or the SPA shell.
+    // VitePress has a <div id="app" data-v-app> wrapper; the SPA doesn't.
+    const isVitePress = doc.querySelector('div#app') !== null && (html.includes('VitePress') || html.includes('VPContent') || html.includes('VPDoc') || html.includes('theme-default-content'));
+
+    if (!isVitePress) {
+      // Fallback: maybe the request returned the SPA shell. Show the raw
+      // response body content so the user can at least see something.
+      const rawBody = doc.querySelector('body');
+      if (rawBody) {
+        manualHtml.value = '<div style="padding:40px;color:#aaa"><p>The manual is not yet embedded in this deployment.</p><pre style="font-size:11px;opacity:.5;overflow:auto;max-height:200px">' + (html || '').slice(0, 500) + '…</pre></div>';
+      } else {
+        manualHtml.value = '<p style="color:#aaa;padding:40px;text-align:center">Manual unavailable.</p>';
+      }
+      return;
+    }
+
     // Collect ALL styles from <head> — VitePress uses scoped CSS (data-v-xxx)
     // that only matches elements with matching data-v attributes, so we need
     // the scoped style blocks too, not just the global stylesheet.
@@ -127,7 +144,6 @@ async function loadManualContent() {
     // keep everything else including scoped style attributes on elements.
     const cleanBody = body.cloneNode(true);
     cleanBody.querySelectorAll('script').forEach(el => el.remove());
-    // Also strip any <noscript> content
     cleanBody.querySelectorAll('noscript').forEach(el => el.remove());
 
     manualHtml.value = styleFragments.join('\n') + cleanBody.innerHTML;
