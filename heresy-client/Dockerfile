@@ -12,8 +12,9 @@ RUN npm install
 COPY package.json package-lock.json* /docs-deps/
 RUN cd /docs-deps && npm install
 COPY site ./site
-RUN cd /docs-deps && npx vitepress build /app/site
-RUN rm -rf ./public/docs && cp -r ./site/_site ./public/docs
+RUN cp -r /app/site /docs-deps/site
+RUN cd /docs-deps && npx vitepress build site
+RUN cp -r /docs-deps/site/_site /app/public/docs
 
 # Copy the SPA source and build. This overwrites /app/package.json with
 # the SPA's package.json, but vitepress is already installed in /docs-deps
