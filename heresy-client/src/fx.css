@@ -348,7 +348,7 @@ footer::after  { content: "✦"; color: rgba(182, 154, 92, .35); margin-left: 10
   border: 1px solid #34362c;
   border-left: 2px solid #554e38;
   box-shadow: 0 3px 10px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(223, 194, 124, .06);
-  padding: 8px 14px 9px;
+  padding: 5px 14px 5px;
   margin: 6px 0 0;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
