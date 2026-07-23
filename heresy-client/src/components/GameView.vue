@@ -94,7 +94,7 @@
           </div>
           <div class="role-card" :class="me?.faction">
             <span class="role-sigil" aria-hidden="true">{{ me?.faction === 'heretic' ? '✶' : '☉' }}</span>
-            <button class="role-name" @click="$emit('open-manual', '/docs/roles/' + (role.id || '').toLowerCase())">{{ role.displayName }}</button>
+            <button class="role-name" @click="$emit('open-manual', '/docs/roles/' + (role.id || '').toLowerCase())" target="_blank">{{ role.displayName }}</button>
             <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
             <dl v-if="me?.drift != null || me?.crippleTier" class="role-meta">
               <div v-if="me?.drift != null"><dt>Drift</dt><dd>{{ me.drift }} / {{ game.maxDrift }}</dd></div>

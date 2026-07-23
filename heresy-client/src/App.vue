@@ -6,7 +6,7 @@
         <span class="brand-mark">H</span><span><strong>HERESY RISING</strong><small>A game of accusation and survival</small></span>
       </button>
       <div class="mast-actions">
-        <button class="ghost compact" @click="openManual" aria-haspopup="dialog">Manual</button>
+        <a class="ghost compact" :href="manualUrl" target="_blank" rel="noopener">Manual</a>
         <span v-if="game" class="game-code">CONCLAVE {{ game.code }}</span>
         <span class="connection" :class="connectionState"><i></i>{{ connectionLabel }}</span>
         <button v-if="game" class="ghost compact" @click="copyInvite">Copy invite</button>
@@ -35,19 +35,6 @@
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
     <AnnouncementOverlay :announcement="announcement" />
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
-
-    <div v-if="manualMounted && showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
-      <button type="button" class="manual-close ghost" @click="closeManual" aria-label="Close manual">Close</button>
-      <iframe v-if="!manualLoadFailed" ref="manualFrame" class="manual-frame" :src="manualUrl" title="Heresy Rising manual" referrerpolicy="no-referrer" @error="onManualIframeError" @load="onManualIframeLoad"></iframe>
-      <div v-else class="manual-fallback">
-        <h2>The vox cannot reach the manual</h2>
-        <p>The embedded manual failed to load (network or proxy refusal). Open it in a new tab to continue.</p>
-        <div class="manual-fallback-actions">
-          <a :href="manualUrl" target="_blank" rel="noopener" class="secondary">Open manual in new tab</a>
-          <button type="button" class="ghost" @click="closeManual">Close</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -61,15 +48,7 @@ import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
-const showManual = ref(false); const manualMounted = ref(false); const manualFrame = ref(null); const manualUrl = ref('/docs/how-to-play'); const manualLoadFailed = ref(false); let manualLoadTimer = null;
-function onManualIframeLoad() {
-  if (manualLoadTimer) { clearTimeout(manualLoadTimer); manualLoadTimer = null; }
-  manualLoadFailed.value = false;
-}
-function onManualIframeError() {
-  if (manualLoadTimer) { clearTimeout(manualLoadTimer); manualLoadTimer = null; }
-  manualLoadFailed.value = true;
-}
+const manualUrl = ref('/docs/how-to-play');
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
@@ -107,22 +86,9 @@ async function askConfession(targetCode) { try { await command('confession:ask',
 async function leaveGame() { try { if (game.value) await command('game:leave', { code: game.value.code }); } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
 function leaveToHome() { if (!game.value || confirm('Leave this game? You can return with the same player code.')) leaveGame(); }
 function openManual(path) {
-  manualUrl.value = path || '/docs/how-to-play';
-  manualMounted.value = true;
-  manualLoadFailed.value = false;
-  showManual.value = true;
-  if (manualLoadTimer) clearTimeout(manualLoadTimer);
-  manualLoadTimer = setTimeout(() => {
-    manualLoadTimer = null;
-    if (showManual.value) manualLoadFailed.value = true;
-  }, 8000);
+  const url = path || '/docs/how-to-play';
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
-function closeManual() {
-  showManual.value = false;
-  if (manualLoadTimer) { clearTimeout(manualLoadTimer); manualLoadTimer = null; }
-}
-function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
-function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
 
 function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) { hasMoreByChannel.value = { ...hasMoreByChannel.value, [next]: true }; loadHistory(); } }
 function mergeMessages(ch, incoming, prepend = false) {
@@ -189,72 +155,9 @@ async function maybeAutoJoin() {
   if (!target || !savedName || !savedCode) return;
   await joinGame({ name: savedName, roomCode: target }).catch(() => {});
 }
-onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
-onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
+onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
+onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); });
 </script>
 
 <style scoped>
-.manual-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: rgba(6, 7, 6, 0.96);
-  display: flex;
-  flex-direction: column;
-}
-.manual-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 51;
-  padding: 8px 16px;
-  font: 700 10px Inter, sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-.manual-frame {
-  flex: 1 1 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: #090a09;
-}
-.manual-fallback {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 32px;
-  text-align: center;
-  color: var(--pale, #e8e4d5);
-}
-.manual-fallback h2 {
-  font: 700 22px Cinzel, serif;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #b69a5c;
-  margin: 0;
-}
-.manual-fallback p {
-  font: 400 14px/1.55 Georgia, serif;
-  color: #aaa99d;
-  max-width: 480px;
-  margin: 0;
-}
-.manual-fallback-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 8px;
-}
-.manual-fallback-actions a.secondary,
-.manual-fallback-actions button {
-  padding: 12px 20px;
-  font: 700 10px Inter, sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  text-decoration: none;
-  display: inline-block;
-}
 </style>
