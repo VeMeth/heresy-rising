@@ -46,15 +46,21 @@ function docsDevServer() {
         let rel = url.slice('/docs/'.length).split('?')[0];
         if (rel === '') rel = 'index.html';
         let file = path.resolve(docsSiteDir, rel);
-        // Match nginx try_files fallback for history-mode-friendly behaviour.
+        // Match nginx try_files: $uri → $uri.html → $uri/index.html → /docs/index.html
         if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-          const index = path.resolve(file, 'index.html');
-          if (fs.existsSync(index)) file = index;
-          else {
-            res.statusCode = 404;
-            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-            res.end('Docs not built. Run `npm run docs:build` first.');
-            return;
+          // Try .html variant (VitePress builds pages as <slug>.html)
+          const htmlVariant = file + '.html';
+          if (fs.existsSync(htmlVariant) && !fs.statSync(htmlVariant).isDirectory()) {
+            file = htmlVariant;
+          } else {
+            const index = path.resolve(file, 'index.html');
+            if (fs.existsSync(index)) file = index;
+            else {
+              res.statusCode = 404;
+              res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+              res.end('Docs not built. Run `npm run docs:build` first.');
+              return;
+            }
           }
         }
         const mime = file.endsWith('.html') ? 'text/html; charset=utf-8'
@@ -64,6 +70,12 @@ function docsDevServer() {
           : file.endsWith('.json') ? 'application/json; charset=utf-8'
           : 'application/octet-stream';
         res.setHeader('Content-Type', mime);
+        // CSP sandbox (matches nginx) — prevents VitePress from navigating
+        // the parent SPA. Unlike the HTML sandbox attribute, a CSP sandbox
+        // cannot be lifted by scripts.
+        if (mime.startsWith('text/html')) {
+          res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; img-src 'self' data; font-src 'self' https://fonts.gstatic.com data; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; sandbox allow-scripts allow-same-origin allow-popups allow-forms;");
+        }
         fs.createReadStream(file).on('error', () => { res.statusCode = 404; res.end('Not found'); }).pipe(res);
       });
     }
