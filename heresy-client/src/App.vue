@@ -92,7 +92,7 @@ async function askConfession(targetCode) { try { await command('confession:ask',
 async function leaveGame() { try { if (game.value) await command('game:leave', { code: game.value.code }); } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
 function leaveToHome() { if (!game.value || confirm('Leave this game? You can return with the same player code.')) leaveGame(); }
 function openManual(path) {
-  manualUrl.value = path || '/docs/how-to-play';
+  manualUrl.value = typeof path === 'string' ? path : '/docs/how-to-play';
   manualMounted.value = true;
   showManual.value = true;
   loadManualContent();
@@ -109,14 +109,10 @@ async function loadManualContent() {
     const isVitePress = doc.querySelector('div#app') !== null && (html.includes('VitePress') || html.includes('VPContent') || html.includes('VPDoc') || html.includes('theme-default-content'));
 
     if (!isVitePress) {
-      // Fallback: maybe the request returned the SPA shell. Show the raw
-      // response body content so the user can at least see something.
-      const rawBody = doc.querySelector('body');
-      if (rawBody) {
-        manualHtml.value = '<div style="padding:40px;color:#aaa"><p>The manual is not yet embedded in this deployment.</p><pre style="font-size:11px;opacity:.5;overflow:auto;max-height:200px">' + (html || '').slice(0, 500) + '…</pre></div>';
-      } else {
-        manualHtml.value = '<p style="color:#aaa;padding:40px;text-align:center">Manual unavailable.</p>';
-      }
+      // The docs aren't embedded (stale Docker image, or not built in dev).
+      // Fall back to opening the manual in a new tab.
+      closeManual();
+      window.open(manualUrl.value, '_blank', 'noopener');
       return;
     }
 
