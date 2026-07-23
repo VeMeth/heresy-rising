@@ -16,7 +16,7 @@
 
     <main>
       <JoinView v-if="!game" :busy="busy" :error="error" :initial-room-code="initialCode"
-        :profile="profile" @create="createGame" @join="joinGame" @recover="recoverProfile" />
+        :profile="profile" @create="createGame" @join="form => joinGame(form).catch(() => {})" @recover="recoverProfile" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
         :composition-errors="compositionErrors" :messages="messages" :channel="channel"
         :has-more="hasMoreByChannel[channel]"
@@ -79,7 +79,7 @@ function normalize(data) { return data?.state || data?.game || data?.room || dat
 function notify(text) { toast.value = text; clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.value = '', 2600); }
 async function command(event, payload = {}) { busy.value = true; error.value = ''; try { await ensureConnected(); const data = await emitWithAck(event, { ...payload, playerCode: getPlayerCode() }); const state = normalize(data); if (state?.code && state?.players) { game.value = state; saveGameCode(state.code); } if (data?.profile || data?.playerCode) saveProfile(data.profile || data); return data; } catch (e) { error.value = e.message; notify(e.message); throw e; } finally { busy.value = false; } }
 async function createGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:create', { name: form.name, mode: form.mode, options: {}, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if (data?.code&&game.value&&!game.value.code)game.value.code=data.code; if(game.value?.code){saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();}}catch{}}
-async function joinGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if(game.value?.code)saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code||form.roomCode}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();}catch{}}
+async function joinGame(form) { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if(game.value?.code)saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code||form.roomCode}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();}
 async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); notify('Identity restored'); }
 async function spectateGame(code) {
   if (!code) return;
