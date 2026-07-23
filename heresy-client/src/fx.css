@@ -293,6 +293,11 @@ footer::after  { content: "✦"; color: rgba(182, 154, 92, .35); margin-left: 10
    to the roster and lobby tiles too. */
 .player-list .avatar,
 .lobby-players .avatar {
+  display: grid;
+  flex: 0 0 30px;
+  height: 30px;
+  font-size: 10px;
+  line-height: 1;
   border: 1px solid rgba(182, 154, 92, .5);
   background: linear-gradient(145deg, #262920, #12140e);
   box-shadow:
@@ -300,8 +305,6 @@ footer::after  { content: "✦"; color: rgba(182, 154, 92, .35); margin-left: 10
     0 0 10px rgba(182, 154, 92, .16),
     inset 0 1px 0 rgba(223, 194, 124, .15);
   text-shadow: 0 0 8px rgba(223, 194, 124, .55);
-  font-size: 19px;
-  line-height: 1;
 }
 
 .message .avatar.mini {
