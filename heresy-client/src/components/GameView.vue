@@ -225,25 +225,37 @@ function targetName(code){return players.value.find(p=>p.playerCode===code)?.nam
 /* ── Conclave roster ───────────────────────────────────────────────────── */
 .roster-header {
   align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
 }
 .roster-heading {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 auto;
   min-width: 0;
 }
 .roster-heading .eyebrow {
   color: var(--gold);
   letter-spacing: 0.22em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.roster-heading h2 { margin: 0; }
+.roster-heading h2 {
+  margin: 0;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .roster-count {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: none;
-  min-width: 46px;
-  padding: 5px 12px 6px;
+  flex: 0 0 auto;
+  min-width: 40px;
+  padding: 5px 10px 6px;
   border: 1px solid rgba(182, 154, 92, 0.35);
   background: rgba(0, 0, 0, 0.28);
   box-shadow: inset 0 1px 0 rgba(223, 194, 124, 0.08);
@@ -262,15 +274,35 @@ function targetName(code){return players.value.find(p=>p.playerCode===code)?.nam
   margin-top: 3px;
 }
 
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0;
+}
 .player-list li {
   position: relative;
-  border-left: 2px solid transparent;
+  border: 1px solid var(--line);
+  border-left: 2px solid rgba(182, 154, 92, 0.4);
+  border-radius: 2px;
+  background: linear-gradient(160deg, rgba(24, 26, 22, 0.6), rgba(13, 15, 13, 0.6));
+  padding: 10px 12px;
+  margin: 0;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
-.player-list li.me { border-left-color: var(--gold); }
-.player-list li.dead { border-left-color: rgba(255, 255, 255, 0.05); }
+.player-list li.me {
+  border-color: var(--gold);
+  border-left-color: var(--gold);
+  background: linear-gradient(160deg, rgba(42, 38, 20, 0.65), rgba(20, 17, 10, 0.65));
+}
+.player-list li.dead {
+  border-color: #26281f;
+  border-left-color: #26281f;
+  background: linear-gradient(160deg, rgba(18, 19, 16, 0.5), rgba(10, 11, 9, 0.5));
+}
 .player-list li:not(.dead):not(.unavailable):not(.voted):hover {
-  background: rgba(182, 154, 92, 0.05);
+  border-color: rgba(182, 154, 92, 0.45);
+  background: linear-gradient(160deg, rgba(32, 34, 26, 0.65), rgba(16, 18, 14, 0.65));
 }
 .player-list i.online {
   box-shadow: 0 0 6px rgba(113, 144, 94, 0.65), 0 0 12px rgba(113, 144, 94, 0.3);
