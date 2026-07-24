@@ -76,6 +76,16 @@ export class ConversationDirector {
     if (this._feed.length > RING_SIZE) this._feed.shift();
   }
 
+  // Recent public message text (chat AND vote-justification bodies — both
+  // arrive through the same public-channel pipeline) for the anti-duplicate
+  // check in session.js. A local model given similar prompt state across
+  // different bots/rounds tends to regenerate near-identical text; this is
+  // the cross-bot half of that check (the bot's own actionLog covers the
+  // same-bot, same-conversation-window-scrolled-out case).
+  recentTexts(n = 12) {
+    return this._feed.slice(-n).map((m) => m.text).filter(Boolean);
+  }
+
   _maybeSeedIntroQueue() {
     if (this._introQueue.length) return;
     const uninitiated = [...this._botState.entries()].filter(([, st]) => !st.introduced).map(([id]) => id);

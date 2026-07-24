@@ -71,6 +71,14 @@ test('director: a bot never replies to its own newest message', async () => {
   assert.equal(bob._calls.length, 0, 'no self-reply');
 });
 
+test('director: recentTexts exposes recent feed text for the anti-duplicate check', async () => {
+  const { d } = makeDirector();
+  d.observe({ id: 1, from: 'a', author: 'A', isBot: true, text: 'first', round: 1 });
+  d.observe({ id: 2, from: 'b', author: 'B', isBot: false, text: 'second', round: 1 });
+  d.observe({ id: 3, from: 'c', author: 'C', isBot: true, text: '', round: 1 }); // no text (e.g. non-chat event) — filtered out
+  assert.deepEqual(d.recentTexts(), ['first', 'second']);
+});
+
 test('director: echo guard — three bot-only messages in a row silence the director', async () => {
   const { d } = makeDirector();
   const bob = fakeSession('bob');

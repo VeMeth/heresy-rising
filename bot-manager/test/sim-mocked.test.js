@@ -137,6 +137,58 @@ test('sim: chat response → chat:send', async () => {
   await session.close();
 });
 
+test('sim: near-duplicate chat (own prior message) is suppressed as pass', async () => {
+  const priorText = 'I believe that Drago is not the Imperial Citizen, as Town claimed.';
+  const scripts = [`\`\`\`action\n{"kind":"chat","text":"${priorText}"}\n\`\`\``];
+  const { session, emitted } = makeSession({ chatScripts: scripts });
+  session.phase = 'day'; session.round = 3;
+  session.actionLog.push({ ts: Date.now(), phase: 'day', round: 2, kind: 'chat', text: priorText });
+  await session._act({ kind: 'chat_turn' });
+  assert.equal(emitted.filter((e) => e.event === 'chat:send').length, 0, 'duplicate chat was suppressed');
+  assert.equal(session.lastAction, 'pass');
+  await session.close();
+});
+
+test('sim: near-duplicate chat (already said by another bot in the feed) is suppressed', async () => {
+  const copiedText = 'Coteaz has been quiet all round, we should hear from them before we vote.';
+  const scripts = [`\`\`\`action\n{"kind":"chat","text":"${copiedText}"}\n\`\`\``];
+  const { session, emitted } = makeSession({ chatScripts: scripts });
+  session.phase = 'day'; session.round = 2;
+  session._director = { recentTexts: () => [copiedText] };
+  await session._act({ kind: 'chat_turn' });
+  assert.equal(emitted.filter((e) => e.event === 'chat:send').length, 0);
+  await session.close();
+});
+
+test('sim: duplicate vote justification is stripped but the vote still submits', async () => {
+  const dupJustification = 'Drago has been accused multiple times and was interrogated, which suggests he may be hiding something.';
+  const scripts = [`\`\`\`action\n{"kind":"vote","target":"human-p1","justification":"${dupJustification}"}\n\`\`\``];
+  const { session, emitted } = makeSession({ chatScripts: scripts });
+  session.phase = 'day'; session.round = 3;
+  session._latestMe = { crippleTier: 0 };
+  session._director = { recentTexts: () => [dupJustification] };
+  await session._act({ kind: 'day_vote_prompt', round: 3, votingEnabled: true, legalTargets: ['human-p1'] });
+  const vote = emitted.find((e) => e.event === 'vote:submit');
+  assert.ok(vote, 'vote was still submitted');
+  assert.equal(vote.payload.targetCode, 'human-p1');
+  assert.equal(vote.payload.justification, '', 'duplicate justification was stripped');
+  await session.close();
+});
+
+test('sim: crippled bot keeps a duplicate justification (engine requires one at tier 2+)', async () => {
+  const dupJustification = 'Drago has been accused multiple times and was interrogated, which suggests he may be hiding something.';
+  const scripts = [`\`\`\`action\n{"kind":"vote","target":"human-p1","justification":"${dupJustification}"}\n\`\`\``];
+  const { session, emitted } = makeSession({ chatScripts: scripts });
+  session.phase = 'day'; session.round = 3;
+  session._latestMe = { crippleTier: 2 };
+  session._director = { recentTexts: () => [dupJustification] };
+  await session._act({ kind: 'day_vote_prompt', round: 3, votingEnabled: true, legalTargets: ['human-p1'] });
+  const vote = emitted.find((e) => e.event === 'vote:submit');
+  assert.ok(vote);
+  assert.equal(vote.payload.justification, dupJustification, 'kept — a crippled bot must justify every vote');
+  await session.close();
+});
+
 test('sim: dead bot stays quiet even when MockLLM tries to act', async () => {
   const scripts = ['```action\n{"kind":"night_action","verb":"kill","target":"human-p1"}\n```'];
   const { session, emitted } = makeSession({ chatScripts: scripts, role: 'murderer', faction: 'heretic' });

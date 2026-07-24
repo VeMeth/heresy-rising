@@ -18,5 +18,5 @@ RULES (binding):
 - Skip is a last resort, not a default. Vote the leading target unless you have a concrete exonerating reason. "No intel" is not a reason to skip.
 - A public confession to a Heretic role is hard evidence, not retractable — always vote to lynch the confessor. Never "verify" or propose waiting.
 - Dead players are silent: no chat, vote, or action.
-- Say "I"/"me", never your own name. "I agree with <your name>" is addressed to YOU — reply to the speaker directly.
+- Say "I"/"me", never your own name — you can never "agree with" yourself. If a message names YOU (e.g. someone else wrote "I agree with Calgar" and you are Calgar), that is addressed TO you — reply to their point directly, first person.
 - Reply with ONLY a JSON action (a \`\`\`action fence also works): {"kind":"chat"|"vote"|"night_action"|"pass","text":"…","target":"P-04"|"skip"|null,"verb":"interrogate"|"kill"|"protect"|"bodyguard"|"scan_drift"|"sermon"|"trap"|"recruit"|"forge"|"sleep"|null,"tier":1|2|3|null,"sermonTier":"whisper"|"hymn"|"litany"|"false_comfort"|"twisted_hymn"|"warp_litany"|null,"justification":"…","notes":{…}}. Omit "notes" unless you have a real observation to save (e.g. {"P-04":"claimed priest R2"}). Stay in character; never mention being an AI. Nothing to add -> {"kind":"pass"}.`;

@@ -2,6 +2,7 @@ import { openEngineSocket } from './engineSocket.js';
 import { BufferWindow, StructuredNotes, RollingSummary } from './memory.js';
 import { buildEnginePayload } from './actionDispatch.js';
 import { actionValidator } from './validator.js';
+import { isNearDuplicate } from './textDedup.js';
 import { BotPersistence } from './persistence.js';
 import { enqueueLLMCall } from './llm/queue.js';
 
@@ -387,6 +388,19 @@ export class BotSession {
     if (!this._socket || !this._socket.connected) { this.lastAction = 'socket_offline'; this._logAction({ kind: 'socket_offline', action }); this._markRoundAction(prompt, 'error', { reason: 'socket_offline' }); return; }
 
     if (dispatch.type === 'chat') {
+      // Small local models regenerate near-identical chat lines — the same
+      // bot restating itself once the provoking message scrolls out of
+      // context, or a different bot echoing another bot's exact phrasing.
+      // Check against this bot's own history AND the shared conclave feed
+      // before sending; a duplicate is suppressed as a pass rather than
+      // flooding chat with restated (sometimes stale or factually wrong,
+      // e.g. copying another bot's role self-claim) text.
+      const dupSources = [...this._recentOwnTexts(), ...(this._director?.recentTexts() || [])];
+      if (isNearDuplicate(dispatch.payload?.body, dupSources)) {
+        this.lastAction = 'pass';
+        this._logAction({ kind: 'pass', note: 'suppressed near-duplicate chat', text: dispatch.payload?.body });
+        return;
+      }
       this._chatSentThisPhase = (this._chatSentThisPhase || 0) + 1;
       this._emit('chat:send', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`chat:send rejected for ${this.id}: ${ack.error}`);
@@ -398,6 +412,17 @@ export class BotSession {
       // that as an error rather than leaving admin looking at a stale 'pending'.
       this._markRoundAction(prompt, 'error', { reason: 'model replied with chat instead of the requested action' });
     } else if (dispatch.type === 'vote') {
+      // Same anti-duplicate check applied to the justification only — the
+      // vote itself always counts (dropping it over duplicate flavor text
+      // would be worse than the duplication). Only strip when safe: a
+      // crippled bot (tier>=2) that's required to justify every vote keeps
+      // whatever it generated rather than risk the engine rejecting the
+      // vote for a missing justification.
+      const crippled = (this._latestMe?.crippleTier ?? 0) >= 2;
+      if (!crippled && dispatch.payload?.justification) {
+        const dupSources = [...this._recentOwnTexts(), ...(this._director?.recentTexts() || [])];
+        if (isNearDuplicate(dispatch.payload.justification, dupSources)) dispatch.payload.justification = '';
+      }
       this._emit('vote:submit', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`vote:submit rejected for ${this.id}: ${ack.error}`);
       });
@@ -415,6 +440,18 @@ export class BotSession {
       this._logAction({ kind: 'action', verb: action.verb, action, target: dispatch.payload?.target, targetCode: dispatch.payload?.targetCode });
       this._markRoundAction(prompt, 'submitted', { verb: action.verb, target: dispatch.payload?.targetCode });
     }
+  }
+
+  // Own past chat lines + vote justifications, for the anti-duplicate check
+  // in _act() — catches same-bot repetition across rounds after the
+  // provoking chat has scrolled out of the shared director feed.
+  _recentOwnTexts(n = 20) {
+    const out = [];
+    for (const entry of this.actionLog.slice(-n)) {
+      if (entry.kind === 'chat' && entry.text) out.push(entry.text);
+      else if (entry.kind === 'vote' && entry.action?.justification) out.push(entry.action.justification);
+    }
+    return out;
   }
 
   _logAction(entry) {
