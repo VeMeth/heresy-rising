@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0" aria-hidden="true">
+<!--
+  HERESY RISING — defs
+  INLINE this at the top of <body>. Filters referenced by `filter: url(#id)`
+  must live in the same document; an external file reference will not
+  resolve in Chromium.
+-->
+
+  <defs>
+    <!-- Roughens the wax-seal edge so it reads as pressed, not vector-cut -->
+    <filter id="hr-roughen" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="4" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <!-- Subtle relief for pressed metal / incised plates -->
+    <filter id="hr-emboss" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur"/>
+      <feSpecularLighting in="blur" surfaceScale="3" specularConstant=".8"
+                          specularExponent="18" lighting-color="#fff2d0" result="spec">
+        <feDistantLight azimuth="235" elevation="58"/>
+      </feSpecularLighting>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specClip"/>
+      <feComposite in="SourceGraphic" in2="specClip" operator="arithmetic"
+                   k1="0" k2="1" k3="1" k4="0"/>
+    </filter>
+  </defs>
+
+  <!-- Rose window — background watermark for panel headers.
+       <svg class="hr-rosette"><use href="#hr-rosette"/></svg> -->
+  <symbol id="hr-rosette" viewBox="0 0 200 200">
+    <g fill="none" stroke="currentColor" stroke-width="1.2">
+      <circle cx="100" cy="100" r="96"/>
+      <circle cx="100" cy="100" r="88"/>
+      <circle cx="100" cy="100" r="58"/>
+      <circle cx="100" cy="100" r="22"/>
+      <circle cx="100" cy="100" r="9"/>
+      <!-- twelve spokes -->
+      <g>
+        <path d="M100 12v22M100 166v22M12 100h22M166 100h22"/>
+        <path d="m37.8 37.8 15.6 15.6M146.6 146.6l15.6 15.6M162.2 37.8l-15.6 15.6M53.4 146.6l-15.6 15.6"/>
+        <path d="M56 16.5 66.5 38M133.5 162 144 183.5M16.5 56 38 66.5M162 133.5 183.5 144M183.5 56 162 66.5M38 133.5 16.5 144M144 16.5 133.5 38M66.5 162 56 183.5"/>
+      </g>
+      <!-- petal arcs -->
+      <g>
+        <circle cx="100" cy="60" r="18"/><circle cx="100" cy="140" r="18"/>
+        <circle cx="60" cy="100" r="18"/><circle cx="140" cy="100" r="18"/>
+        <circle cx="71.7" cy="71.7" r="18"/><circle cx="128.3" cy="128.3" r="18"/>
+        <circle cx="128.3" cy="71.7" r="18"/><circle cx="71.7" cy="128.3" r="18"/>
+      </g>
+      <!-- central cross -->
+      <path d="M100 82v36M86 96h28M91 106h18" stroke-width="1.8"/>
+    </g>
+  </symbol>
+
+</svg>

@@ -3,7 +3,7 @@
     <div class="phase-flash" :class="game.phase" :key="game.phase + '-' + game.round" aria-hidden="true"></div>
     <div class="phase-strip" :class="game.phase">
       <div>
-        <span class="phase-icon">{{ game.phase==='night'?'☾':game.phase==='ended'?'†':'☼' }}</span>
+        <span class="phase-icon" aria-hidden="true"><svg class="phase-sigil"><use :href="phaseSigil"/></svg></span>
         <div><span class="eyebrow">{{ stageKicker }}</span><strong>{{ stageTitle }}</strong></div>
       </div>
       <div class="phase-time" :class="{urgent:secondsLeft!=null&&secondsLeft<=60&&secondsLeft>0,critical:secondsLeft!=null&&secondsLeft<=15&&secondsLeft>0}"><small>PHASE ENDS IN</small><strong>{{ timeLeft }}</strong></div>
@@ -20,7 +20,7 @@
         </header>
         <ul class="player-list">
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)">
-            <span class="avatar">{{ initial(p.name) }}</span>
+            <span class="portrait" :data-status="portraitStatus(p)">{{ initial(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
             <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)">{{ targetVoteCount(p.playerCode) }}/{{ voteThreshold }}</small>
             <i :class="{online:p.connected}"></i>
@@ -51,7 +51,7 @@
                 </header>
                 <div class="day-messages" v-show="day.expanded">
                   <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction'}]">
-                    <span v-if="m.kind==='system'" class="system-line">{{ m.body }}</span>
+                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m.body).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m.body).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
                     <template v-else>
                       <span class="avatar mini">{{ initial(m.author) }}</span>
                       <div>
@@ -64,7 +64,7 @@
               </section>
             </div>
             <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction'}]">
-              <span v-if="m.kind==='system'" class="system-line">{{ m.body }}</span>
+              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m.body).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m.body).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
               <template v-else>
                 <span class="avatar mini">{{ initial(m.author) }}</span>
                 <div>
@@ -85,14 +85,21 @@
         <span class="panel-frame-corner tl"></span><span class="panel-frame-corner tr"></span>
         <span class="panel-frame-corner bl"></span><span class="panel-frame-corner br"></span>
         <template v-if="game.phase==='ended'">
-          <div class="dossier-header">
+          <div class="dossier-header judgement-header">
+            <svg class="judgement-rosette" aria-hidden="true"><use href="#hr-rosette"/></svg>
             <span class="eyebrow">FINAL JUDGEMENT</span>
-            <h2 :class="game.winner+'-win'">{{ game.winner }} victory</h2>
+            <div class="verdict-seal" :class="game.winner==='loyalist'?'loyalist':'heretic'">
+              <div class="seal-wax" aria-hidden="true"></div>
+              <div class="seal-ring" aria-hidden="true"></div>
+              <div class="seal-face">{{ game.winner }} Victory<small>Conclave Sealed</small></div>
+            </div>
           </div>
           <ul class="reveal-list">
             <li v-for="p in players" :key="p.playerCode">
               <strong>{{ p.name }}</strong>
-              <span :class="['role-pill', p.faction]">{{ p.role?.displayName || '—' }}</span>
+              <span class="role-badge" :class="p.faction">
+                <svg class="role-glyph" aria-hidden="true"><use :href="sigilFor(p.role, p.faction)"/></svg>{{ p.role?.displayName || '—' }}
+              </span>
             </li>
           </ul>
         </template>
@@ -108,7 +115,7 @@
           </div>
           <div class="role-card" :class="me?.faction">
             <span class="role-shine" aria-hidden="true"></span>
-            <span class="role-sigil" aria-hidden="true">{{ me?.faction === 'heretic' ? '✶' : '☉' }}</span>
+            <span class="role-sigil" aria-hidden="true"><svg class="dossier-glyph"><use :href="sigilFor(role, me?.faction)"/></svg></span>
             <button class="role-name" @click="$emit('open-manual', '/docs/roles/' + (role.id || '').toLowerCase())">{{ role.displayName }}</button>
             <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
             <dl v-if="me?.drift != null || me?.crippleTier" class="role-meta">
@@ -221,6 +228,20 @@ function tallyStyle(choice){return{'--fill':Math.min(1,(voteCounts.value[choice]
 function castVote(choice){emit('vote',{choice,justification:voteJustification.value})}
 function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(draft.value&&canChat.value){emit('send',draft.value);draft.value=''}}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'Observing':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 function targetName(code){return players.value.find(p=>p.playerCode===code)?.name||'unknown';}
+// ── Generated sigil assets (heresy-sigils.svg, inlined in index.html) ─────
+const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen'};
+function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
+const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.phase==='ended'?'#hr-verdict':'#hr-day');
+function portraitStatus(p){return !p.alive?'deceased':'alive';}
+// Classify a system-log line by its text so the transcript is scannable — glyph + tint per event type.
+function classifyEntry(body){const b=String(body||'');
+  if(/victory|conclave is (ended|dissolved)|game over|ended by admin/i.test(b))return{type:'verdict',glyph:'#hr-verdict'};
+  if(/lynched|executed|summary execution|revealed (as )?(loyalist|heretic)|left at tier \d|forced to confess|confessed:/i.test(b))return{type:'execution',glyph:'#hr-execution'};
+  if(/slain|was killed|found dead|absorbed a strike|deflected/i.test(b))return{type:'death',glyph:'#hr-deceased'};
+  if(/vote tally|\d+ of \d+ votes|voters:/i.test(b))return{type:'vote',glyph:'#hr-vote'};
+  if(/accused|retracted their accusation/i.test(b))return{type:'accusation',glyph:'#hr-accusation'};
+  if(/night \d|day \d|begins|has begun|vote for a target|stands? down|dispers|no vote/i.test(b))return{type:'phase',glyph:/night/i.test(b)?'#hr-night':'#hr-day'};
+  return{type:'system',glyph:'#hr-vox'};}
 </script>
 
 <style scoped>
@@ -726,4 +747,127 @@ button.ghost.wide.stand-down-leading {
   letter-spacing: .06em;
   text-transform: uppercase;
 }
+
+/* ═══ Generated graphics kit — sigils/seal/portraits, adapted to the app palette ═══ */
+
+/* Phase-strip glyph (day/night/verdict sigil) */
+.phase-sigil { width: 26px; height: 26px; stroke: currentColor; fill: none; display: block; }
+
+/* Roster: octagonal portrait plate with a status ring, replacing the letter box */
+.player-list .portrait {
+  --ring: #7d6a3f;
+  position: relative;
+  display: grid; place-items: center;
+  flex: 0 0 34px; width: 34px; height: 34px;
+  font: 700 12px Cinzel, serif; line-height: 1;
+  color: var(--gold);
+  background: linear-gradient(160deg, #1c1710, #0d0a07);
+  border: 1px solid var(--ring);
+  clip-path: polygon(28% 0, 72% 0, 100% 28%, 100% 72%, 72% 100%, 28% 100%, 0 72%, 0 28%);
+  text-shadow: 0 0 8px rgba(223, 194, 124, .4);
+}
+.player-list .portrait::after {
+  content: ''; position: absolute; right: -1px; bottom: -1px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ring); box-shadow: 0 0 8px var(--ring);
+}
+.player-list .portrait[data-status="alive"]    { --ring: #5c8a76; }
+.player-list .portrait[data-status="deceased"] { --ring: #3a2f22; color: #4a4034; filter: grayscale(1) brightness(.75); }
+.player-list .portrait[data-status="deceased"]::after { box-shadow: none; }
+
+/* Dossier role-card sigil */
+.dossier-glyph { width: 16px; height: 16px; stroke: currentColor; fill: none; display: block; }
+
+/* Final judgement: rose-window watermark + wax verdict seal */
+.judgement-header { position: relative; }
+.judgement-rosette {
+  position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+  width: 190px; height: 190px; color: var(--gold); opacity: .06; pointer-events: none;
+}
+.verdict-seal {
+  --wax: #9f3931;
+  position: relative; z-index: 1;
+  width: 150px; height: 150px; margin: 12px auto 4px;
+  display: grid; place-items: center;
+  transform: rotate(-7deg);
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .7));
+  animation: seal-press .7s cubic-bezier(.18, .9, .24, 1.02) both;
+}
+.verdict-seal.loyalist { --wax: #9c7c2e; }
+.seal-wax { position: absolute; inset: 0; filter: url(#hr-roughen); }
+.seal-wax::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 34% 28%,
+    color-mix(in srgb, var(--wax) 70%, #fff) 0%,
+    var(--wax) 34%,
+    color-mix(in srgb, var(--wax) 62%, #000) 78%,
+    color-mix(in srgb, var(--wax) 34%, #000) 100%);
+  clip-path: polygon(50% 0%, 63% 4%, 74% 3%, 82% 12%, 92% 19%, 95% 31%, 100% 42%, 96% 54%, 98% 66%, 89% 74%, 84% 85%, 72% 88%, 62% 96%, 50% 100%, 38% 96%, 27% 97%, 18% 88%, 8% 82%, 5% 70%, 0% 58%, 4% 46%, 2% 33%, 11% 25%, 16% 14%, 28% 11%, 38% 3%);
+}
+.seal-ring {
+  position: absolute; inset: 13%;
+  border: 1.5px solid rgba(0, 0, 0, .42); border-radius: 50%;
+  box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--wax) 55%, #000), inset 0 0 22px rgba(0, 0, 0, .5);
+}
+.seal-face {
+  position: relative; z-index: 2; text-align: center;
+  font: 700 .72rem/1.25 Cinzel, serif;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--wax) 22%, #f6e6c8);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, .55), 0 -1px 0 rgba(255, 255, 255, .14);
+  padding: 0 1.7rem;
+}
+.seal-face small { display: block; margin-top: .3rem; font-size: .5rem; letter-spacing: .28em; opacity: .68; font-weight: 400; }
+@keyframes seal-press {
+  0%   { transform: rotate(-14deg) scale(2.1); opacity: 0; filter: blur(6px); }
+  60%  { transform: rotate(-5deg)  scale(.94); opacity: 1; filter: blur(0); }
+  100% { transform: rotate(-7deg)  scale(1);   opacity: 1; }
+}
+
+/* Final reveal: stamped role badges with role sigil */
+.role-badge {
+  display: inline-flex; align-items: center; gap: .4em;
+  padding: .28em .65em .28em .5em;
+  font: 600 10px Cinzel, serif;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold); white-space: nowrap;
+  background: linear-gradient(180deg, rgba(182, 154, 92, .1), rgba(182, 154, 92, .02));
+  border: 1px solid rgba(182, 154, 92, .3);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.role-badge.heretic {
+  color: #ff8a8a;
+  background: linear-gradient(180deg, rgba(159, 57, 49, .18), rgba(159, 57, 49, .04));
+  border-color: rgba(159, 57, 49, .5);
+  box-shadow: 0 0 14px -4px rgba(159, 57, 49, .6);
+}
+.role-glyph { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none; }
+
+/* Stamped transcript: glyph + tint per event type, replacing the uniform amber line */
+.message.system { background: none; border: 0; border-radius: 0; padding: 0; margin: 8px 0; }
+.log-entry {
+  --tint: var(--gold);
+  display: flex; align-items: center; gap: .7rem;
+  padding: .5rem .8rem;
+  font: 400 12.5px/1.45 Georgia, serif;
+  color: color-mix(in srgb, var(--tint) 82%, var(--pale));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tint) 10%, transparent), transparent 65%);
+  border-left: 2px solid var(--tint);
+}
+.log-glyph { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; color: var(--tint); opacity: .85; }
+.log-text { flex: 1; }
+.log-entry::after {
+  content: ''; flex: none; width: 26%; height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tint) 34%, transparent), transparent);
+}
+.log-entry--accusation { --tint: #b69a5c; }
+.log-entry--vote       { --tint: #8f9c6a; }
+.log-entry--execution  { --tint: #c14545; }
+.log-entry--death      { --tint: #a86b5c; }
+.log-entry--phase      { --tint: #7f8ca6; }
+.log-entry--verdict    { --tint: var(--gold2); }
+.log-entry--system     { --tint: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) { .verdict-seal { animation: none; } }
+@media (max-width: 460px) { .log-entry::after { display: none; } }
 </style>

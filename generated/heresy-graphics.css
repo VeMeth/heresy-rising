@@ -1,0 +1,353 @@
+/* ═══════════════════════════════════════════════════════════════
+   HERESY RISING — graphics layer
+   Atmosphere, ornament, and stamped components.
+   Drop in after your existing stylesheet. Everything is namespaced
+   `hr-` so nothing collides.
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Cutive+Mono&display=swap');
+
+:root {
+  /* Pigment ------------------------------------------------------ */
+  --hr-void:      #0a0806;   /* deepest ground                      */
+  --hr-crypt:     #0f0c08;   /* panel ground                        */
+  --hr-panel:     #16120c;   /* raised panel                        */
+  --hr-rule:      #2e2519;   /* hairlines, frames                   */
+  --hr-gilt:      #c9a961;   /* primary — aged leaf                 */
+  --hr-gilt-lo:   #7d6a3f;   /* tarnished                           */
+  --hr-gilt-hi:   #f0dcaa;   /* struck highlight                    */
+  --hr-blood:     #a32a26;   /* heretic, executions                 */
+  --hr-blood-hi:  #d4534a;
+  --hr-verdigris: #5c8a76;   /* oxidised copper — living presence   */
+  --hr-bone:      #e6dcc4;   /* body text                           */
+  --hr-ash:       #6b5f4a;   /* muted, deceased                     */
+
+  /* Letterform --------------------------------------------------- */
+  --hr-display: 'Cinzel', 'Trajan Pro', 'Optima', Georgia, serif;
+  --hr-body:    'EB Garamond', 'Iowan Old Style', Georgia, serif;
+  --hr-data:    'Cutive Mono', 'Courier New', ui-monospace, monospace;
+
+  /* Measure ------------------------------------------------------ */
+  --hr-tight: .06em;
+  --hr-wide:  .22em;
+}
+
+/* ═══════════ 1. ATMOSPHERE ═══════════════════════════════════════
+   Three stacked layers on <body> or your app shell. Each is
+   pointer-events:none and independently removable.
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-atmosphere { position: relative; isolation: isolate; }
+
+.hr-atmosphere::before,
+.hr-atmosphere::after {
+  content: ''; position: fixed; inset: 0;
+  pointer-events: none; z-index: 9999;
+}
+
+/* Film grain — feTurbulence baked to a data URI, tiled */
+.hr-atmosphere::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  opacity: .05;
+  mix-blend-mode: overlay;
+}
+
+/* Vignette — pulls the eye to the centre column */
+.hr-atmosphere::after {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 40%, transparent 40%, rgba(0,0,0,.55) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,.4) 0%, transparent 12%, transparent 88%, rgba(0,0,0,.5) 100%);
+}
+
+/* Drifting cinders — you already have static motes; these move.
+   Markup: <div class="hr-embers"><i></i>× 9</div>  */
+.hr-embers {
+  position: fixed; inset: 0; overflow: hidden;
+  pointer-events: none; z-index: 1;
+}
+.hr-embers i {
+  position: absolute; bottom: -10px;
+  width: 2px; height: 2px; border-radius: 50%;
+  background: var(--hr-gilt);
+  opacity: 0;
+  animation: hr-rise linear infinite;
+}
+.hr-embers i:nth-child(1) { left:  6%; animation-duration: 34s; animation-delay:  0s; }
+.hr-embers i:nth-child(2) { left: 17%; animation-duration: 46s; animation-delay: -8s; }
+.hr-embers i:nth-child(3) { left: 29%; animation-duration: 39s; animation-delay:-19s; }
+.hr-embers i:nth-child(4) { left: 41%; animation-duration: 52s; animation-delay: -4s; }
+.hr-embers i:nth-child(5) { left: 55%; animation-duration: 36s; animation-delay:-27s; }
+.hr-embers i:nth-child(6) { left: 68%; animation-duration: 44s; animation-delay:-12s; }
+.hr-embers i:nth-child(7) { left: 79%; animation-duration: 41s; animation-delay:-33s; }
+.hr-embers i:nth-child(8) { left: 88%; animation-duration: 49s; animation-delay:-21s; }
+.hr-embers i:nth-child(9) { left: 95%; animation-duration: 37s; animation-delay:-15s; }
+
+@keyframes hr-rise {
+  0%   { transform: translateY(0)       translateX(0);    opacity: 0;   }
+  10%  {                                                  opacity: .55; }
+  50%  {                                translate: 18px 0;               }
+  90%  {                                                  opacity: .35; }
+  100% { transform: translateY(-102vh)  translateX(-8px); opacity: 0;   }
+}
+
+/* ═══════════ 2. GILT TYPE ════════════════════════════════════════ */
+
+.hr-gilt-text {
+  font-family: var(--hr-display);
+  background: linear-gradient(100deg,
+    var(--hr-gilt-lo)  0%,
+    var(--hr-gilt)    28%,
+    var(--hr-gilt-hi) 46%,
+    var(--hr-gilt)    64%,
+    var(--hr-gilt-lo) 100%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  animation: hr-sheen 9s ease-in-out infinite;
+}
+@keyframes hr-sheen {
+  0%, 100% { background-position:   0% 0; }
+  50%      { background-position: 100% 0; }
+}
+
+/* Incised caps — for panel headers like ROLL CALL / FINAL JUDGEMENT */
+.hr-incised {
+  font-family: var(--hr-display);
+  font-size: .68rem; font-weight: 600;
+  letter-spacing: var(--hr-wide); text-transform: uppercase;
+  color: var(--hr-gilt-lo);
+  text-shadow: 0 1px 0 rgba(0,0,0,.9);
+}
+
+/* ═══════════ 3. SIGILS ═══════════════════════════════════════════ */
+
+.hr-sigil {
+  width: 1.15em; height: 1.15em;
+  flex: none; vertical-align: -.18em;
+  stroke: currentColor; fill: none;
+  color: var(--hr-gilt);
+}
+.hr-sigil--lg { width: 1.9em; height: 1.9em; }
+
+/* ═══════════ 4. ROLE BADGE ═══════════════════════════════════════
+   Replaces the plain text pill. Sigil + name, tinted by allegiance.
+   <span class="hr-role hr-role--heretic">
+     <svg class="hr-sigil"><use href="#hr-murderer"/></svg>Murderer
+   </span>
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-role {
+  display: inline-flex; align-items: center; gap: .45em;
+  padding: .3em .7em .3em .55em;
+  font-family: var(--hr-display);
+  font-size: .62rem; font-weight: 600;
+  letter-spacing: var(--hr-wide); text-transform: uppercase;
+  color: var(--hr-gilt);
+  background: linear-gradient(180deg, rgba(201,169,97,.09), rgba(201,169,97,.02));
+  border: 1px solid rgba(201,169,97,.28);
+  /* clipped corners — a stamped plate, not a rounded chip */
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.hr-role--heretic {
+  color: var(--hr-blood-hi);
+  background: linear-gradient(180deg, rgba(163,42,38,.16), rgba(163,42,38,.04));
+  border-color: rgba(163,42,38,.5);
+  box-shadow: 0 0 14px -4px rgba(163,42,38,.6);
+}
+.hr-role--neutral { color: var(--hr-ash); border-color: rgba(107,95,74,.35); background: none; }
+
+/* ═══════════ 5. ROSTER PORTRAIT ══════════════════════════════════
+   Octagonal plate with a status ring, replacing the square letter box.
+   <span class="hr-portrait" data-status="alive">T</span>
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-portrait {
+  --ring: var(--hr-gilt-lo);
+  position: relative;
+  display: grid; place-items: center;
+  width: 2.4rem; height: 2.4rem;
+  font-family: var(--hr-display); font-size: .82rem; font-weight: 700;
+  color: var(--hr-gilt); letter-spacing: 0;
+  background: linear-gradient(160deg, #1c1710, #0d0a07);
+  border: 1px solid var(--ring);
+  clip-path: polygon(28% 0,72% 0,100% 28%,100% 72%,72% 100%,28% 100%,0 72%,0 28%);
+}
+.hr-portrait::after {           /* status pip, notched into the plate */
+  content: ''; position: absolute; right: -2px; bottom: -2px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ring);
+  box-shadow: 0 0 8px var(--ring);
+}
+.hr-portrait[data-status="alive"]     { --ring: var(--hr-verdigris); }
+.hr-portrait[data-status="observing"] { --ring: var(--hr-gilt); }
+.hr-portrait[data-status="deceased"]  {
+  --ring: #3a2f22; color: #4a4034; filter: grayscale(1) brightness(.75);
+}
+.hr-portrait[data-status="deceased"]::after { box-shadow: none; }
+
+/* ═══════════ 6. STAMPED LOG LINES ════════════════════════════════
+   Your log currently renders every event in the same amber. This
+   gives each event class its own glyph and hue so the transcript is
+   scannable at a glance.
+   <li class="hr-entry hr-entry--execution">
+     <svg class="hr-sigil"><use href="#hr-execution"/></svg>
+     <span>Grimnar was lynched and revealed loyalist.</span>
+   </li>
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-log { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+
+.hr-entry {
+  --tint: var(--hr-gilt);
+  position: relative;
+  display: flex; align-items: center; gap: .8rem;
+  padding: .62rem 1rem .62rem .85rem;
+  font-family: var(--hr-body); font-size: .95rem;
+  color: color-mix(in srgb, var(--tint) 82%, var(--hr-bone));
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--tint) 9%, transparent), transparent 62%);
+  border-left: 2px solid var(--tint);
+}
+.hr-entry .hr-sigil { color: var(--tint); opacity: .8; }
+.hr-entry > span { flex: 1; }
+
+/* the hairline that trails off to the right — keeps your existing look */
+.hr-entry::after {
+  content: ''; flex: none; width: 34%; height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tint) 34%, transparent), transparent);
+}
+
+.hr-entry--accusation { --tint: #c9a961; }
+.hr-entry--vote       { --tint: #8f9c6a; font-family: var(--hr-data); font-size: .82rem; }
+.hr-entry--execution  { --tint: var(--hr-blood); }
+.hr-entry--death      { --tint: #8d5a4e; }
+.hr-entry--phase      { --tint: #6f7f96; }
+.hr-entry--verdict    { --tint: var(--hr-gilt-hi); }
+.hr-entry--system     { --tint: var(--hr-ash); font-family: var(--hr-data); font-size: .78rem; }
+
+/* ═══════════ 7. ORNAMENT ═════════════════════════════════════════ */
+
+/* Fleuron rule — a divider that isn't just <hr> */
+.hr-fleuron {
+  display: flex; align-items: center; gap: .9rem;
+  color: var(--hr-gilt-lo);
+  margin: 1.4rem 0;
+}
+.hr-fleuron::before, .hr-fleuron::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, currentColor 42%, currentColor 58%, transparent);
+}
+
+/* Corner brackets — your panels already hint at these; this makes
+   them a reusable wrapper with proper inset. */
+.hr-frame { position: relative; }
+.hr-frame > .hr-frame-c {
+  position: absolute; width: 13px; height: 13px;
+  border: 1px solid var(--hr-gilt-lo); opacity: .55;
+}
+.hr-frame > .hr-frame-c:nth-child(1) { top: 0; left:  0; border-width: 1px 0 0 1px; }
+.hr-frame > .hr-frame-c:nth-child(2) { top: 0; right: 0; border-width: 1px 1px 0 0; }
+.hr-frame > .hr-frame-c:nth-child(3) { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
+.hr-frame > .hr-frame-c:nth-child(4) { bottom: 0; left:  0; border-width: 0 0 1px 1px; }
+
+/* Rose-window watermark — sits behind panel headers at low opacity */
+.hr-rosette {
+  position: absolute; pointer-events: none;
+  color: var(--hr-gilt); opacity: .05;
+  width: 260px; height: 260px;
+}
+
+/* ═══════════ 8. THE VERDICT SEAL ═════════════════════════════════
+   The signature piece. "Heretic Victory" should read as wax pressed
+   into the record, not as red text.
+   Requires the #hr-roughen filter block (see heresy-filters.svg).
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-seal {
+  --wax: var(--hr-blood);
+  position: relative;
+  width: 190px; height: 190px;
+  display: grid; place-items: center;
+  transform: rotate(-7deg);
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,.7));
+  animation: hr-press .7s cubic-bezier(.18,.9,.24,1.02) both;
+}
+.hr-seal--loyalist { --wax: #9c7c2e; }
+
+/* NOTE: filter is applied *before* clip-path in the CSS rendering model, so
+   the two cannot live on the same element or the rough edge gets cut away.
+   The parent carries the filter; the ::before child carries the clip. */
+.hr-seal-wax { position: absolute; inset: 0; filter: url(#hr-roughen); }
+.hr-seal-wax::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 34% 28%,
+      color-mix(in srgb, var(--wax) 70%, #fff) 0%,
+      var(--wax) 34%,
+      color-mix(in srgb, var(--wax) 62%, #000) 78%,
+      color-mix(in srgb, var(--wax) 34%, #000) 100%);
+  clip-path: polygon(
+    50% 0%, 63% 4%, 74% 3%, 82% 12%, 92% 19%, 95% 31%, 100% 42%,
+    96% 54%, 98% 66%, 89% 74%, 84% 85%, 72% 88%, 62% 96%, 50% 100%,
+    38% 96%, 27% 97%, 18% 88%, 8% 82%, 5% 70%, 0% 58%, 4% 46%,
+    2% 33%, 11% 25%, 16% 14%, 28% 11%, 38% 3%);
+}
+.hr-seal-ring {
+  position: absolute; inset: 13%;
+  border: 1.5px solid rgba(0,0,0,.42);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--wax) 55%, #000),
+              inset 0 0 22px rgba(0,0,0,.5);
+}
+.hr-seal-face {
+  position: relative; z-index: 2; text-align: center;
+  font-family: var(--hr-display); font-weight: 700;
+  font-size: .84rem; line-height: 1.25;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--wax) 22%, #f6e6c8);
+  text-shadow: 0 1px 0 rgba(0,0,0,.55), 0 -1px 0 rgba(255,255,255,.14);
+  padding: 0 2.6rem;
+}
+.hr-seal-face small {
+  display: block; margin-top: .35rem;
+  font-size: .52rem; letter-spacing: .3em; opacity: .68; font-weight: 400;
+}
+
+@keyframes hr-press {
+  0%   { transform: rotate(-14deg) scale(2.1); opacity: 0;   filter: blur(6px); }
+  60%  { transform: rotate(-5deg)  scale(.94); opacity: 1;   filter: blur(0);   }
+  100% { transform: rotate(-7deg)  scale(1);   opacity: 1; }
+}
+
+/* ═══════════ 9. PHASE BANNER ═════════════════════════════════════ */
+
+.hr-phase {
+  display: flex; align-items: center; gap: .9rem;
+  padding: .9rem 1.4rem;
+  border-block: 1px solid var(--hr-rule);
+  background:
+    radial-gradient(120% 180% at 12% 50%, rgba(163,42,38,.16), transparent 55%),
+    linear-gradient(90deg, rgba(163,42,38,.08), transparent 60%);
+}
+.hr-phase--day   { background: radial-gradient(120% 180% at 12% 50%, rgba(201,169,97,.14), transparent 55%); }
+.hr-phase--night { background: radial-gradient(120% 180% at 12% 50%, rgba(78,102,140,.16), transparent 55%); }
+.hr-phase .hr-sigil { color: var(--hr-gilt); }
+
+/* ═══════════ 10. QUALITY FLOOR ═══════════════════════════════════ */
+
+:where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--hr-gilt);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hr-embers, .hr-embers i { animation: none; display: none; }
+  .hr-gilt-text { animation: none; background-position: 50% 0; }
+  .hr-seal { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .hr-seal { width: 148px; height: 148px; }
+  .hr-seal-face { font-size: .7rem; padding: 0 2rem; }
+  .hr-entry::after { display: none; }
+}

@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Heresy Rising — asset kit</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   HERESY RISING — graphics layer
+   Atmosphere, ornament, and stamped components.
+   Drop in after your existing stylesheet. Everything is namespaced
+   `hr-` so nothing collides.
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Cutive+Mono&display=swap');
+
+:root {
+  /* Pigment ------------------------------------------------------ */
+  --hr-void:      #0a0806;   /* deepest ground                      */
+  --hr-crypt:     #0f0c08;   /* panel ground                        */
+  --hr-panel:     #16120c;   /* raised panel                        */
+  --hr-rule:      #2e2519;   /* hairlines, frames                   */
+  --hr-gilt:      #c9a961;   /* primary — aged leaf                 */
+  --hr-gilt-lo:   #7d6a3f;   /* tarnished                           */
+  --hr-gilt-hi:   #f0dcaa;   /* struck highlight                    */
+  --hr-blood:     #a32a26;   /* heretic, executions                 */
+  --hr-blood-hi:  #d4534a;
+  --hr-verdigris: #5c8a76;   /* oxidised copper — living presence   */
+  --hr-bone:      #e6dcc4;   /* body text                           */
+  --hr-ash:       #6b5f4a;   /* muted, deceased                     */
+
+  /* Letterform --------------------------------------------------- */
+  --hr-display: 'Cinzel', 'Trajan Pro', 'Optima', Georgia, serif;
+  --hr-body:    'EB Garamond', 'Iowan Old Style', Georgia, serif;
+  --hr-data:    'Cutive Mono', 'Courier New', ui-monospace, monospace;
+
+  /* Measure ------------------------------------------------------ */
+  --hr-tight: .06em;
+  --hr-wide:  .22em;
+}
+
+/* ═══════════ 1. ATMOSPHERE ═══════════════════════════════════════
+   Three stacked layers on <body> or your app shell. Each is
+   pointer-events:none and independently removable.
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-atmosphere { position: relative; isolation: isolate; }
+
+.hr-atmosphere::before,
+.hr-atmosphere::after {
+  content: ''; position: fixed; inset: 0;
+  pointer-events: none; z-index: 9999;
+}
+
+/* Film grain — feTurbulence baked to a data URI, tiled */
+.hr-atmosphere::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  opacity: .05;
+  mix-blend-mode: overlay;
+}
+
+/* Vignette — pulls the eye to the centre column */
+.hr-atmosphere::after {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 40%, transparent 40%, rgba(0,0,0,.55) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,.4) 0%, transparent 12%, transparent 88%, rgba(0,0,0,.5) 100%);
+}
+
+/* Drifting cinders — you already have static motes; these move.
+   Markup: <div class="hr-embers"><i></i>× 9</div>  */
+.hr-embers {
+  position: fixed; inset: 0; overflow: hidden;
+  pointer-events: none; z-index: 1;
+}
+.hr-embers i {
+  position: absolute; bottom: -10px;
+  width: 2px; height: 2px; border-radius: 50%;
+  background: var(--hr-gilt);
+  opacity: 0;
+  animation: hr-rise linear infinite;
+}
+.hr-embers i:nth-child(1) { left:  6%; animation-duration: 34s; animation-delay:  0s; }
+.hr-embers i:nth-child(2) { left: 17%; animation-duration: 46s; animation-delay: -8s; }
+.hr-embers i:nth-child(3) { left: 29%; animation-duration: 39s; animation-delay:-19s; }
+.hr-embers i:nth-child(4) { left: 41%; animation-duration: 52s; animation-delay: -4s; }
+.hr-embers i:nth-child(5) { left: 55%; animation-duration: 36s; animation-delay:-27s; }
+.hr-embers i:nth-child(6) { left: 68%; animation-duration: 44s; animation-delay:-12s; }
+.hr-embers i:nth-child(7) { left: 79%; animation-duration: 41s; animation-delay:-33s; }
+.hr-embers i:nth-child(8) { left: 88%; animation-duration: 49s; animation-delay:-21s; }
+.hr-embers i:nth-child(9) { left: 95%; animation-duration: 37s; animation-delay:-15s; }
+
+@keyframes hr-rise {
+  0%   { transform: translateY(0)       translateX(0);    opacity: 0;   }
+  10%  {                                                  opacity: .55; }
+  50%  {                                translate: 18px 0;               }
+  90%  {                                                  opacity: .35; }
+  100% { transform: translateY(-102vh)  translateX(-8px); opacity: 0;   }
+}
+
+/* ═══════════ 2. GILT TYPE ════════════════════════════════════════ */
+
+.hr-gilt-text {
+  font-family: var(--hr-display);
+  background: linear-gradient(100deg,
+    var(--hr-gilt-lo)  0%,
+    var(--hr-gilt)    28%,
+    var(--hr-gilt-hi) 46%,
+    var(--hr-gilt)    64%,
+    var(--hr-gilt-lo) 100%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  animation: hr-sheen 9s ease-in-out infinite;
+}
+@keyframes hr-sheen {
+  0%, 100% { background-position:   0% 0; }
+  50%      { background-position: 100% 0; }
+}
+
+/* Incised caps — for panel headers like ROLL CALL / FINAL JUDGEMENT */
+.hr-incised {
+  font-family: var(--hr-display);
+  font-size: .68rem; font-weight: 600;
+  letter-spacing: var(--hr-wide); text-transform: uppercase;
+  color: var(--hr-gilt-lo);
+  text-shadow: 0 1px 0 rgba(0,0,0,.9);
+}
+
+/* ═══════════ 3. SIGILS ═══════════════════════════════════════════ */
+
+.hr-sigil {
+  width: 1.15em; height: 1.15em;
+  flex: none; vertical-align: -.18em;
+  stroke: currentColor; fill: none;
+  color: var(--hr-gilt);
+}
+.hr-sigil--lg { width: 1.9em; height: 1.9em; }
+
+/* ═══════════ 4. ROLE BADGE ═══════════════════════════════════════
+   Replaces the plain text pill. Sigil + name, tinted by allegiance.
+   <span class="hr-role hr-role--heretic">
+     <svg class="hr-sigil"><use href="#hr-murderer"/></svg>Murderer
+   </span>
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-role {
+  display: inline-flex; align-items: center; gap: .45em;
+  padding: .3em .7em .3em .55em;
+  font-family: var(--hr-display);
+  font-size: .62rem; font-weight: 600;
+  letter-spacing: var(--hr-wide); text-transform: uppercase;
+  color: var(--hr-gilt);
+  background: linear-gradient(180deg, rgba(201,169,97,.09), rgba(201,169,97,.02));
+  border: 1px solid rgba(201,169,97,.28);
+  /* clipped corners — a stamped plate, not a rounded chip */
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.hr-role--heretic {
+  color: var(--hr-blood-hi);
+  background: linear-gradient(180deg, rgba(163,42,38,.16), rgba(163,42,38,.04));
+  border-color: rgba(163,42,38,.5);
+  box-shadow: 0 0 14px -4px rgba(163,42,38,.6);
+}
+.hr-role--neutral { color: var(--hr-ash); border-color: rgba(107,95,74,.35); background: none; }
+
+/* ═══════════ 5. ROSTER PORTRAIT ══════════════════════════════════
+   Octagonal plate with a status ring, replacing the square letter box.
+   <span class="hr-portrait" data-status="alive">T</span>
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-portrait {
+  --ring: var(--hr-gilt-lo);
+  position: relative;
+  display: grid; place-items: center;
+  width: 2.4rem; height: 2.4rem;
+  font-family: var(--hr-display); font-size: .82rem; font-weight: 700;
+  color: var(--hr-gilt); letter-spacing: 0;
+  background: linear-gradient(160deg, #1c1710, #0d0a07);
+  border: 1px solid var(--ring);
+  clip-path: polygon(28% 0,72% 0,100% 28%,100% 72%,72% 100%,28% 100%,0 72%,0 28%);
+}
+.hr-portrait::after {           /* status pip, notched into the plate */
+  content: ''; position: absolute; right: -2px; bottom: -2px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ring);
+  box-shadow: 0 0 8px var(--ring);
+}
+.hr-portrait[data-status="alive"]     { --ring: var(--hr-verdigris); }
+.hr-portrait[data-status="observing"] { --ring: var(--hr-gilt); }
+.hr-portrait[data-status="deceased"]  {
+  --ring: #3a2f22; color: #4a4034; filter: grayscale(1) brightness(.75);
+}
+.hr-portrait[data-status="deceased"]::after { box-shadow: none; }
+
+/* ═══════════ 6. STAMPED LOG LINES ════════════════════════════════
+   Your log currently renders every event in the same amber. This
+   gives each event class its own glyph and hue so the transcript is
+   scannable at a glance.
+   <li class="hr-entry hr-entry--execution">
+     <svg class="hr-sigil"><use href="#hr-execution"/></svg>
+     <span>Grimnar was lynched and revealed loyalist.</span>
+   </li>
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-log { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+
+.hr-entry {
+  --tint: var(--hr-gilt);
+  position: relative;
+  display: flex; align-items: center; gap: .8rem;
+  padding: .62rem 1rem .62rem .85rem;
+  font-family: var(--hr-body); font-size: .95rem;
+  color: color-mix(in srgb, var(--tint) 82%, var(--hr-bone));
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--tint) 9%, transparent), transparent 62%);
+  border-left: 2px solid var(--tint);
+}
+.hr-entry .hr-sigil { color: var(--tint); opacity: .8; }
+.hr-entry > span { flex: 1; }
+
+/* the hairline that trails off to the right — keeps your existing look */
+.hr-entry::after {
+  content: ''; flex: none; width: 34%; height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tint) 34%, transparent), transparent);
+}
+
+.hr-entry--accusation { --tint: #c9a961; }
+.hr-entry--vote       { --tint: #8f9c6a; font-family: var(--hr-data); font-size: .82rem; }
+.hr-entry--execution  { --tint: var(--hr-blood); }
+.hr-entry--death      { --tint: #8d5a4e; }
+.hr-entry--phase      { --tint: #6f7f96; }
+.hr-entry--verdict    { --tint: var(--hr-gilt-hi); }
+.hr-entry--system     { --tint: var(--hr-ash); font-family: var(--hr-data); font-size: .78rem; }
+
+/* ═══════════ 7. ORNAMENT ═════════════════════════════════════════ */
+
+/* Fleuron rule — a divider that isn't just <hr> */
+.hr-fleuron {
+  display: flex; align-items: center; gap: .9rem;
+  color: var(--hr-gilt-lo);
+  margin: 1.4rem 0;
+}
+.hr-fleuron::before, .hr-fleuron::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, currentColor 42%, currentColor 58%, transparent);
+}
+
+/* Corner brackets — your panels already hint at these; this makes
+   them a reusable wrapper with proper inset. */
+.hr-frame { position: relative; }
+.hr-frame > .hr-frame-c {
+  position: absolute; width: 13px; height: 13px;
+  border: 1px solid var(--hr-gilt-lo); opacity: .55;
+}
+.hr-frame > .hr-frame-c:nth-child(1) { top: 0; left:  0; border-width: 1px 0 0 1px; }
+.hr-frame > .hr-frame-c:nth-child(2) { top: 0; right: 0; border-width: 1px 1px 0 0; }
+.hr-frame > .hr-frame-c:nth-child(3) { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
+.hr-frame > .hr-frame-c:nth-child(4) { bottom: 0; left:  0; border-width: 0 0 1px 1px; }
+
+/* Rose-window watermark — sits behind panel headers at low opacity */
+.hr-rosette {
+  position: absolute; pointer-events: none;
+  color: var(--hr-gilt); opacity: .05;
+  width: 260px; height: 260px;
+}
+
+/* ═══════════ 8. THE VERDICT SEAL ═════════════════════════════════
+   The signature piece. "Heretic Victory" should read as wax pressed
+   into the record, not as red text.
+   Requires the #hr-roughen filter block (see heresy-filters.svg).
+   ─────────────────────────────────────────────────────────────── */
+
+.hr-seal {
+  --wax: var(--hr-blood);
+  position: relative;
+  width: 190px; height: 190px;
+  display: grid; place-items: center;
+  transform: rotate(-7deg);
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,.7));
+  animation: hr-press .7s cubic-bezier(.18,.9,.24,1.02) both;
+}
+.hr-seal--loyalist { --wax: #9c7c2e; }
+
+/* NOTE: filter is applied *before* clip-path in the CSS rendering model, so
+   the two cannot live on the same element or the rough edge gets cut away.
+   The parent carries the filter; the ::before child carries the clip. */
+.hr-seal-wax { position: absolute; inset: 0; filter: url(#hr-roughen); }
+.hr-seal-wax::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 34% 28%,
+      color-mix(in srgb, var(--wax) 70%, #fff) 0%,
+      var(--wax) 34%,
+      color-mix(in srgb, var(--wax) 62%, #000) 78%,
+      color-mix(in srgb, var(--wax) 34%, #000) 100%);
+  clip-path: polygon(
+    50% 0%, 63% 4%, 74% 3%, 82% 12%, 92% 19%, 95% 31%, 100% 42%,
+    96% 54%, 98% 66%, 89% 74%, 84% 85%, 72% 88%, 62% 96%, 50% 100%,
+    38% 96%, 27% 97%, 18% 88%, 8% 82%, 5% 70%, 0% 58%, 4% 46%,
+    2% 33%, 11% 25%, 16% 14%, 28% 11%, 38% 3%);
+}
+.hr-seal-ring {
+  position: absolute; inset: 13%;
+  border: 1.5px solid rgba(0,0,0,.42);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--wax) 55%, #000),
+              inset 0 0 22px rgba(0,0,0,.5);
+}
+.hr-seal-face {
+  position: relative; z-index: 2; text-align: center;
+  font-family: var(--hr-display); font-weight: 700;
+  font-size: .84rem; line-height: 1.25;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--wax) 22%, #f6e6c8);
+  text-shadow: 0 1px 0 rgba(0,0,0,.55), 0 -1px 0 rgba(255,255,255,.14);
+  padding: 0 2.6rem;
+}
+.hr-seal-face small {
+  display: block; margin-top: .35rem;
+  font-size: .52rem; letter-spacing: .3em; opacity: .68; font-weight: 400;
+}
+
+@keyframes hr-press {
+  0%   { transform: rotate(-14deg) scale(2.1); opacity: 0;   filter: blur(6px); }
+  60%  { transform: rotate(-5deg)  scale(.94); opacity: 1;   filter: blur(0);   }
+  100% { transform: rotate(-7deg)  scale(1);   opacity: 1; }
+}
+
+/* ═══════════ 9. PHASE BANNER ═════════════════════════════════════ */
+
+.hr-phase {
+  display: flex; align-items: center; gap: .9rem;
+  padding: .9rem 1.4rem;
+  border-block: 1px solid var(--hr-rule);
+  background:
+    radial-gradient(120% 180% at 12% 50%, rgba(163,42,38,.16), transparent 55%),
+    linear-gradient(90deg, rgba(163,42,38,.08), transparent 60%);
+}
+.hr-phase--day   { background: radial-gradient(120% 180% at 12% 50%, rgba(201,169,97,.14), transparent 55%); }
+.hr-phase--night { background: radial-gradient(120% 180% at 12% 50%, rgba(78,102,140,.16), transparent 55%); }
+.hr-phase .hr-sigil { color: var(--hr-gilt); }
+
+/* ═══════════ 10. QUALITY FLOOR ═══════════════════════════════════ */
+
+:where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--hr-gilt);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hr-embers, .hr-embers i { animation: none; display: none; }
+  .hr-gilt-text { animation: none; background-position: 50% 0; }
+  .hr-seal { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .hr-seal { width: 148px; height: 148px; }
+  .hr-seal-face { font-size: .7rem; padding: 0 2rem; }
+  .hr-entry::after { display: none; }
+}
+
+</style>
+<style>
+  /* ── preview chrome only; not part of the shipped kit ────────── */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 6rem;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 0%, #17110b 0%, transparent 60%),
+      var(--hr-void);
+    color: var(--hr-bone);
+    font-family: var(--hr-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 1.6rem; }
+
+  header.masthead {
+    display: flex; align-items: center; gap: 1.1rem;
+    padding: 2.4rem 0 1.6rem;
+    border-bottom: 1px solid var(--hr-rule);
+  }
+  .masthead h1 { font-size: 1.9rem; margin: 0; letter-spacing: .16em; }
+  .masthead p  { margin: .25rem 0 0; font-size: .58rem; letter-spacing: .34em;
+                 text-transform: uppercase; color: var(--hr-gilt-lo); font-family: var(--hr-display); }
+  .lozenge {
+    width: 52px; height: 52px; display: grid; place-items: center;
+    border: 1px solid var(--hr-gilt-lo); color: var(--hr-gilt);
+    clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
+    background: linear-gradient(160deg,#1e1810,#0b0906);
+  }
+  .lozenge svg { width: 26px; height: 26px; stroke: currentColor; fill: none; }
+
+  section { padding: 3.4rem 0 0; }
+  h2.sect {
+    font-family: var(--hr-display); font-size: .68rem; font-weight: 600;
+    letter-spacing: var(--hr-wide); text-transform: uppercase;
+    color: var(--hr-gilt-lo); margin: 0 0 .3rem;
+    display: flex; align-items: baseline; gap: .8rem;
+  }
+  h2.sect b { color: var(--hr-gilt); font-weight: 600; }
+  .note { color: var(--hr-ash); font-size: .92rem; max-width: 62ch; margin: .1rem 0 1.5rem; line-height: 1.55; }
+  code { font-family: var(--hr-data); font-size: .82em; color: var(--hr-gilt); }
+
+  .grid { display: grid; gap: 1px; background: var(--hr-rule);
+          border: 1px solid var(--hr-rule);
+          grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); }
+  .cell { background: var(--hr-crypt); padding: 1.4rem .9rem 1rem;
+          display: grid; place-items: center; gap: .7rem; text-align: center;
+          transition: background .25s; }
+  .cell:hover { background: #1a150e; }
+  .cell svg.spec { width: 34px; height: 34px; stroke: currentColor; fill: none; color: var(--hr-gilt); }
+  .cell .lbl { font-family: var(--hr-display); font-size: .55rem; letter-spacing: .2em;
+               text-transform: uppercase; color: var(--hr-bone); }
+  .cell .id  { font-family: var(--hr-data); font-size: .62rem; color: var(--hr-ash); }
+  .cell.heretic svg.spec { color: var(--hr-blood-hi); }
+  .cell.alive   svg.spec { color: var(--hr-verdigris); }
+  .cell.dead    svg.spec { color: #6b5a4a; }
+
+  .row { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; }
+
+  /* mock panel */
+  .mock { display: grid; grid-template-columns: 232px 1fr 268px; gap: 1px;
+          background: var(--hr-rule); border: 1px solid var(--hr-rule); margin-top: 1rem; }
+  .mock > div { background: var(--hr-crypt); padding: 1.3rem 1.1rem; position: relative; overflow: hidden; }
+  .roster { display: grid; gap: .55rem; }
+  .roster li { display: flex; align-items: center; gap: .8rem; padding: .5rem .6rem;
+               border: 1px solid transparent; list-style: none; }
+  .roster li.on { border-color: rgba(201,169,97,.3); background: rgba(201,169,97,.05); }
+  .roster .nm { font-family: var(--hr-display); font-size: .8rem; letter-spacing: .05em; }
+  .roster .st { font-family: var(--hr-data); font-size: .58rem; color: var(--hr-ash);
+                text-transform: uppercase; letter-spacing: .12em; }
+  .roster li.gone .nm { color: #574b3b; }
+  ul { margin: 0; padding: 0; }
+  .judgement { display: grid; gap: .55rem; }
+  .judgement div { display: flex; justify-content: space-between; align-items: center;
+                   gap: .8rem; padding-bottom: .5rem; border-bottom: 1px solid #211a12; }
+  .judgement .who { font-family: var(--hr-display); font-size: .82rem; }
+  @media (max-width: 900px) { .mock { grid-template-columns: 1fr; } }
+
+  .sealbay { display: flex; gap: 3rem; align-items: center; flex-wrap: wrap;
+             padding: 3rem 2rem; border: 1px solid var(--hr-rule);
+             background: radial-gradient(ellipse at 30% 50%, #17110c, var(--hr-void)); }
+</style>
+</head>
+<body class="hr-atmosphere">
+
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0" aria-hidden="true">
+<!--
+  HERESY RISING — defs
+  INLINE this at the top of <body>. Filters referenced by `filter: url(#id)`
+  must live in the same document; an external file reference will not
+  resolve in Chromium.
+-->
+
+  <defs>
+    <!-- Roughens the wax-seal edge so it reads as pressed, not vector-cut -->
+    <filter id="hr-roughen" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="4" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <!-- Subtle relief for pressed metal / incised plates -->
+    <filter id="hr-emboss" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur"/>
+      <feSpecularLighting in="blur" surfaceScale="3" specularConstant=".8"
+                          specularExponent="18" lighting-color="#fff2d0" result="spec">
+        <feDistantLight azimuth="235" elevation="58"/>
+      </feSpecularLighting>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specClip"/>
+      <feComposite in="SourceGraphic" in2="specClip" operator="arithmetic"
+                   k1="0" k2="1" k3="1" k4="0"/>
+    </filter>
+  </defs>
+
+  <!-- Rose window — background watermark for panel headers.
+       <svg class="hr-rosette"><use href="#hr-rosette"/></svg> -->
+  <symbol id="hr-rosette" viewBox="0 0 200 200">
+    <g fill="none" stroke="currentColor" stroke-width="1.2">
+      <circle cx="100" cy="100" r="96"/>
+      <circle cx="100" cy="100" r="88"/>
+      <circle cx="100" cy="100" r="58"/>
+      <circle cx="100" cy="100" r="22"/>
+      <circle cx="100" cy="100" r="9"/>
+      <!-- twelve spokes -->
+      <g>
+        <path d="M100 12v22M100 166v22M12 100h22M166 100h22"/>
+        <path d="m37.8 37.8 15.6 15.6M146.6 146.6l15.6 15.6M162.2 37.8l-15.6 15.6M53.4 146.6l-15.6 15.6"/>
+        <path d="M56 16.5 66.5 38M133.5 162 144 183.5M16.5 56 38 66.5M162 133.5 183.5 144M183.5 56 162 66.5M38 133.5 16.5 144M144 16.5 133.5 38M66.5 162 56 183.5"/>
+      </g>
+      <!-- petal arcs -->
+      <g>
+        <circle cx="100" cy="60" r="18"/><circle cx="100" cy="140" r="18"/>
+        <circle cx="60" cy="100" r="18"/><circle cx="140" cy="100" r="18"/>
+        <circle cx="71.7" cy="71.7" r="18"/><circle cx="128.3" cy="128.3" r="18"/>
+        <circle cx="128.3" cy="71.7" r="18"/><circle cx="71.7" cy="128.3" r="18"/>
+      </g>
+      <!-- central cross -->
+      <path d="M100 82v36M86 96h28M91 106h18" stroke-width="1.8"/>
+    </g>
+  </symbol>
+
+</svg>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<!--
+  HERESY RISING — sigil sprite
+  Usage:  <svg class="hr-sigil"><use href="/assets/heresy-sigils.svg#hr-priest"/></svg>
+  All glyphs are 24x24, monoline, and inherit `currentColor`.
+  Set size + color from CSS:  .hr-sigil { width:1em; height:1em; stroke:currentColor; fill:none }
+-->
+
+<defs>
+  <style>
+    symbol { stroke: currentColor; fill: none; stroke-width: 1.4;
+             stroke-linecap: round; stroke-linejoin: round; }
+    symbol .solid { fill: currentColor; stroke: none; }
+    symbol .hair  { stroke-width: 1; }
+  </style>
+</defs>
+
+<!-- ══════════ ROLE SIGILS ══════════ -->
+
+<!-- PRIEST / LOYALIST — patriarchal cross within a nimbus -->
+<symbol id="hr-priest" viewBox="0 0 24 24">
+  <circle cx="12" cy="8" r="4.4" class="hair"/>
+  <path d="M12 2.6V21"/>
+  <path d="M8 8h8"/>
+  <path d="M9.6 12.6h4.8"/>
+  <path d="M9.4 21h5.2"/>
+</symbol>
+
+<!-- MURDERER / HERETIC — inverted dagger, horned quillons -->
+<symbol id="hr-murderer" viewBox="0 0 24 24">
+  <path d="M12 4.4v13.2"/>
+  <path d="M10.4 17.6 12 21.4l1.6-3.8z"/>
+  <path d="M7.2 8.6h9.6"/>
+  <path d="M7.2 8.6C7.2 6 8.4 4.8 9.6 4.4"/>
+  <path d="M16.8 8.6C16.8 6 15.6 4.8 14.4 4.4"/>
+  <path d="m12 1.6 1.5 1.6L12 4.8 10.5 3.2z"/>
+</symbol>
+
+<!-- INTERROGATOR — probe descending into an open eye -->
+<symbol id="hr-interrogator" viewBox="0 0 24 24">
+  <path d="M2.8 15c3-4.2 15.4-4.2 18.4 0-3 4.2-15.4 4.2-18.4 0z"/>
+  <circle cx="12" cy="15" r="2.3" class="solid"/>
+  <path d="M12 1.8v9"/>
+  <path d="m9.4 6.2 2.6 2.6 2.6-2.6"/>
+</symbol>
+
+<!-- CHIRURGEON — curved needle above a sutured wound -->
+<symbol id="hr-chirurgeon" viewBox="0 0 24 24">
+  <path d="M5.6 9.4A7 7 0 0 1 18.4 6"/>
+  <path d="m18.4 6 1.6-2.2"/>
+  <path d="M4.4 16h15.2"/>
+  <path d="m7.2 13 2.4 6"/>
+  <path d="m11 13 2.4 6"/>
+  <path d="m14.8 13 2.4 6"/>
+</symbol>
+
+<!-- IMPERIAL CITIZEN — punched ration seal -->
+<symbol id="hr-citizen" viewBox="0 0 24 24">
+  <path d="M7 3h10l3 3v12l-3 3H7l-3-3V6z"/>
+  <circle cx="12" cy="8" r="1.3"/>
+  <path d="M8 12.6h8"/>
+  <path d="M8 16h5.4"/>
+</symbol>
+
+<!-- UNKNOWN / UNREVEALED — blank wax impression -->
+<symbol id="hr-unknown" viewBox="0 0 24 24">
+  <path d="M12 2.4c2.4 0 3.4 1.6 5.4 2.4s3.8.6 4 3.2-1 3.2-.8 5 1.2 2.8-.6 4.4-3.6.8-5.4 1.8-2.2 1.6-4.6.8-2.2-2-4-2.8-3.6-.4-4.4-2.6.4-3.2 0-5-1-3.2.8-4.6 3-1.2 4.8-2.2S9.6 2.4 12 2.4Z"/>
+  <path d="M12 15.4v.1"/>
+  <path d="M9.6 9.6a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.8.7-.8 1.4"/>
+</symbol>
+
+<!-- ══════════ STATUS MARKS ══════════ -->
+
+<!-- ALIVE — pulse within a ring -->
+<symbol id="hr-alive" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="9" class="hair"/>
+  <path d="M5.6 12h2.8l1.6-3.6 3.2 7.2 1.6-3.6h3.6"/>
+</symbol>
+
+<!-- DECEASED — skull -->
+<symbol id="hr-deceased" viewBox="0 0 24 24">
+  <path d="M5.4 12.4a6.6 6.6 0 0 1 13.2 0v2.2a2 2 0 0 1-2 2H7.4a2 2 0 0 1-2-2z"/>
+  <circle cx="9.2" cy="12.4" r="1.7" class="solid"/>
+  <circle cx="14.8" cy="12.4" r="1.7" class="solid"/>
+  <path d="M12 15.2v1.4"/>
+  <path d="M8.6 16.6v3.2M12 16.6v3.6M15.4 16.6v3.2"/>
+  <path d="M7.6 20h8.8" class="hair"/>
+</symbol>
+
+<!-- OBSERVING — open eye, no probe -->
+<symbol id="hr-observing" viewBox="0 0 24 24">
+  <path d="M2.4 12c3.2-4.6 16-4.6 19.2 0-3.2 4.6-16 4.6-19.2 0z"/>
+  <circle cx="12" cy="12" r="2.6"/>
+</symbol>
+
+<!-- SILENCED / SEALED CHANNEL — padlock with cross -->
+<symbol id="hr-sealed" viewBox="0 0 24 24">
+  <rect x="4.6" y="10" width="14.8" height="10.4" rx="1.6"/>
+  <path d="M8.4 10V7.6a3.6 3.6 0 0 1 7.2 0V10"/>
+  <path d="M12 13v4.4M10.1 15.2h3.8"/>
+</symbol>
+
+<!-- ══════════ PHASE MARKS ══════════ -->
+
+<!-- DAY — barbed sun -->
+<symbol id="hr-day" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="4.2"/>
+  <path d="M12 1.4v3.4M12 19.2v3.4M22.6 12h-3.4M4.8 12H1.4"/>
+  <path d="m19.5 4.5-2.4 2.4M6.9 17.1l-2.4 2.4M19.5 19.5l-2.4-2.4M6.9 6.9 4.5 4.5" class="hair"/>
+</symbol>
+
+<!-- NIGHT — crescent and cinders -->
+<symbol id="hr-night" viewBox="0 0 24 24">
+  <path d="M20.4 15.2A8.4 8.4 0 1 1 10.6 3.4a6.6 6.6 0 0 0 9.8 11.8z"/>
+  <path d="M18.6 4.2v.1M21 7.4v.1M16.4 7.6v.1" stroke-width="1.8"/>
+</symbol>
+
+<!-- ══════════ EVENT GLYPHS (for the log gutter) ══════════ -->
+
+<!-- ACCUSATION — the pointed finger, abstracted -->
+<symbol id="hr-accusation" viewBox="0 0 24 24">
+  <circle cx="18.6" cy="12" r="3.4"/>
+  <path d="M2 12h10.4"/>
+  <path d="m9.4 8.8 3.2 3.2-3.2 3.2"/>
+</symbol>
+
+<!-- VOTE — tally marks, struck -->
+<symbol id="hr-vote" viewBox="0 0 24 24">
+  <path d="M5.4 6.6v10.8M9.6 6.6v10.8M13.8 6.6v10.8M18 6.6v10.8"/>
+  <path d="M3.4 17 20 7"/>
+</symbol>
+
+<!-- VERDICT — the seal press -->
+<symbol id="hr-verdict" viewBox="0 0 24 24">
+  <circle cx="12" cy="3.8" r="2"/>
+  <path d="M12 5.8v3.8"/>
+  <path d="M6.6 9.6h10.8L15.6 14H8.4z"/>
+  <path d="M4.4 17.6h15.2"/>
+  <path d="m7.4 20 1.2-1.6M16.6 20l-1.2-1.6" class="hair"/>
+</symbol>
+
+<!-- EXECUTION — dagger through a ring -->
+<symbol id="hr-execution" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="6.4" class="hair"/>
+  <path d="M12 1.8v20.4"/>
+  <path d="M8.8 6h6.4"/>
+</symbol>
+
+<!-- VOX / TRANSMIT — horn and carrier waves -->
+<symbol id="hr-vox" viewBox="0 0 24 24">
+  <path d="M3.4 9.4 10.6 5v14l-7.2-4.4z"/>
+  <path d="M14 8.8a5 5 0 0 1 0 6.4"/>
+  <path d="M17 6a9 9 0 0 1 0 12"/>
+</symbol>
+
+<!-- CONCLAVE / ASSEMBLY — five figures round a table -->
+<symbol id="hr-conclave" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="4.2" class="hair"/>
+  <circle cx="12" cy="3.6" r="1.9"/>
+  <circle cx="19.4" cy="8.2" r="1.9"/>
+  <circle cx="16.6" cy="18.4" r="1.9"/>
+  <circle cx="7.4" cy="18.4" r="1.9"/>
+  <circle cx="4.6" cy="8.2" r="1.9"/>
+</symbol>
+
+<!-- HERESY MARK — the game's own rune, for favicons and loading states -->
+<symbol id="hr-mark" viewBox="0 0 24 24">
+  <path d="m12 1.4 10.6 10.6L12 22.6 1.4 12z"/>
+  <path d="M8.6 8.2v7.6M15.4 8.2v7.6M8.6 12h6.8"/>
+</symbol>
+
+</svg>
+
+
+<div class="hr-embers"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="lozenge"><svg><use href="#hr-mark"/></svg></div>
+    <div>
+      <h1 class="hr-gilt-text">HERESY RISING</h1>
+      <p>Asset kit &middot; sigils, seals, ornament</p>
+    </div>
+  </header>
+
+  <!-- ═══ SIGNATURE ═══ -->
+  <section>
+    <h2 class="sect"><b>The verdict seal</b> — signature element</h2>
+    <p class="note">Right now the win state is red type. It should land like wax pressed into
+      the record. The edge is roughened by an SVG displacement filter so it never reads as a
+      vector circle, and it presses in on mount. Two variants: <code>.hr-seal</code> and
+      <code>.hr-seal--loyalist</code>.</p>
+
+    <div class="sealbay">
+      <div class="hr-seal">
+        <div class="hr-seal-wax"></div><div class="hr-seal-ring"></div>
+        <div class="hr-seal-face">Heretic<br>Victory<small>Conclave sealed</small></div>
+      </div>
+      <div class="hr-seal hr-seal--loyalist" style="animation-delay:.18s">
+        <div class="hr-seal-wax"></div><div class="hr-seal-ring"></div>
+        <div class="hr-seal-face">Loyalist<br>Victory<small>Conclave sealed</small></div>
+      </div>
+      <div style="flex:1;min-width:220px">
+        <p class="note" style="margin:0">Reload the page to see the press. Honours
+          <code>prefers-reduced-motion</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ ROLES ═══ -->
+  <section>
+    <h2 class="sect"><b>Role sigils</b> — five roles plus unrevealed</h2>
+    <p class="note">Monoline, 24&times;24, drawn on <code>currentColor</code> so one file
+      covers gold, blood and ash states. Each is built from the role's own instrument
+      rather than a generic icon set.</p>
+    <div class="grid">
+      <div class="cell"><svg class="spec"><use href="#hr-priest"/></svg>
+        <span class="lbl">Priest</span><span class="id">#hr-priest</span></div>
+      <div class="cell heretic"><svg class="spec"><use href="#hr-murderer"/></svg>
+        <span class="lbl">Murderer</span><span class="id">#hr-murderer</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-interrogator"/></svg>
+        <span class="lbl">Interrogator</span><span class="id">#hr-interrogator</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-chirurgeon"/></svg>
+        <span class="lbl">Chirurgeon</span><span class="id">#hr-chirurgeon</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-citizen"/></svg>
+        <span class="lbl">Citizen</span><span class="id">#hr-citizen</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-unknown"/></svg>
+        <span class="lbl">Unrevealed</span><span class="id">#hr-unknown</span></div>
+    </div>
+
+    <div class="row" style="margin-top:1.4rem">
+      <span class="hr-role"><svg class="hr-sigil"><use href="#hr-priest"/></svg>Priest &middot; Loyalist</span>
+      <span class="hr-role hr-role--heretic"><svg class="hr-sigil"><use href="#hr-murderer"/></svg>Murderer</span>
+      <span class="hr-role"><svg class="hr-sigil"><use href="#hr-interrogator"/></svg>Interrogator</span>
+      <span class="hr-role"><svg class="hr-sigil"><use href="#hr-chirurgeon"/></svg>Chirurgeon</span>
+      <span class="hr-role hr-role--neutral"><svg class="hr-sigil"><use href="#hr-citizen"/></svg>Imperial Citizen</span>
+    </div>
+  </section>
+
+  <!-- ═══ STATUS + PHASE + EVENTS ═══ -->
+  <section>
+    <h2 class="sect"><b>Status, phase &amp; event glyphs</b></h2>
+    <p class="note">The event glyphs are the ones that do real work — they let a player scan
+      a twenty-line transcript and find the death without reading it.</p>
+    <div class="grid">
+      <div class="cell alive"><svg class="spec"><use href="#hr-alive"/></svg>
+        <span class="lbl">Alive</span><span class="id">#hr-alive</span></div>
+      <div class="cell dead"><svg class="spec"><use href="#hr-deceased"/></svg>
+        <span class="lbl">Deceased</span><span class="id">#hr-deceased</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-observing"/></svg>
+        <span class="lbl">Observing</span><span class="id">#hr-observing</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-sealed"/></svg>
+        <span class="lbl">Channel sealed</span><span class="id">#hr-sealed</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-day"/></svg>
+        <span class="lbl">Day</span><span class="id">#hr-day</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-night"/></svg>
+        <span class="lbl">Night</span><span class="id">#hr-night</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-accusation"/></svg>
+        <span class="lbl">Accusation</span><span class="id">#hr-accusation</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-vote"/></svg>
+        <span class="lbl">Vote tally</span><span class="id">#hr-vote</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-verdict"/></svg>
+        <span class="lbl">Verdict</span><span class="id">#hr-verdict</span></div>
+      <div class="cell heretic"><svg class="spec"><use href="#hr-execution"/></svg>
+        <span class="lbl">Execution</span><span class="id">#hr-execution</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-vox"/></svg>
+        <span class="lbl">Vox</span><span class="id">#hr-vox</span></div>
+      <div class="cell"><svg class="spec"><use href="#hr-conclave"/></svg>
+        <span class="lbl">Conclave</span><span class="id">#hr-conclave</span></div>
+    </div>
+  </section>
+
+  <!-- ═══ LOG ═══ -->
+  <section>
+    <h2 class="sect"><b>Stamped transcript</b> — your Day 6 &amp; 7, restyled</h2>
+    <p class="note">Same events as your screenshot. Votes drop to a ledger mono, deaths take
+      blood, phase changes go cold blue. Nothing else changed.</p>
+
+    <div class="hr-phase hr-phase--day" style="margin-bottom:.9rem">
+      <svg class="hr-sigil hr-sigil--lg"><use href="#hr-day"/></svg>
+      <div>
+        <div class="hr-incised">The conclave sits</div>
+        <div class="hr-gilt-text" style="font-size:1.15rem;letter-spacing:.12em">DAY 6</div>
+      </div>
+    </div>
+
+    <ul class="hr-log">
+      <li class="hr-entry hr-entry--accusation"><svg class="hr-sigil"><use href="#hr-accusation"/></svg><span>Town accused Grimnar.</span></li>
+      <li class="hr-entry hr-entry--vote"><svg class="hr-sigil"><use href="#hr-vote"/></svg><span>Grimnar &mdash; 1 of 3 votes &middot; 2 needed &middot; voters: Town</span></li>
+      <li class="hr-entry hr-entry--death"><svg class="hr-sigil"><use href="#hr-interrogator"/></svg><span>Grimnar was pierced by pneumatic interrogation probes and left at Tier 1.</span></li>
+      <li class="hr-entry hr-entry--phase"><svg class="hr-sigil"><use href="#hr-night"/></svg><span>Day 7 &mdash; vote for a target or stand down.</span></li>
+      <li class="hr-entry hr-entry--accusation"><svg class="hr-sigil"><use href="#hr-accusation"/></svg><span>Town accused Grimnar.</span></li>
+      <li class="hr-entry hr-entry--vote"><svg class="hr-sigil"><use href="#hr-vote"/></svg><span>Grimnar &mdash; 1 of 3 votes &middot; 2 needed &middot; voters: Town</span></li>
+      <li class="hr-entry hr-entry--execution"><svg class="hr-sigil"><use href="#hr-execution"/></svg><span>Grimnar was lynched. Revealed: loyalist.</span></li>
+      <li class="hr-entry hr-entry--verdict"><svg class="hr-sigil"><use href="#hr-verdict"/></svg><span>The conclave is ended. Heretic victory.</span></li>
+    </ul>
+
+    <div class="hr-fleuron">
+      <svg style="width:18px;height:18px;stroke:currentColor;fill:none"><use href="#hr-mark"/></svg>
+    </div>
+  </section>
+
+  <!-- ═══ MOCK ═══ -->
+  <section>
+    <h2 class="sect"><b>In situ</b> — roll call, transcript, final judgement</h2>
+    <p class="note">Octagonal portrait plates instead of square letter boxes; verdigris for the
+      living, drained grey for the dead. The rose window sits behind the judgement panel at 5%.</p>
+
+    <div class="mock hr-frame">
+      <span class="hr-frame-c"></span><span class="hr-frame-c"></span>
+      <span class="hr-frame-c"></span><span class="hr-frame-c"></span>
+
+      <div>
+        <div class="hr-incised" style="margin-bottom:1rem">Roll call &middot; 2 alive</div>
+        <ul class="roster">
+          <li class="on"><span class="hr-portrait" data-status="observing">T</span>
+            <span><span class="nm">Town</span><br><span class="st">Observing</span></span></li>
+          <li class="on"><span class="hr-portrait" data-status="observing">S</span>
+            <span><span class="nm">Shrike</span><br><span class="st">Observing</span></span></li>
+          <li class="gone"><span class="hr-portrait" data-status="deceased">G</span>
+            <span><span class="nm">Grimnar</span><br><span class="st">Deceased</span></span></li>
+          <li class="gone"><span class="hr-portrait" data-status="deceased">T</span>
+            <span><span class="nm">Typhus</span><br><span class="st">Deceased</span></span></li>
+          <li class="gone"><span class="hr-portrait" data-status="deceased">M</span>
+            <span><span class="nm">Moloc</span><br><span class="st">Deceased</span></span></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="hr-incised" style="margin-bottom:1rem">Conclave &middot; public</div>
+        <ul class="hr-log">
+          <li class="hr-entry hr-entry--accusation"><svg class="hr-sigil"><use href="#hr-accusation"/></svg><span>Town accused Grimnar.</span></li>
+          <li class="hr-entry hr-entry--vote"><svg class="hr-sigil"><use href="#hr-vote"/></svg><span>1 of 3 votes &middot; 2 needed</span></li>
+          <li class="hr-entry hr-entry--execution"><svg class="hr-sigil"><use href="#hr-execution"/></svg><span>Grimnar was lynched. Revealed: loyalist.</span></li>
+          <li class="hr-entry hr-entry--system"><svg class="hr-sigil"><use href="#hr-sealed"/></svg><span>Channel sealed.</span></li>
+        </ul>
+      </div>
+
+      <div>
+        <svg class="hr-rosette" style="right:-90px;top:-70px"><use href="#hr-rosette"/></svg>
+        <div class="hr-incised" style="margin-bottom:.2rem">Final judgement</div>
+        <div style="font-family:var(--hr-display);color:var(--hr-blood-hi);letter-spacing:.14em;font-size:1.05rem;margin-bottom:1.1rem">HERETIC VICTORY</div>
+        <div class="judgement">
+          <div><span class="who">Town</span><span class="hr-role"><svg class="hr-sigil"><use href="#hr-priest"/></svg>Priest</span></div>
+          <div><span class="who">Shrike</span><span class="hr-role hr-role--heretic"><svg class="hr-sigil"><use href="#hr-murderer"/></svg>Murderer</span></div>
+          <div><span class="who">Grimnar</span><span class="hr-role"><svg class="hr-sigil"><use href="#hr-interrogator"/></svg>Interrogator</span></div>
+          <div><span class="who">Typhus</span><span class="hr-role"><svg class="hr-sigil"><use href="#hr-chirurgeon"/></svg>Chirurgeon</span></div>
+          <div style="border:0"><span class="who">Moloc</span><span class="hr-role hr-role--neutral"><svg class="hr-sigil"><use href="#hr-citizen"/></svg>Citizen</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
