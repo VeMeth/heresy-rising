@@ -35,6 +35,9 @@
   --vp-home-hero-name-color: #e8e4d5;
   --vp-local-search-highlight-bg: #8f2d27;
   --vp-local-search-highlight-text: #fff;
+  /* Warhammer atmosphere palette — mirrors the game SPA */
+  --gold: #b69a5c;
+  --gold2: #dfc27c;
 }
 
 html,
@@ -487,4 +490,329 @@ body::before {
   border-color: #c46a5d;
   color: #e2b3ac;
   background: #1d1413;
+}
+
+/* ============================================================
+   WARHAMMER 40K ATMOSPHERE — additive polish pass
+   Ported from the game SPA's style.css and fx.css. Only
+   global/environmental effects that apply to a VitePress doc
+   page. No layout or functional changes.
+   ============================================================ */
+
+/* ---------- 0 · Themed page scrollbar (rich version) ---------- */
+.dark {
+  scrollbar-color: var(--gold) rgba(255, 255, 255, 0.04);
+  scrollbar-width: auto;
+}
+.dark::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+.dark::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+.dark::-webkit-scrollbar-thumb {
+  background: linear-gradient(#8a744a, #4a432e);
+  border: 1px solid #1c1a13;
+  border-radius: 4px;
+  box-shadow: 0 0 5px rgba(182, 154, 92, 0.25);
+}
+.dark::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(#b69a5c, #6a5d3a);
+  border-color: #2a2418;
+  box-shadow: 0 0 10px rgba(182, 154, 92, 0.45);
+}
+.dark::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Themed scrollbar for the sidebar nav and content panels */
+.dark .VPSidebar,
+.dark .VPDocAside,
+.dark .vp-doc pre {
+  scrollbar-color: var(--gold) rgba(255, 255, 255, 0.04);
+  scrollbar-width: thin;
+}
+.dark .VPSidebar::-webkit-scrollbar,
+.dark .VPDocAside::-webkit-scrollbar,
+.dark .vp-doc pre::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+.dark .VPSidebar::-webkit-scrollbar-track,
+.dark .VPDocAside::-webkit-scrollbar-track,
+.dark .vp-doc pre::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 1px solid rgba(182, 154, 92, 0.08);
+  margin: 4px 0;
+}
+.dark .VPSidebar::-webkit-scrollbar-thumb,
+.dark .VPDocAside::-webkit-scrollbar-thumb,
+.dark .vp-doc pre::-webkit-scrollbar-thumb {
+  background: linear-gradient(#8a744a, #4a432e);
+  border: 1px solid #1c1a13;
+  border-radius: 4px;
+  box-shadow: 0 0 5px rgba(182, 154, 92, 0.25);
+}
+.dark .VPSidebar::-webkit-scrollbar-thumb:hover,
+.dark .VPDocAside::-webkit-scrollbar-thumb:hover,
+.dark .vp-doc pre::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(#b69a5c, #6a5d3a);
+  border-color: #2a2418;
+  box-shadow: 0 0 10px rgba(182, 154, 92, 0.45);
+}
+.dark .VPSidebar::-webkit-scrollbar-corner,
+.dark .VPDocAside::-webkit-scrollbar-corner,
+.dark .vp-doc pre::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ---------- 1 · Cogitator scanline overlay ---------- */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.035;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.08) 2px,
+    rgba(255, 255, 255, 0.08) 4px
+  );
+  animation: scanline-shimmer 8s linear infinite;
+}
+@keyframes scanline-shimmer {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+
+/* ---------- 2 · Ambient room: vignette + brazier flicker ---------- */
+#app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9996;
+  pointer-events: none;
+  background: radial-gradient(ellipse 118% 88% at 50% 42%,
+      transparent 52%, rgba(0, 0, 0, 0.36) 100%);
+}
+#app::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9995;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 32% at 50% -12%, rgba(223, 194, 124, 0.075), transparent 70%),
+    radial-gradient(ellipse 30% 22% at 8% 108%, rgba(159, 57, 49, 0.05), transparent 70%),
+    radial-gradient(ellipse 30% 22% at 92% 108%, rgba(159, 57, 49, 0.05), transparent 70%);
+  animation: brazier-flicker 5.5s ease-in-out infinite;
+}
+@keyframes brazier-flicker {
+  0%, 100% { opacity: 0.75; }
+  18%      { opacity: 0.95; }
+  37%      { opacity: 0.7; }
+  55%      { opacity: 1; }
+  74%      { opacity: 0.82; }
+  89%      { opacity: 0.93; }
+}
+
+/* ---------- 3 · Nav energy sweep line ---------- */
+.dark .VPNavBar .divider-line {
+  position: relative;
+  overflow: hidden;
+  background-color: #34352f;
+}
+.dark .VPNavBar .divider-line::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(223, 194, 124, 0.85), transparent);
+  background-size: 180px 100%;
+  background-repeat: no-repeat;
+  animation: energy-sweep 8s linear infinite;
+  pointer-events: none;
+}
+@keyframes energy-sweep {
+  from { background-position: -180px 0; }
+  to   { background-position: calc(100% + 180px) 0; }
+}
+
+/* ---------- 4 · Brand mark glow ---------- */
+.dark .docs-brand-mark {
+  box-shadow: 0 0 10px rgba(182, 154, 92, 0.28), inset 0 0 6px rgba(182, 154, 92, 0.18);
+  animation: brand-glow 4s ease-in-out infinite alternate;
+  transition: box-shadow 0.2s ease;
+}
+@keyframes brand-glow {
+  to { box-shadow: 0 0 18px rgba(182, 154, 92, 0.5), inset 0 0 10px rgba(182, 154, 92, 0.3); }
+}
+
+/* ---------- 5 · VPButton letterpress + hover lift ---------- */
+.dark .VPButton {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  transition: filter 0.15s ease, box-shadow 0.2s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+.dark .VPButton:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+.dark .VPButton:not(:disabled):active {
+  transform: translateY(0);
+}
+.dark .VPButton.brand:not(:disabled):hover {
+  box-shadow: 0 0 20px rgba(159, 57, 49, 0.5), 0 0 40px rgba(159, 57, 49, 0.2);
+}
+.dark .VPButton.alt:not(:disabled):hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(182, 154, 92, 0.15);
+}
+
+/* ---------- 6 · VPFeature box — gold corner brackets via gradients ---------- */
+.dark .VPFeature .box {
+  position: relative;
+}
+.dark .VPFeature .box::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+  inset: 4px;
+  /* Four L-shaped gold corners drawn with background gradients */
+  background:
+    /* tl */ linear-gradient(var(--gold), var(--gold)) 0 0 / 14px 2px no-repeat,
+    /* tl */ linear-gradient(var(--gold), var(--gold)) 0 0 / 2px 14px no-repeat,
+    /* tr */ linear-gradient(var(--gold), var(--gold)) 100% 0 / 14px 2px no-repeat,
+    /* tr */ linear-gradient(var(--gold), var(--gold)) 100% 0 / 2px 14px no-repeat,
+    /* bl */ linear-gradient(var(--gold), var(--gold)) 0 100% / 14px 2px no-repeat,
+    /* bl */ linear-gradient(var(--gold), var(--gold)) 0 100% / 2px 14px no-repeat,
+    /* br */ linear-gradient(var(--gold), var(--gold)) 100% 100% / 14px 2px no-repeat,
+    /* br */ linear-gradient(var(--gold), var(--gold)) 100% 100% / 2px 14px no-repeat;
+  opacity: 0.55;
+  animation: corner-pulse 5s ease-in-out infinite alternate;
+}
+.dark .VPFeature .box:hover::after {
+  opacity: 1;
+}
+@keyframes corner-pulse {
+  from { opacity: 0.55; }
+  to   { opacity: 1; }
+}
+
+/* ---------- 7 · Footer ornaments ---------- */
+.dark .VPFooter::before {
+  content: "✦";
+  color: rgba(182, 154, 92, 0.35);
+  margin-right: 10px;
+}
+.dark .VPFooter::after {
+  content: "✦";
+  color: rgba(182, 154, 92, 0.35);
+  margin-left: 10px;
+}
+
+/* ---------- 8 · Doc content atmospheric touches ---------- */
+/* Blockquote — parchment glow and left-border refinement */
+.dark .vp-doc blockquote {
+  border-left: 2px solid var(--gold);
+  border-top: 1px solid rgba(182, 154, 92, 0.12);
+  border-bottom: 1px solid rgba(182, 154, 92, 0.12);
+  background: rgba(24, 26, 22, 0.72);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Code blocks — gothic framing */
+.dark .vp-doc div[class*='language-'] {
+  border: 1px solid #34372f;
+  border-radius: 0;
+  background: #121411;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.12);
+}
+.dark .vp-doc div[class*='language-']::after {
+  border: 1px solid #242620;
+  position: absolute;
+  inset: 5px;
+  content: "";
+  pointer-events: none;
+}
+
+/* Headings — very subtle gold text-shadow */
+.dark .vp-doc h2,
+.dark .vp-doc h3 {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+}
+
+/* Table — border and cell refinement */
+.dark .vp-doc table {
+  border: 1px solid #34372f;
+  border-radius: 0;
+}
+.dark .vp-doc th {
+  background: #171916;
+  color: var(--gold2);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.dark .vp-doc td {
+  border-color: #2c3028;
+}
+.dark .vp-doc tr:nth-child(2n) {
+  background: rgba(24, 26, 22, 0.5);
+}
+
+/* Custom block / info box — gothic framing */
+.dark .vp-doc .custom-block {
+  border: 1px solid #34372f;
+  border-radius: 0;
+  border-left: 2px solid var(--gold);
+  background: rgba(24, 26, 22, 0.6);
+}
+.dark .vp-doc .custom-block.info {
+  border-left-color: #93aa87;
+}
+.dark .vp-doc .custom-block.tip {
+  border-left-color: var(--gold2);
+}
+.dark .vp-doc .custom-block.warning {
+  border-left-color: #c46a5d;
+}
+.dark .vp-doc .custom-block.danger {
+  border-left-color: #8f2d27;
+}
+
+/* ---------- 9 · Pager link glow on hover ---------- */
+.dark .VPDocFooter .pager-link:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(182, 154, 92, 0.15), inset 0 0 10px rgba(182, 154, 92, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.2s ease;
+}
+
+/* ---------- 10 · Nav bar menu link gold glow on hover (matching client ghost button) ---------- */
+.dark .VPNavBarMenuLink:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(182, 154, 92, 0.15);
+}
+
+/* ---------- 11 · Toast entrance animation for notification style elements ---------- */
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ---------- 12 · Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  body::after { display: none; }
+  #app::after { animation: none; opacity: 0.8; }
 }
