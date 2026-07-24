@@ -406,7 +406,7 @@ button.ghost.wide.stand-down-leading {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
+  padding: 0 12px 12px;
 }
 .day-section {
   border: 1px solid var(--line);
