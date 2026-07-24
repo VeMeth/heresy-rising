@@ -130,19 +130,25 @@ export class ConversationDirector {
 
     const newest = this._feed[this._feed.length - 1];
     if (newest.from === session.playerCode) return 0; // never self-reply
+    if (newest.isBot) return 0; // never chain a reply off another bot's message
     const lastN = this._feed.slice(-3);
     if (lastN.length === 3 && lastN.every((m) => m.isBot)) return 0; // echo guard
 
+    // Only genuinely new human/system messages are a reason to speak — bot
+    // chatter alone must never motivate another bot to reply (that's the
+    // cascade that produces "nothing to add" restatements of its own role).
     let score = 0;
     const lower = (session.name || '').toLowerCase();
     for (const m of this._feed.slice(-6)) {
+      if (m.isBot) continue;
       if (m.ts <= st.lastSpokeAt) continue; // already accounted for
-      if (!m.isBot && lower && m.text && m.text.toLowerCase().includes(lower)) score += 3; // name-mentioned by human
-      else if (!m.isBot) score += 2; // new human message
-      else score += 1; // announcement/bot noise, low weight
+      if (lower && m.text && m.text.toLowerCase().includes(lower)) score += 3; // name-mentioned by human
+      else score += 2; // new human/system message
     }
     if (score === 0) return 0;
-    return score * st.talkativeness;
+    const weighted = score * st.talkativeness;
+    const threshold = Number(this._config.botReactiveThreshold) || 1.0;
+    return weighted >= threshold ? weighted : 0;
   }
 
   async _speak(session, st, reason) {

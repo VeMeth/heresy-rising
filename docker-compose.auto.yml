@@ -56,6 +56,7 @@ services:
       - BOT_MIN_CHAT_GAP_MS=${BOT_MIN_CHAT_GAP_MS:-25000}
       - BOT_CHAT_PER_PHASE_MAX=${BOT_CHAT_PER_PHASE_MAX:-3}
       - BOT_INTRO_GAP_MS=${BOT_INTRO_GAP_MS:-12000}
+      - BOT_REACTIVE_THRESHOLD=${BOT_REACTIVE_THRESHOLD:-1.0}
       - BOT_FACTION_CHAT=${BOT_FACTION_CHAT:-false}
     volumes:
       - ./data:/usr/src/app/data

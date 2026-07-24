@@ -84,6 +84,25 @@ test('director: echo guard — three bot-only messages in a row silence the dire
   assert.equal(bob._calls.length, 0, 'echo chamber suppressed');
 });
 
+test('director: another bot speaking alone never scores a reply (no bot-to-bot cascade)', async () => {
+  // Regression: _score() used to award +1 "noise" for any bot message, with
+  // no minimum threshold, so one bot's turn could nudge every other bot into
+  // a "reactive" turn with nothing new to say — producing restated-role
+  // duplicates. A lone bot message (below the 3-in-a-row echo-guard gate)
+  // must score zero on its own.
+  const { d } = makeDirector();
+  const bob = fakeSession('bob');
+  d.registerBot(bob);
+  d._botState.get('bob').introduced = true;
+  d.onPhaseChange('day');
+  d.observe({ id: 1, from: 'other-bot', author: 'x', isBot: true, text: 'I am an Interrogator.', round: 2 });
+  await d._tick();
+  assert.equal(bob._calls.length, 0, 'bot chatter alone is not a reason to speak');
+  d.observe({ id: 2, from: 'other-bot-2', author: 'y', isBot: true, text: 'I support that.', round: 2 });
+  await d._tick();
+  assert.equal(bob._calls.length, 0, 'two bot messages still do not score a reply');
+});
+
 test('director: a human message scores above threshold and triggers exactly one reply', async () => {
   const { d } = makeDirector();
   const bob = fakeSession('bob');

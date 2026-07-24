@@ -53,6 +53,7 @@ export const config = {
   botMinChatGapMs: parseNum(process.env.BOT_MIN_CHAT_GAP_MS, 25000),
   botChatPerPhaseMax: parseNum(process.env.BOT_CHAT_PER_PHASE_MAX, 3),
   botIntroGapMs: parseNum(process.env.BOT_INTRO_GAP_MS, 12000),
+  botReactiveThreshold: parseNum(process.env.BOT_REACTIVE_THRESHOLD, 1.0),
   botFactionChat: parseBool(process.env.BOT_FACTION_CHAT, false)
 };
 
