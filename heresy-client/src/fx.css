@@ -412,7 +412,7 @@ footer::after  { content: "✦"; color: rgba(182, 154, 92, .35); margin-left: 10
 .player-list,
 .day-messages {
   scrollbar-color: var(--gold) rgba(255, 255, 255, 0.04);
-  scrollbar-width: thin;
+  scrollbar-width: auto;
 }
 .roster-panel::-webkit-scrollbar,
 .orders-panel::-webkit-scrollbar,

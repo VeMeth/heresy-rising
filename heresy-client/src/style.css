@@ -131,6 +131,35 @@
   background: transparent;
 }
 
+/* Page-level scrollbar. .game-grid has a 560px min-height floor — on a
+   short browser window (small screen, tabs/bookmarks bar eating into
+   the viewport) the grid can exceed 100vh and the whole page scrolls
+   instead of an inner panel. That scrollbar was never themed, so it
+   fell back to the browser's plain default regardless of the panel
+   fixes above. */
+html {
+  scrollbar-color: var(--gold) rgba(255, 255, 255, 0.04);
+  scrollbar-width: auto;
+}
+html::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+html::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+html::-webkit-scrollbar-thumb {
+  background: linear-gradient(#8a744a, #4a432e);
+  border: 1px solid #1c1a13;
+  border-radius: 4px;
+  box-shadow: 0 0 5px rgba(182, 154, 92, 0.25);
+}
+html::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(#b69a5c, #6a5d3a);
+  border-color: #2a2418;
+  box-shadow: 0 0 10px rgba(182, 154, 92, 0.45);
+}
+
 /* ============================================================
    WARHAMMER 40K ATMOSPHERE — additive polish. All colors,
    layout, and existing rules are preserved. These layers sit
