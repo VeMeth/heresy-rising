@@ -61,7 +61,8 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
   app.get('/bots', auth, (_req, res) => {
     res.json(sessionStore.list().map((s) => ({
       botId: s.id, playerCode: s.playerCode, conclaveCode: s.conclaveCode,
-      role: s.role, faction: s.faction, alive: s.alive, phase: s.phase, lastAction: s.lastAction,
+      role: s.role, faction: s.faction, alive: s.alive, phase: s.phase, round: s.round, lastAction: s.lastAction,
+      roundActionStatus: s.roundActionStatus, roundActionDetail: s.roundActionDetail,
       llmPassive: !!(s._llm && (s._llm.label === 'passthrough' || s._llm._label === 'passthrough')),
       memoryBytes: s.shortTermMemory?.length ?? 0,
       tokensUsed: s.tokensUsed

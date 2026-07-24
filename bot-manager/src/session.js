@@ -49,6 +49,9 @@ export class BotSession {
       this.deadPlayers = Array.isArray(snap.deadPlayers) ? snap.deadPlayers : [];
       this.lastOwnZone = snap.lastOwnZone ?? null;
       this.actionLog = [];
+      this.roundActionStatus = snap.roundActionStatus ?? 'pending';
+      this.roundActionDetail = snap.roundActionDetail ?? null;
+      this._roundActionKey = null; // force a re-check against live state on next game:state
     } else {
       this.role = null;
       this.faction = null;
@@ -69,6 +72,9 @@ export class BotSession {
       this.deadPlayers = [];
       this.lastOwnZone = null;
       this.actionLog = [];
+      this.roundActionStatus = 'pending';
+      this.roundActionDetail = null;
+      this._roundActionKey = null;
     }
     this._config = config;
     this._llm = llm || { async generate() { return { kind: 'pass' }; }, label: 'passthrough' };
@@ -110,7 +116,9 @@ export class BotSession {
       notes: this.notes.all(),
       rollingSummary: this.rollingSummary.toJSON(),
       deadPlayers: this.deadPlayers,
-      lastOwnZone: this.lastOwnZone
+      lastOwnZone: this.lastOwnZone,
+      roundActionStatus: this.roundActionStatus,
+      roundActionDetail: this.roundActionDetail
     };
   }
 
@@ -133,6 +141,8 @@ export class BotSession {
       round: this.round,
       alive: this.alive,
       lastAction: this.lastAction,
+      roundActionStatus: this.roundActionStatus,
+      roundActionDetail: this.roundActionDetail,
       memoryBytes: this.shortTermMemory.length,
       notesCount: this.notes.size,
       tokensUsed: this.tokensUsed,
@@ -181,6 +191,18 @@ export class BotSession {
     if (!s) return;
     this.phase = s.phase ?? this.phase;
     this.round = s.round ?? this.round;
+    // Track whether this bot has submitted its action for the CURRENT
+    // phase+round — a clear, non-clobbered signal for admin visibility
+    // ("did they act at night?"), independent of the noisy `lastAction`
+    // string below, which gets overwritten by every routine state tick.
+    const roundKey = `${this.phase}:${this.round}`;
+    if (this._roundActionKey !== roundKey) {
+      this._roundActionKey = roundKey;
+      if (this.phase === 'night') this.roundActionStatus = 'pending';
+      else if (this.phase === 'day') this.roundActionStatus = this.round === 1 ? 'n/a' : 'pending'; // Day 1 is chat-only, no vote
+      else this.roundActionStatus = 'n/a'; // lobby / ended
+      this.roundActionDetail = null;
+    }
     if (s.me) {
       this.alive = !!s.me.alive;
       if (s.me.role && typeof s.me.role === 'object') this.role = s.me.role.id || this.role;
@@ -289,10 +311,21 @@ export class BotSession {
     return this._act({ kind: 'chat_turn', reason });
   }
 
+  // Records the outcome of an engine-driven night_action_prompt / day_vote_prompt
+  // against the CURRENT round+phase — the clear, non-clobbered signal admin
+  // tooling reads to answer "did this bot act?" (see roundActionStatus reset
+  // in _onGameState). No-op for chat_turn prompts, which aren't round actions.
+  _markRoundAction(prompt, status, detail = null) {
+    if (prompt?.kind !== 'night_action_prompt' && prompt?.kind !== 'day_vote_prompt') return;
+    this.roundActionStatus = status;
+    this.roundActionDetail = detail;
+  }
+
   async _act(prompt) {
     if (!this.alive || this._closing) return;
     if (this.tokensUsed >= this.costCeiling) {
       this.lastAction = 'budget_exhausted';
+      this._markRoundAction(prompt, 'error', { reason: 'budget_exhausted' });
       return;
     }
     let action;
@@ -302,9 +335,10 @@ export class BotSession {
       console.warn(`[bot-manager] LLM generate failed for ${this.id}:`, e.message);
       this.lastAction = 'llm_error';
       this._logAction({ kind: 'llm_error', error: e.message });
+      this._markRoundAction(prompt, 'error', { reason: e.message });
       return;
     }
-    if (!action) { this.lastAction = 'pass'; this._logAction({ kind: 'pass' }); return; }
+    if (!action) { this.lastAction = 'pass'; this._logAction({ kind: 'pass' }); this._markRoundAction(prompt, 'passed'); return; }
 
     // Forward any notes the bot wants to persist into its structured memory.
     // Notes are write-only side effects — apply them even on `pass` so the bot
@@ -314,7 +348,7 @@ export class BotSession {
     }
 
     this._save();
-    if (action.kind === 'pass') { this.lastAction = 'pass'; this._logAction({ kind: 'pass' }); return; }
+    if (action.kind === 'pass') { this.lastAction = 'pass'; this._logAction({ kind: 'pass' }); this._markRoundAction(prompt, 'passed'); return; }
 
     // Chat-turn prompts (director-triggered) may only emit chat (or pass).
     // Forbid votes and night actions here so a chat turn cannot double-cast a
@@ -334,6 +368,7 @@ export class BotSession {
       console.warn(`[bot-manager] validator rejected action for ${this.id} (${this.role}): ${validation.reason}`);
       this.lastAction = `rejected:${validation.reason}`;
       this._logAction({ kind: 'rejected', action, reason: validation.reason });
+      this._markRoundAction(prompt, 'rejected', { reason: validation.reason });
       return;
     }
 
@@ -347,9 +382,9 @@ export class BotSession {
     }
 
     const dispatch = buildEnginePayload(action, this);
-    if (!dispatch) { this.lastAction = 'invalid_action'; this._logAction({ kind: 'invalid_action', action }); return; }
-    if (dispatch.type === 'pass' || dispatch.type === 'sleep') { this.lastAction = dispatch.type; this._logAction({ kind: dispatch.type, action }); return; }
-    if (!this._socket || !this._socket.connected) { this.lastAction = 'socket_offline'; this._logAction({ kind: 'socket_offline', action }); return; }
+    if (!dispatch) { this.lastAction = 'invalid_action'; this._logAction({ kind: 'invalid_action', action }); this._markRoundAction(prompt, 'error', { reason: 'invalid_action' }); return; }
+    if (dispatch.type === 'pass' || dispatch.type === 'sleep') { this.lastAction = dispatch.type; this._logAction({ kind: dispatch.type, action }); this._markRoundAction(prompt, 'passed'); return; }
+    if (!this._socket || !this._socket.connected) { this.lastAction = 'socket_offline'; this._logAction({ kind: 'socket_offline', action }); this._markRoundAction(prompt, 'error', { reason: 'socket_offline' }); return; }
 
     if (dispatch.type === 'chat') {
       this._chatSentThisPhase = (this._chatSentThisPhase || 0) + 1;
@@ -358,6 +393,10 @@ export class BotSession {
       });
       this.lastAction = 'chat';
       this._logAction({ kind: 'chat', action, target: dispatch.payload?.target, text: dispatch.payload?.body });
+      // A night_action_prompt/day_vote_prompt turn that produced chat instead
+      // of the requested action means no real action was submitted — surface
+      // that as an error rather than leaving admin looking at a stale 'pending'.
+      this._markRoundAction(prompt, 'error', { reason: 'model replied with chat instead of the requested action' });
     } else if (dispatch.type === 'vote') {
       this._emit('vote:submit', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`vote:submit rejected for ${this.id}: ${ack.error}`);
@@ -366,6 +405,7 @@ export class BotSession {
       this._lastVoteTarget = dispatch.payload?.targetCode || 'skip';
       this.rollingSummary.addOwnVote(this.round, this._lastVoteTarget, dispatch.payload?.justification);
       this._logAction({ kind: 'vote', action, target: dispatch.payload?.targetCode });
+      this._markRoundAction(prompt, 'submitted', { target: dispatch.payload?.targetCode, justification: dispatch.payload?.justification });
     } else if (dispatch.type === 'action') {
       this._emit('action:submit', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`action:submit rejected for ${this.id}: ${ack.error}`);
@@ -373,6 +413,7 @@ export class BotSession {
       this.lastAction = `action:${action.verb}`;
       this.rollingSummary.addOwnNightAction(this.round, action.verb, dispatch.payload?.targetCode);
       this._logAction({ kind: 'action', verb: action.verb, action, target: dispatch.payload?.target, targetCode: dispatch.payload?.targetCode });
+      this._markRoundAction(prompt, 'submitted', { verb: action.verb, target: dispatch.payload?.targetCode });
     }
   }
 

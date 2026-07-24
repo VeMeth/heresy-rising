@@ -312,7 +312,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>botId</th><th>Conclave</th><th>Name</th><th>Role</th><th>Faction</th><th>Phase</th><th>Round</th><th>Alive</th><th>Mode</th><th>Last</th><th>Tokens</th><th>Mem</th><th></th>
+                  <th>botId</th><th>Conclave</th><th>Name</th><th>Role</th><th>Faction</th><th>Phase</th><th>Round</th><th>Alive</th><th>Mode</th><th>Round Action</th><th>Last</th><th>Tokens</th><th>Mem</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -326,6 +326,7 @@
                   <td>{{ bot.round ?? '-' }}</td>
                   <td>{{ bot.alive === false ? 'no' : 'yes' }}</td>
                   <td><span v-if="bot.llmPassive" class="badge badge-passive" title="No LLM configured — bot passes every turn">PASSIVE</span><span v-else class="badge badge-active" title="LLM is active">ACTIVE</span></td>
+                  <td><span class="badge" :class="roundActionBadgeClass(bot)" :title="roundActionTitle(bot)">{{ roundActionLabel(bot) }}</span></td>
                   <td><code>{{ bot.lastAction || '-' }}</code></td>
                   <td>{{ bot.tokensUsed ?? 0 }} / {{ bot.costCeiling ?? '?' }}</td>
                   <td>{{ bot.memoryBytes ?? 0 }}</td>
@@ -334,7 +335,7 @@
                     <button type="button" class="danger" @click="despawnBot(bot)">Despawn</button>
                   </td>
                 </tr>
-                <tr v-if="!bots.length"><td colspan="12"><p class="empty">No bots currently spawned.</p></td></tr>
+                <tr v-if="!bots.length"><td colspan="13"><p class="empty">No bots currently spawned.</p></td></tr>
               </tbody>
             </table>
           </div>
@@ -365,6 +366,7 @@
             <span>Phase <strong>{{ selectedBot.phase || '-' }}</strong></span>
             <span>Round <strong>{{ selectedBot.round ?? '-' }}</strong></span>
             <span>Alive <strong>{{ selectedBot.alive === false ? 'No' : 'Yes' }}</strong></span>
+            <span>Round Action <strong><span class="badge" :class="roundActionBadgeClass(selectedBot)" :title="roundActionTitle(selectedBot)">{{ roundActionLabel(selectedBot) }}</span></strong></span>
             <span>Last <strong><code>{{ selectedBot.lastAction || '-' }}</code></strong></span>
             <span>Tokens <strong>{{ selectedBot.tokensUsed ?? 0 }} / {{ selectedBot.costCeiling ?? '?' }}</strong></span>
             <span>Memory <strong>{{ selectedBot.memoryBytes ?? 0 }} events</strong></span>
@@ -790,9 +792,37 @@ function formatDate(value) {
   return new Date(numeric > 10_000_000_000 ? numeric : numeric * 1000).toLocaleString();
 }
 
+// roundActionStatus tracks whether a bot has submitted its night action /
+// day vote for the CURRENT round — unlike `lastAction` (a noisy free-text
+// trace overwritten by every routine state tick), this field only changes
+// on a real submit/pass/reject/error and is what admins should trust to
+// answer "did this bot act?".
+const ROUND_ACTION_LABELS = {
+  pending: 'Pending', submitted: 'Submitted', passed: 'Passed',
+  rejected: 'Rejected', error: 'Error', 'n/a': 'N/A'
+};
+function roundActionLabel(bot) {
+  return ROUND_ACTION_LABELS[bot?.roundActionStatus] || bot?.roundActionStatus || '-';
+}
+function roundActionBadgeClass(bot) {
+  const status = bot?.roundActionStatus;
+  if (status === 'submitted') return 'badge-active';
+  if (status === 'pending') return 'badge-pending';
+  if (status === 'passed') return 'badge-passive';
+  if (status === 'rejected' || status === 'error') return 'badge-rejected';
+  return 'badge-na';
+}
+function roundActionTitle(bot) {
+  const d = bot?.roundActionDetail;
+  if (!d) return bot?.phase === 'night' ? 'Night action for this round' : 'Vote for this round';
+  if (d.verb) return `${d.verb}${d.target ? ' -> ' + d.target : ''}`;
+  if (d.target) return `target: ${d.target}${d.justification ? ' — ' + d.justification : ''}`;
+  return d.reason || JSON.stringify(d);
+}
+
 if (authenticated.value) loadOverview();
 </script>
 
 <style scoped>
-.admin-shell{min-height:100vh;background:#101312;color:#e7e3d5;padding:24px;font-family:Inter,system-ui,sans-serif}.login-panel,.control-room{max-width:1500px;margin:0 auto}.login-panel{width:min(440px,100%);margin-top:12vh;background:#171a16;border:1px solid #34372f;padding:28px}.login-panel span,.topbar span,.detail-head span{color:#b69a5c;font-size:11px;font-weight:800;letter-spacing:.16em}.login-panel h1,.topbar h1,.detail-head h2{margin:6px 0 18px;font-family:Cinzel,serif}.login-panel form{display:grid;gap:14px}label{display:grid;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa99d}input,select{background:#0d0f0d;border:1px solid #3a3c34;color:#e7e3d5;padding:9px;border-radius:2px}button{background:#8f7543;border:1px solid #b99c62;color:#0b0c0a;padding:9px 12px;text-transform:uppercase;font-size:10px;font-weight:800;letter-spacing:.1em;cursor:pointer}button.danger{background:#7a2a25;border-color:#a8463d;color:#fff}button:disabled{opacity:.5}.error{border:1px solid #70352f;background:#321916;color:#d99b95;padding:10px}.topbar,.detail-head,.actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.actions{justify-content:flex-end}.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:20px 0}.metrics div,.detail,.logs,.cell-list button{background:#171a16;border:1px solid #34372f}.metrics div{padding:14px}.metrics span,.facts span{display:block;color:#8f9287;font-size:10px;text-transform:uppercase;letter-spacing:.12em}.metrics strong{display:block;margin-top:5px;font-size:24px}.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs .active,.cell-list .selected{background:#2b271b;color:#dfc27c;border-color:#b69a5c}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}.cell-list{display:grid;align-content:start;gap:8px}.cell-list button{text-align:left;color:#e7e3d5;padding:14px}.cell-list strong,.cell-list span,.cell-list small{display:block}.cell-list span{margin-top:4px;color:#c8c0aa}.cell-list small{margin-top:5px;color:#8f9287}.detail,.logs{padding:18px;min-width:0}.facts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:16px 0}.facts span{background:#0d0f0d;border:1px solid #2c3028;padding:10px}.facts strong{display:block;color:#e7e3d5;margin-top:4px;text-transform:none;letter-spacing:0}.table-wrap{overflow:auto;border:1px solid #34372f}table{width:100%;border-collapse:collapse;min-width:900px}th,td{border-bottom:1px solid #2c3028;padding:9px;text-align:left;vertical-align:top}th{color:#b69a5c;font-size:10px;text-transform:uppercase;letter-spacing:.12em;background:#11130f}td code{display:block;margin-top:4px;color:#8f9287;font-size:10px}.checks{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:6px}.checks label{display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;letter-spacing:0}.checks input{width:auto}.columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}pre,.scroll-list{max-height:360px;overflow:auto;background:#0b0d0b;border:1px solid #2c3028;color:#d9d7cc;padding:12px;font-size:12px;line-height:1.5}.scroll-list p{border-bottom:1px solid #252820;margin:0;padding:9px 0;white-space:pre-wrap}.scroll-list span{display:block;color:#8f9287;font-size:10px;margin-bottom:4px}.badge-passive{display:inline-block;background:#5a3e1f;color:#f0c674;border:1px solid #8f6d3a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-active{display:inline-block;background:#1f3a25;color:#74c68a;border:1px solid #3a6d4a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.warning-banner{background:#3a2a0f;border:1px solid #8f6d3a;color:#f0c674;padding:10px;margin:10px 0;font-size:12px;border-radius:2px}.empty{color:#8f9287}.bot-detail{background:#171a16;border:1px solid #34372f;padding:18px;margin-top:14px}.bot-detail .facts{grid-template-columns:repeat(5,minmax(0,1fr))}.bot-tab-content h4{margin:0 0 10px;font-family:Cinzel,serif;color:#c8c0aa}.bot-tab-content h4 small{font-size:10px;color:#8f9287;font-weight:400}.mem-item{padding:7px 0;border-bottom:1px solid #252820;font-size:12px;line-height:1.5;white-space:pre-wrap}.mem-meta{display:block;color:#8f9287;font-size:10px;margin-bottom:3px}.mem-announce{color:#b69a5c}.mem-intel{color:#c67a5c}.action-detail{font-size:12px}.bot-notes-panel pre{max-height:200px}.bot-notes-panel .columns{gap:20px}@media(max-width:900px){.metrics,.facts,.columns,.layout{grid-template-columns:1fr}.topbar,.detail-head{align-items:flex-start;flex-direction:column}}
+.admin-shell{min-height:100vh;background:#101312;color:#e7e3d5;padding:24px;font-family:Inter,system-ui,sans-serif}.login-panel,.control-room{max-width:1500px;margin:0 auto}.login-panel{width:min(440px,100%);margin-top:12vh;background:#171a16;border:1px solid #34372f;padding:28px}.login-panel span,.topbar span,.detail-head span{color:#b69a5c;font-size:11px;font-weight:800;letter-spacing:.16em}.login-panel h1,.topbar h1,.detail-head h2{margin:6px 0 18px;font-family:Cinzel,serif}.login-panel form{display:grid;gap:14px}label{display:grid;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa99d}input,select{background:#0d0f0d;border:1px solid #3a3c34;color:#e7e3d5;padding:9px;border-radius:2px}button{background:#8f7543;border:1px solid #b99c62;color:#0b0c0a;padding:9px 12px;text-transform:uppercase;font-size:10px;font-weight:800;letter-spacing:.1em;cursor:pointer}button.danger{background:#7a2a25;border-color:#a8463d;color:#fff}button:disabled{opacity:.5}.error{border:1px solid #70352f;background:#321916;color:#d99b95;padding:10px}.topbar,.detail-head,.actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.actions{justify-content:flex-end}.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:20px 0}.metrics div,.detail,.logs,.cell-list button{background:#171a16;border:1px solid #34372f}.metrics div{padding:14px}.metrics span,.facts span{display:block;color:#8f9287;font-size:10px;text-transform:uppercase;letter-spacing:.12em}.metrics strong{display:block;margin-top:5px;font-size:24px}.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs .active,.cell-list .selected{background:#2b271b;color:#dfc27c;border-color:#b69a5c}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}.cell-list{display:grid;align-content:start;gap:8px}.cell-list button{text-align:left;color:#e7e3d5;padding:14px}.cell-list strong,.cell-list span,.cell-list small{display:block}.cell-list span{margin-top:4px;color:#c8c0aa}.cell-list small{margin-top:5px;color:#8f9287}.detail,.logs{padding:18px;min-width:0}.facts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:16px 0}.facts span{background:#0d0f0d;border:1px solid #2c3028;padding:10px}.facts strong{display:block;color:#e7e3d5;margin-top:4px;text-transform:none;letter-spacing:0}.table-wrap{overflow:auto;border:1px solid #34372f}table{width:100%;border-collapse:collapse;min-width:900px}th,td{border-bottom:1px solid #2c3028;padding:9px;text-align:left;vertical-align:top}th{color:#b69a5c;font-size:10px;text-transform:uppercase;letter-spacing:.12em;background:#11130f}td code{display:block;margin-top:4px;color:#8f9287;font-size:10px}.checks{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:6px}.checks label{display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;letter-spacing:0}.checks input{width:auto}.columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}pre,.scroll-list{max-height:360px;overflow:auto;background:#0b0d0b;border:1px solid #2c3028;color:#d9d7cc;padding:12px;font-size:12px;line-height:1.5}.scroll-list p{border-bottom:1px solid #252820;margin:0;padding:9px 0;white-space:pre-wrap}.scroll-list span{display:block;color:#8f9287;font-size:10px;margin-bottom:4px}.badge-passive{display:inline-block;background:#5a3e1f;color:#f0c674;border:1px solid #8f6d3a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-active{display:inline-block;background:#1f3a25;color:#74c68a;border:1px solid #3a6d4a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-pending{display:inline-block;background:#2c2e28;color:#c8c0aa;border:1px solid #4a4c42;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-rejected{display:inline-block;background:#3a1c1a;color:#e08a80;border:1px solid #70352f;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-na{display:inline-block;background:#1a1c18;color:#6c6f64;border:1px solid #34372f;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.warning-banner{background:#3a2a0f;border:1px solid #8f6d3a;color:#f0c674;padding:10px;margin:10px 0;font-size:12px;border-radius:2px}.empty{color:#8f9287}.bot-detail{background:#171a16;border:1px solid #34372f;padding:18px;margin-top:14px}.bot-detail .facts{grid-template-columns:repeat(5,minmax(0,1fr))}.bot-tab-content h4{margin:0 0 10px;font-family:Cinzel,serif;color:#c8c0aa}.bot-tab-content h4 small{font-size:10px;color:#8f9287;font-weight:400}.mem-item{padding:7px 0;border-bottom:1px solid #252820;font-size:12px;line-height:1.5;white-space:pre-wrap}.mem-meta{display:block;color:#8f9287;font-size:10px;margin-bottom:3px}.mem-announce{color:#b69a5c}.mem-intel{color:#c67a5c}.action-detail{font-size:12px}.bot-notes-panel pre{max-height:200px}.bot-notes-panel .columns{gap:20px}@media(max-width:900px){.metrics,.facts,.columns,.layout{grid-template-columns:1fr}.topbar,.detail-head{align-items:flex-start;flex-direction:column}}
 </style>

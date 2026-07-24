@@ -73,7 +73,35 @@ test('sim: bot emits a night action when MockLLM scripts an interrogate block', 
   assert.ok(action, 'an action:submit was emitted');
   assert.equal(action.payload.targetCode, 'human-p1');
   assert.equal(action.payload.variant, 'T2');
+  assert.equal(session.roundActionStatus, 'submitted', 'admin-visible night-action status reflects the submission');
+  assert.deepEqual(session.roundActionDetail, { verb: 'interrogate', target: 'human-p1' });
   session._socket.connected = false;
+  await session.close();
+});
+
+test('sim: bot that passes at night is tracked as "passed", not left pending', async () => {
+  const { session } = makeSession({ chatScripts: ['```action\n{"kind":"pass"}\n```'], role: 'imperial-citizen' });
+  assert.equal(session.roundActionStatus, 'pending', 'no action taken yet');
+  await session._act({ kind: 'night_action_prompt', round: 2 });
+  assert.equal(session.roundActionStatus, 'passed');
+  await session.close();
+});
+
+test('sim: roundActionStatus survives a routine game:state tick after acting (no clobbering)', async () => {
+  const scripts = ['```action\n{"kind":"night_action","verb":"interrogate","tier":1,"target":"human-p1"}\n```'];
+  const { session } = makeSession({ chatScripts: scripts, role: 'interrogator' });
+  // Establish the round-key baseline the way production code does — via a
+  // game:state broadcast — before acting. (Omit `players` so this doesn't
+  // clobber the alivePlayers the test set up by hand.)
+  session._onGameState({ state: { phase: 'night', round: 2 } });
+  assert.equal(session.roundActionStatus, 'pending');
+  await session._act({ kind: 'night_action_prompt', round: 2 });
+  assert.equal(session.roundActionStatus, 'submitted');
+  // A subsequent game:state broadcast for the SAME round/phase must not reset
+  // the status back to 'pending' — this was the original bug that made the
+  // admin panel unable to show whether a bot had actually acted.
+  session._onGameState({ state: { phase: 'night', round: 2 } });
+  assert.equal(session.roundActionStatus, 'submitted', 'status is preserved across state ticks within the same round');
   await session.close();
 });
 
