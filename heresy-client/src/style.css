@@ -12,6 +12,16 @@
    Appended after the minified rules above so they win the cascade. */
 .chat-panel { min-height: 0; }
 .message-feed { min-height: 0; }
+
+/* Grid items default to min-height:auto, which lets a tall roster
+   (e.g. a full 12-player lobby) grow the panel past its grid row
+   instead of scrolling inside it — the whole page falls back to the
+   browser's unstyled scrollbar. Same fix as chat-panel above. */
+.roster-panel,
+.orders-panel {
+  min-height: 0;
+  overflow-y: auto;
+}
 .load-history {
   align-self: center;
   margin: 8px auto 4px;
@@ -84,33 +94,36 @@
 .message-feed,
 .scroll-list,
 .chat-panel {
-  scrollbar-color: var(--gold) transparent;
+  scrollbar-color: var(--gold) rgba(255, 255, 255, 0.04);
   scrollbar-width: thin;
 }
 .message-feed::-webkit-scrollbar,
 .scroll-list::-webkit-scrollbar,
 .chat-panel::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  width: 11px;
+  height: 11px;
 }
 .message-feed::-webkit-scrollbar-track,
 .scroll-list::-webkit-scrollbar-track,
 .chat-panel::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 1px solid rgba(182, 154, 92, 0.08);
   margin: 4px 0;
 }
 .message-feed::-webkit-scrollbar-thumb,
 .scroll-list::-webkit-scrollbar-thumb,
 .chat-panel::-webkit-scrollbar-thumb {
-  background: linear-gradient(#4a432e,#33301f);
+  background: linear-gradient(#8a744a, #4a432e);
   border: 1px solid #1c1a13;
   border-radius: 4px;
+  box-shadow: 0 0 5px rgba(182, 154, 92, 0.25);
 }
 .message-feed::-webkit-scrollbar-thumb:hover,
 .scroll-list::-webkit-scrollbar-thumb:hover,
 .chat-panel::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(#6a5d3a,#463f29);
+  background: linear-gradient(#b69a5c, #6a5d3a);
   border-color: #2a2418;
+  box-shadow: 0 0 10px rgba(182, 154, 92, 0.45);
 }
 .message-feed::-webkit-scrollbar-corner,
 .scroll-list::-webkit-scrollbar-corner,

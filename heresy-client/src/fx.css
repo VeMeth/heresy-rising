@@ -407,30 +407,41 @@ footer::after  { content: "✦"; color: rgba(182, 154, 92, .35); margin-left: 10
   .message-feed::before { left: 26px; }
 }
 .message-feed,
+.roster-panel,
 .orders-panel,
 .player-list,
 .day-messages {
-  scrollbar-color: var(--gold) transparent;
+  scrollbar-color: var(--gold) rgba(255, 255, 255, 0.04);
   scrollbar-width: thin;
 }
+.roster-panel::-webkit-scrollbar,
 .orders-panel::-webkit-scrollbar,
 .player-list::-webkit-scrollbar,
-.day-messages::-webkit-scrollbar { width: 9px; height: 9px; }
+.day-messages::-webkit-scrollbar { width: 11px; height: 11px; }
+.roster-panel::-webkit-scrollbar-track,
 .orders-panel::-webkit-scrollbar-track,
 .player-list::-webkit-scrollbar-track,
-.day-messages::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+.day-messages::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 1px solid rgba(182, 154, 92, 0.08);
+  margin: 4px 0;
+}
+.roster-panel::-webkit-scrollbar-thumb,
 .orders-panel::-webkit-scrollbar-thumb,
 .player-list::-webkit-scrollbar-thumb,
 .day-messages::-webkit-scrollbar-thumb {
-  background: linear-gradient(#4a432e, #33301f);
+  background: linear-gradient(#8a744a, #4a432e);
   border: 1px solid #1c1a13;
   border-radius: 4px;
+  box-shadow: 0 0 5px rgba(182, 154, 92, 0.25);
 }
+.roster-panel::-webkit-scrollbar-thumb:hover,
 .orders-panel::-webkit-scrollbar-thumb:hover,
 .player-list::-webkit-scrollbar-thumb:hover,
 .day-messages::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(#6a5d3a, #463f29);
+  background: linear-gradient(#b69a5c, #6a5d3a);
   border-color: #2a2418;
+  box-shadow: 0 0 10px rgba(182, 154, 92, 0.45);
 }
 
 /* ---------- 9 · Roster: targeting reticles, vote tally ---------- */
