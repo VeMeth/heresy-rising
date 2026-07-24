@@ -1,36 +1,50 @@
 ---
 title: Murderer
-description: The Heretic's blade. One T2 kill per night. The cell's primary killer.
+description: The Heretic's blade. One drift-gated kill per night. The cell's primary killer.
 ---
 
 # Murderer
 
-> *The blade does not need a reason. Only a throat.*
+> *The Warp owns the hand that holds the blade.*
 
-You are the Heretic's executioner. Each night, you pick one operative and end them. Their loyalty does not matter. Their drift does not matter. They are simply *gone*.
+You are the Heretic's executioner. Each night, you pick one operative and end them — **but the Warp takes its price.** Every kill climbs your own drift. Each leap toward corruption makes the next kill harder to land.
 
 **Night action — Kill.** One target. They die.
 
 | Action | Effect (target) | Cost (you) | Uses |
 |---|---|---|---|
-| **Kill** | Target dies | +2 drift | Nightly, when not crippled |
+| **Kill** | Target dies | **+15 drift** *(drift-gated — see below)* | Nightly, when not crippled and your drift allows it |
 
-**Drift cost (Warp invoice):** **+2 per night you kill.** T2 is high — you climb fast.
+**Drift cost (Warp invoice):** **+15 per kill.** This is steep.
 
-**When you are crippled** (cripple tier > 0), the engine silently rejects your action — no kill, no drift cost. Mirrors Chirurgeon/Arbitrator/Novice-Psychic behavior.
+**⚠️ Drift-gated kills.** Because every kill costs +15 and drift maxes at 20, **you can usually only kill once.** After your first kill, you sit at +15 (Red zone). The next night, `15 + 15 = 30 > 20` — the kill **fails**. The Warp peels away your intent. You see a private cue instead of a corpse:
 
-**Drift curve and exposure:** A Murderer who kills every night sits at +2/night. By Night 3 you are in Yellow (5–9); by Night 5 you are in Orange (10–14). Orange is the danger zone — an Interrogator T2 scan against you triggers the *Execute on Sight* mechanic and you die publicly. By Night 7–8 you reach Red; *any* T1+ scan is Execute on Sight.
+> *"You step toward the target. They see something in your eyes — a hesitation, a wrongness. They turn. You cannot follow."*
 
-**Rotation:** sleep every other night to drop your drift. The Recruiter can also push you to a confession tier, but that's costly for the cell.
+> *"Visions take you. The Warp peels away your intent. You cannot reach the target tonight."*
 
-**Counterplay for the cell:**
+You'll know the kill failed. The target will *not* know they were targeted. They gain *no* drift-stain from a failed attempt.
 
-- **Chirurgeon protect** — silent. The target lives. You wasted a kill and paid +2.
-- **Arbitrator proxy** — the Arbitrator *dies* in your target's place. Loud kill, public message. Trades a defender for the target's life.
-- **Saboteur trap** — trap your intended target the night before. When you strike, your +2 kill cost becomes +7 (the Saboteur's +5 on top). You climb faster than you expected.
+**The Priest dependency.** If your cell has a Priest (Loyalist or Heretic), they are the only practical way to bring your drift back below the kill gate. Realistic ladder:
 
-**Play this role if:** you want to be the direct pressure on the conclave. Your kills *narrow* the day-game and force the Loyalists into bad votes.
+| Heal | Effect on you | Result |
+|---|---|---|
+| **Litany** (−10, once/game) | +15 → +5 (Yellow) | Next kill succeeds |
+| **Hymn** (−5, 2×/game) | +15 → +10 (Orange) | Next kill still fails |
+| **Whisper** (−2, daily) | +15 → +13, twice = +9 (Yellow) | Next kill succeeds |
 
-**Loyalists should look for:** the player who *never* acts during the day and *always* votes — but their drift is climbing. That is your Murderer. Pull them on a Tier 3 lynching day.
+**The Priest is the cell's tempo-setter.** Without Priest heals, you're a one-shot. With them, you're a sustained threat.
 
-**Heretics should look for:** the Murderer's job is to *create doubt* in the day-game. Killing a publicly named Citizen who claimed Loyalty is the cleanest play — the day burns on the wrong target, the cell rotates, and the Murderer sleeps a night to drop drift.
+**Cant-counterplay:**
+
+- **Chirurgeon protect** — silent. The target lives. You paid +15 and the kill was blocked.
+- **Arbitrator proxy** — the Arbitrator *dies* in your target's place. Loud kill, public message.
+- **Saboteur trap** — trap your intended target the night before. When you strike, your +15 kill cost becomes +20 (the Saboteur's +5 on top). You climb to MAX and almost certainly auto-flip.
+
+**Execute on Sight.** A Murderer who kills is at *Red* (15+) immediately. Any T2+ Interrogator scan against you triggers *Execute on Sight* and you die publicly. **Loyalists will hunt you the day after your first kill.**
+
+**Play this role if:** you want to be the direct pressure, and you trust your cell's Priest to keep you alive. Your kills force the Loyalists into bad votes — but you only get one or two before you're caught.
+
+**Loyalists should look for:** the player who *never* acts during the day and whose drift is climbing through the zones. Execute on Sight is the structural counter. Don't bother lynching — Interrogate them at T2 to auto-kill.
+
+**Heretics should look for:** the Murderer's job is to *create doubt* in the day-game. Kill a publicly named Citizen who claimed Loyalty — the day burns on the wrong target, the cell rotates, and the Priest heals you back down for the next round.

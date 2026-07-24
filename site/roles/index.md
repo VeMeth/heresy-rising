@@ -31,7 +31,8 @@ In short: **drift cost is the Warp's invoice for what you just did**. Every role
 
 | Role | Power | Drift |
 |---|---|---|
-| [Murderer](/roles/murderer) | Kill | **T2/night** |
+| [Murderer](/roles/murderer) | Kill (drift-gated) | **T3 (+15) on fire** |
+| [Sanctioned Violence](/roles/sanctioned-violence) | Faction-wide attack (cabal picks attacker) | **T3 (+3) per attack** |
 | [Saboteur](/roles/saboteur) | Booby-trap (+5 on actor) | **T2/night** |
 | [Heretic Priest](/roles/heretic-priest) | Counter-sermons | varies |
 | [Recruiter](/roles/recruiter) | Catalyst (convert) | T3/night |

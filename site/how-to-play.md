@@ -83,7 +83,7 @@ Browse the **[full role roster](/roles/)** for blurb and quick-reference on each
 - **[Sanctioned Psyker](/roles/sanctioned-psyker)** — one-shot warp-kill. Looks like Murderer from outside. *Ships at ≥7p.*
 
 ### Heretics
-- **[Murderer](/roles/murderer)** — kills a player each night.
+- **[Murderer](/roles/murderer)** — kills a player each night. **Drift-gated** — +15 self-drift per kill, capped at MAX. After your first kill, you sit at Red zone and the next kill fails unless the Priest heals you back down.
 - **[Saboteur](/roles/saboteur)** — sets a trap; the next action targeting that player fizzles and burns the actor's drift.
 - **[Heretic Priest](/roles/heretic-priest)** — counterfeits sermons; buff their target or herd the faithful.
 - **[Recruiter](/roles/recruiter)** — performs the *catalyst*: converts a max-drift player into a Heretic.
