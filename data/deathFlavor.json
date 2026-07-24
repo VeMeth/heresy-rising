@@ -31,13 +31,13 @@
     "{victim} was found collapsed across {target}, having taken the round that was meant for another."
   ],
   "tortureChamber": [
-    "{victim} was dragged before the torture chamber's pain engine and left at Tier {tier}.",
-    "{victim} was broken on the excruciator and left at Tier {tier}.",
-    "{victim} was hooked to the agony bonds and left at Tier {tier}.",
-    "{victim} was pierced by pneumatic interrogation probes and left at Tier {tier}.",
-    "{victim} was held in the heretic's embrace until their mind shattered to Tier {tier}.",
-    "{victim} was lashed to the torturer's bench and left raving at Tier {tier}.",
-    "{victim} had the truth extracted drop by drop, left a husk at Tier {tier}.",
-    "{victim} was interrogated with surgical implements and left screaming at Tier {tier}."
+    "{victim} was dragged before the torture chamber's pain engine and left {severity}.",
+    "{victim} was strapped to the excruciator and left {severity}.",
+    "{victim} was hooked to the agony bonds and left {severity}.",
+    "{victim} was pierced by pneumatic interrogation probes and left {severity}.",
+    "{victim} was held in the heretic's embrace and left {severity}.",
+    "{victim} was lashed to the torturer's bench and left {severity}.",
+    "{victim} had the truth extracted drop by drop and left {severity}.",
+    "{victim} was interrogated with surgical implements and left {severity}."
   ]
 }
