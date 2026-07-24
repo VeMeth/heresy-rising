@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   heresy-server:
     build:
@@ -48,20 +46,27 @@ services:
       - BOT_API_KEY=${BOT_API_KEY:-change-me-bot-api}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-change-me-admin-api}
       - SIM_BYPASS_TOKEN=${SIM_BYPASS_TOKEN:-change-me-sim}
-      - MiniMax_API_KEY=${MiniMax_API_KEY:-}
-      - MiniMax_MODEL=${MiniMax_MODEL:-MiniMax-M3}
-      - MiniMax_BASE_URL=${MiniMax_BASE_URL:-https://api.minimax.io}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-qwen/qwen3-14b}
       - MAX_BOT_SESSIONS=${MAX_BOT_SESSIONS:-12}
       - MAX_BOTS_PER_GAME=${MAX_BOTS_PER_GAME:-4}
-      - LLM_TIMEOUT_MS=${LLM_TIMEOUT_MS:-30000}
+      - LLM_TIMEOUT_MS=${LLM_TIMEOUT_MS:-120000}
       - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.7}
-      - MAX_TOKENS=${MAX_TOKENS:-512}
-      - MAX_TOKENS_PER_GAME=${MAX_TOKENS_PER_GAME:-50000}
-      - BOT_ACTION_DELAY_MS=${BOT_ACTION_DELAY_MS:-10000}
-      - CHAT_DEBOUNCE_MS=${CHAT_DEBOUNCE_MS:-2000}
-      - LANGCHAIN_TRACING=${LANGCHAIN_TRACING:-false}
+      - MAX_TOKENS=${MAX_TOKENS:-350}
+      - MAX_TOKENS_PER_GAME=${MAX_TOKENS_PER_GAME:-200000}
+      - LLM_NO_THINK=${LLM_NO_THINK:-true}
+      - LLM_STRUCTURED_OUTPUT=${LLM_STRUCTURED_OUTPUT:-true}
+      - BOT_ACTION_DELAY_MS=${BOT_ACTION_DELAY_MS:-5000}
+      - DIRECTOR_TICK_MS=${DIRECTOR_TICK_MS:-4000}
+      - BOT_MIN_CHAT_GAP_MS=${BOT_MIN_CHAT_GAP_MS:-25000}
+      - BOT_CHAT_PER_PHASE_MAX=${BOT_CHAT_PER_PHASE_MAX:-3}
+      - BOT_INTRO_GAP_MS=${BOT_INTRO_GAP_MS:-12000}
+      - BOT_FACTION_CHAT=${BOT_FACTION_CHAT:-false}
     volumes:
       - ./data:/usr/src/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - heresy-server
     restart: unless-stopped
