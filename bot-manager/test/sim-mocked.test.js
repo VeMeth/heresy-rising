@@ -10,20 +10,19 @@ const cfg = (overrides = {}) => ({
   botApiKey: 'b',
   adminApiKey: 'a',
   simBypassToken: 's',
-  miniMaxApiKey: '',
-  miniMaxModel: 'MiniMax-M3',
-  miniMaxBaseUrl: 'https://example/v1',
+  openaiBaseUrl: '',
+  openaiApiKey: '',
+  openaiModel: 'qwen/qwen3-14b',
   maxBotSessions: 12,
   maxBotsPerGame: 4,
   llmTimeoutMs: 30,
   llmTemperature: 0.7,
-  maxTokens: 512,
+  maxTokens: 350,
   topP: 0.9,
-  maxTokensPerGame: 50000,
+  maxTokensPerGame: 200000,
   botActionDelayMs: 0,
-  chatDebounceMs: 0,
   maxRetries: 1,
-  langChainTracing: false,
+  botFactionChat: false,
   ...overrides
 });
 
@@ -36,7 +35,7 @@ function makeSession({ chatScripts = [], role = 'imperial-citizen', faction = 'l
     playerCode: 'HR-BOT-deadbeef1234',
     name: 'Cogitator-1',
     personaOverrides: null,
-    config: cfg({ botActionDelayMs: 0, chatDebounceMs: 0 }),
+    config: cfg({ botActionDelayMs: 0 }),
     llm,
     engineBaseUrl: '' // skip real socket connect
   });
@@ -102,7 +101,7 @@ test('sim: chat response → chat:send', async () => {
   const scripts = ['I will speak up.\n```action\n{"kind":"chat","text":"I think P-02 is acting oddly."}\n```'];
   const { session, emitted } = makeSession({ chatScripts: scripts });
   session.phase = 'day'; session.round = 2;
-  await session._act({ kind: 'chat_reply' });
+  await session._act({ kind: 'chat_turn' });
   const chatMsg = emitted.find((e) => e.event === 'chat:send');
   assert.ok(chatMsg);
   assert.equal(chatMsg.payload.channel, 'public');
@@ -176,9 +175,17 @@ test('sim: Heretic priest warp-litany against green target is accepted (target z
   await session.close();
 });
 
-test('sim: heretic faction block injected only for Heretic bots', async () => {
-  // Quick sanity: the session.faction drives the prompt builder via assemble.js.
+test('sim: heretic faction block is suppressed by default (BOT_FACTION_CHAT off)', async () => {
   const { session } = makeSession({ chatScripts: ['```action\n{"kind":"pass"}\n```'], role: 'murderer', faction: 'heretic' });
+  const { assembleMessages } = await import('../src/prompts/assemble.js');
+  const m = assembleMessages({ session, prompt: {} });
+  assert.ok(!m.system.includes('FACTION CHAT'));
+  await session.close();
+});
+
+test('sim: heretic faction block injected only for Heretic bots when BOT_FACTION_CHAT is on', async () => {
+  const { session } = makeSession({ chatScripts: ['```action\n{"kind":"pass"}\n```'], role: 'murderer', faction: 'heretic' });
+  session._config = { ...session._config, botFactionChat: true };
   const { assembleMessages } = await import('../src/prompts/assemble.js');
   const m = assembleMessages({ session, prompt: {} });
   assert.ok(m.system.includes('FACTION CHAT'));
@@ -195,7 +202,7 @@ test('sim: L4 novice-psychic cannot target self — validator returns reject', a
 });
 
 test('sim: weathering LLM errors — bot passes silently (per spec default Q-BOT-6)', async () => {
-  const failingChat = { async invoke() { throw new Error('boom'); } };
+  const failingChat = { async chat() { throw new Error('boom'); } };
   const failingLlm = new ActionLLM({ chatModel: failingChat, maxRetries: 1 });
   const session = new BotSession({
     id: 'HR-BOT-deadbeef1234', conclaveCode: 'CONCL1', playerCode: 'HR-BOT-deadbeef1234',

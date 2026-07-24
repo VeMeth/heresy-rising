@@ -1,5 +1,5 @@
-// Minimal stand-in LLM used before the real ChatMiniMax is wired in (Phase 4)
-// and as a default when no LLM is configured. Every `generate` returns
+// Minimal stand-in LLM used when no OPENAI_BASE_URL is configured (PASSIVE
+// mode). Every `generate` returns
 // `{kind:'pass'}` so the session can boot, connect, and observe the game
 // without consuming tokens or emitting actions.
 export class PassThroughLLM {

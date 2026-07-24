@@ -2,12 +2,13 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 function parseNum(value, defaultValue) {
+  if (value === undefined || value === null || value === '') return defaultValue;
   const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : defaultValue;
+  return Number.isFinite(n) && n >= 0 ? n : defaultValue;
 }
 
 function parseBool(value, defaultValue = false) {
-  if (value === undefined || value === null) return defaultValue;
+  if (value === undefined || value === null || value === '') return defaultValue;
   return ['true', '1', 'yes', 'on'].includes(String(value).toLowerCase());
 }
 
@@ -25,23 +26,34 @@ export const config = {
   adminApiKey: process.env.ADMIN_API_KEY || '',
   simBypassToken: process.env.SIM_BYPASS_TOKEN || '',
 
-  // MiniMax + LangChain runtime.
-  miniMaxApiKey: process.env.MiniMax_API_KEY || '',
-  miniMaxModel: process.env.MiniMax_MODEL || 'MiniMax-M3',
-  miniMaxBaseUrl: process.env.MiniMax_BASE_URL || 'https://api.minimax.io',
+  // Generic OpenAI-compatible runtime (LM Studio / vLLM / llama.cpp server /
+  // OpenAI itself). No default base URL: unset => PassThroughLLM (PASSIVE
+  // mode) — same contract as before. LM Studio example:
+  // OPENAI_BASE_URL=http://host.docker.internal:1234/v1
+  openaiBaseUrl: process.env.OPENAI_BASE_URL || '',
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
+  openaiModel: process.env.OPENAI_MODEL || 'qwen/qwen3-14b',
+  llmTimeoutMs: parseNum(process.env.LLM_TIMEOUT_MS, 120000),
+  llmTemperature: parseNum(process.env.LLM_TEMPERATURE, 0.7),
+  maxTokens: parseNum(process.env.MAX_TOKENS, 350),
+  topP: parseNum(process.env.TOP_P, 0.9),
+  llmNoThink: parseBool(process.env.LLM_NO_THINK, true),
+  llmStructuredOutput: parseBool(process.env.LLM_STRUCTURED_OUTPUT, true),
+  maxRetries: parseNum(process.env.MAX_RETRIES, 2),
 
   // Per-manager caps and tuning.
   maxBotSessions: parseNum(process.env.MAX_BOT_SESSIONS, 12),
   maxBotsPerGame: parseNum(process.env.MAX_BOTS_PER_GAME, 4),
-  llmTimeoutMs: parseNum(process.env.LLM_TIMEOUT_MS, 30000),
-  llmTemperature: parseNum(process.env.LLM_TEMPERATURE, 0.7),
-  maxTokens: parseNum(process.env.MAX_TOKENS, 512),
-  topP: parseNum(process.env.TOP_P, 0.9),
-  maxTokensPerGame: parseNum(process.env.MAX_TOKENS_PER_GAME, 50000),
-  botActionDelayMs: parseNum(process.env.BOT_ACTION_DELAY_MS, 10000),
-  chatDebounceMs: parseNum(process.env.CHAT_DEBOUNCE_MS, 2000),
-  maxRetries: parseNum(process.env.MAX_RETRIES, 2),
-  langChainTracing: parseBool(process.env.LANGCHAIN_TRACING, false)
+  maxTokensPerGame: parseNum(process.env.MAX_TOKENS_PER_GAME, 200000), // now counts input too; local inference is free
+  botActionDelayMs: parseNum(process.env.BOT_ACTION_DELAY_MS, 5000),
+
+  // Conversation director tuning (director.js) — central turn-taking for
+  // public day chat, replacing the old per-bot reactive debounce.
+  directorTickMs: parseNum(process.env.DIRECTOR_TICK_MS, 4000),
+  botMinChatGapMs: parseNum(process.env.BOT_MIN_CHAT_GAP_MS, 25000),
+  botChatPerPhaseMax: parseNum(process.env.BOT_CHAT_PER_PHASE_MAX, 3),
+  botIntroGapMs: parseNum(process.env.BOT_INTRO_GAP_MS, 12000),
+  botFactionChat: parseBool(process.env.BOT_FACTION_CHAT, false)
 };
 
 // Required before any spawn/despawn may succeed. The control endpoints accept
@@ -50,9 +62,9 @@ export function hasControlAuth(cfg = config) {
   return !!(cfg.adminApiKey || cfg.simBypassToken);
 }
 
-// Required before the LLM stack will run.
+// Required before the LLM stack will run (otherwise PassThroughLLM/PASSIVE).
 export function hasLLMConfig(cfg = config) {
-  return !!cfg.miniMaxApiKey;
+  return !!cfg.openaiBaseUrl;
 }
 
 //NODE compat check

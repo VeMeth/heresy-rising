@@ -1,43 +1,19 @@
 import { openEngineSocket } from './engineSocket.js';
-import { BufferWindow, StructuredNotes } from './memory.js';
+import { BufferWindow, StructuredNotes, RollingSummary } from './memory.js';
 import { buildEnginePayload } from './actionDispatch.js';
 import { actionValidator } from './validator.js';
 import { BotPersistence } from './persistence.js';
+import { enqueueLLMCall } from './llm/queue.js';
 
-// Process-wide LLM call queue. Even with per-bot jitter on _scheduleAct and
-// the chat debounce, four bots spawned at the same instant can land their
-// Math.random() jitters within a few ms of each other and end up firing
-// _act() in the same wall-clock second. That translates into N parallel HTTP
-// requests to the LLM provider, which we want to avoid.
-//
-// Every LLM.generate() call (both action and consolidation) is funnelled
-// through enqueueLLMCall(), which serializes them in FIFO order. The previous
-// call's outcome (resolved or rejected) does not block subsequent calls.
-let _llmQueueTail = Promise.resolve();
-function enqueueLLMCall(fn) {
-  const next = _llmQueueTail.then(() => fn(), () => fn());
-  _llmQueueTail = next.catch(() => undefined);
-  return next;
-}
-
-// Fixed delay before the bot emits an action after being prompted (Q-BOT-1
-// resolution: "Fixed delay (e.g. 10s)"). Looked up from
-// config.botActionDelayMs, default 10000ms. The decision loop debounces chat
-// responses with a separate shorter window (config.chatDebounceMs).
-//
 // Phase 3 wires the engine Socket.IO client + the decision loop against a
-// pluggable `llm` (Phase 4 swaps in ChatMiniMax / MockLLM). Until then, a
-// PassThroughLLM makes the bot observe silently.
+// pluggable `llm` (OpenAIChat / MockChatLLM via ActionLLM). Until configured,
+// a PassThroughLLM makes the bot observe silently (PASSIVE mode).
+//
+// Chat is no longer per-bot reactive/debounced: a single ConversationDirector
+// per conclave (director.js, registered via sessionStore.add()) decides which
+// bot speaks and calls session.takeChatTurn(). Engine-driven night/vote
+// prompts still flow through _scheduleAct -> _act as before.
 export class BotSession {
-  // Per-phase cap on chat messages this session is allowed to send. Picked
-  // small enough that two bots cannot exchange more than a couple of round
-  // trips before going silent — large enough that a bot still has room to
-  // claim its role on Day 1 and react once to a real human question.
-  static CHAT_SENT_PER_PHASE_MAX = 2;
-  // How many recent chat messages must all be from bots before we treat the
-  // conversation as an echo chamber and stop replying.
-  static ECHO_CHAMBER_LOOKBACK = 3;
-
   constructor({ id, conclaveCode, playerCode, name, personaOverrides, costCeiling, config, llm, engineBaseUrl, persistence, snapshot: snap } = {}) {
     this.id = id;
     this.playerCode = playerCode || id;
@@ -67,6 +43,11 @@ export class BotSession {
       if (snap.notes && typeof snap.notes === 'object') {
         for (const [k, v] of Object.entries(snap.notes)) this.notes.set(k, v);
       }
+      // Persisted additively — old snapshots without a rollingSummary field
+      // load fine (RollingSummary.fromJSON(undefined) -> empty summary).
+      this.rollingSummary = RollingSummary.fromJSON(snap.rollingSummary);
+      this.deadPlayers = Array.isArray(snap.deadPlayers) ? snap.deadPlayers : [];
+      this.lastOwnZone = snap.lastOwnZone ?? null;
       this.actionLog = [];
     } else {
       this.role = null;
@@ -84,32 +65,30 @@ export class BotSession {
       this.startedAt = Date.now();
       this.shortTermMemory = new BufferWindow({ windowSize: 20 });
       this.notes = new StructuredNotes();
+      this.rollingSummary = new RollingSummary();
+      this.deadPlayers = [];
+      this.lastOwnZone = null;
       this.actionLog = [];
     }
     this._config = config;
-    this._llm = llm || { async generate() { return { kind: 'pass' }; _label: 'passthrough' } };
+    this._llm = llm || { async generate() { return { kind: 'pass' }; }, label: 'passthrough' };
     this._engineBaseUrl = engineBaseUrl;
     this._socket = null;
     this._joinPromise = null;
-    this._chatTimer = null;
     this._actTimer = null;
-    this._consolidateTimer = null;
-    this._chatReplyInFlight = false;
     this._closing = false;
-    // Per-bot random stagger to avoid all bots hitting the LLM API simultaneously.
-    // Acts (night/vote prompts) get 0..botActionDelayMs of extra jitter;
-    // chat replies get 0..botActionDelayMs of extra jitter (wider range than the
-    // debounce window itself, so bots spread across a meaningful timespan).
-    const actJitter = Math.random() * Number(config?.botActionDelayMs || 10000);
-    const chatJitter = Math.random() * Number(config?.botActionDelayMs || 10000);
-    this._actJitterMs = Math.floor(actJitter);
-    this._chatJitterMs = Math.floor(chatJitter);
+    this._director = null; // set by SessionStore.add()
+    // Per-bot random stagger so simultaneously-spawned bots don't all hit the
+    // LLM at once. Capped small (~3s) — with local inference, the request
+    // latency itself already provides natural pacing between bots serialized
+    // through llm/queue.js.
+    this._actJitterMs = Math.floor(Math.random() * 3000);
     this.connect();
   }
 
   /** Serialise session state to a plain object for persistence. */
   snapshot() {
-    const s = {
+    return {
       id: this.id,
       playerCode: this.playerCode,
       conclaveCode: this.conclaveCode,
@@ -128,9 +107,11 @@ export class BotSession {
       lastAction: this.lastAction,
       startedAt: this.startedAt,
       shortTermMemory: this.shortTermMemory.items,
-      notes: this.notes.all()
+      notes: this.notes.all(),
+      rollingSummary: this.rollingSummary.toJSON(),
+      deadPlayers: this.deadPlayers,
+      lastOwnZone: this.lastOwnZone
     };
-    return s;
   }
 
   /** Persist this session's state to disk (fire-and-forget). */
@@ -208,10 +189,12 @@ export class BotSession {
       this._latestMe = s.me;
     }
     if (Array.isArray(s.players)) {
-      // Track the codes of all currently-alive players. The bot is drift-blind
-      // — it only sees codes from public roster, never drift values or zones.
+      // Track the codes of all currently-alive/dead players. The bot is
+      // drift-blind — it only sees codes from the public roster, never drift
+      // values or zones.
       this.alivePlayers = s.players.filter((p) => p.alive).map((p) => p.playerCode);
-      // Build a name→code map so the bot can refer to players by name in chat.
+      this.deadPlayers = s.players.filter((p) => !p.alive).map((p) => p.playerCode);
+      // Build a name->code map so the bot can refer to players by name in chat.
       this.playerNames = {};
       for (const p of s.players) {
         if (p.name && p.playerCode) this.playerNames[p.playerCode] = p.name;
@@ -219,10 +202,9 @@ export class BotSession {
       // other-bot visibility already comes through bot:session_init
     }
     if (this._lastPhase && this._lastPhase !== this.phase) {
-      // Phase changed — reset phase-scoped counters and schedule consolidation.
-      this._botMessagesThisPhase = 0;
+      // Phase changed — reset phase-scoped counters and notify the director.
       this._chatSentThisPhase = 0;
-      this._scheduleConsolidation();
+      this._director?.onPhaseChange(this.phase);
     }
     // Reset per-round vote tracking on round change.
     if (this._lastRound !== this.round) {
@@ -232,8 +214,11 @@ export class BotSession {
     this._lastPhase = this.phase;
     if (Array.isArray(s.privateMessages) && s.privateMessages.length) {
       for (const m of s.privateMessages) {
-        if (m.meta && (m.meta.intelKind || m.meta.drift_hint)) {
+        if (!m.meta) continue;
+        if (m.meta.ownZone) this.lastOwnZone = m.meta.ownZone;
+        if (m.meta.intelKind || m.meta.drift_hint) {
           this.shortTermMemory.append({ kind: 'intel_return', ...m.meta, round: this.round });
+          this.rollingSummary.addIntelReturn(this.round, summarizeIntel(m.meta));
         }
       }
     }
@@ -244,54 +229,24 @@ export class BotSession {
   _onChatMessage(payload) {
     const m = payload?.message;
     if (!m) return;
-    if (m.player_code === this.playerCode) return; // ignore our own
-    if (m.channel && m.channel !== 'public') return; // public only; faction handled separately
+    if (m.channel && m.channel !== 'public') return; // public only; faction handled separately (BOT_FACTION_CHAT)
     this.shortTermMemory.append({ kind: 'chat_message', from: m.player_code, author: m.author, text: m.body, round: this.round, phase: this.phase });
-    // If it's day chat and not in cooldown, schedule a debounced chat reply.
     this._save();
-    if (this.phase === 'day' && this._config.chatDebounceMs > 0) {
-      // Hard per-bot cap: this session gets at most CHAT_SENT_PER_PHASE_MAX
-      // chat messages out per phase. After that the bot stays silent until
-      // the next phase, regardless of who speaks. Stops bots from monopolising
-      // the channel.
-      if ((this._chatSentThisPhase || 0) >= BotSession.CHAT_SENT_PER_PHASE_MAX) {
-        if (this._chatTimer) { clearTimeout(this._chatTimer); this._chatTimer = null; }
-        return;
-      }
-
-      // Echo-chamber guard: if the last three chat messages are all from
-      // bots, do not reply. The NO ECHO CHAMBER rule in the prompt is
-      // advisory — the LLM still drifts into agreeing with itself — so we
-      // enforce it on the client side. A human message resets the streak.
-      const recent = (this.shortTermMemory?.items || [])
-        .filter((it) => it.kind === 'chat_message')
-        .slice(-BotSession.ECHO_CHAMBER_LOOKBACK);
-      if (recent.length === BotSession.ECHO_CHAMBER_LOOKBACK &&
-          recent.every((it) => Array.isArray(this.botIds) && this.botIds.includes(it.from))) {
-        if (this._chatTimer) { clearTimeout(this._chatTimer); this._chatTimer = null; }
-        return;
-      }
-
-      if (this._chatTimer) clearTimeout(this._chatTimer);
-      this._chatTimer = setTimeout(() => {
-        // In-flight guard: a slow LLM call (3–10s typical) can outlive several
-        // chat messages that each re-arm the timer. Without this flag, every
-        // queued timer fires _act() and the per-phase cap is bypassed because
-        // each subsequent call sees the previous one still in flight.
-        if (this._chatReplyInFlight) return;
-        if ((this._chatSentThisPhase || 0) >= BotSession.CHAT_SENT_PER_PHASE_MAX) return;
-        this._chatReplyInFlight = true;
-        this._act({ kind: 'chat_reply' })
-          .catch(() => {})
-          .finally(() => { this._chatReplyInFlight = false; });
-      }, this._config.chatDebounceMs + (this._chatJitterMs || 0));
-    }
+    this._director?.observe({
+      id: m.id,
+      from: m.player_code,
+      author: m.author,
+      isBot: Array.isArray(this.botIds) && this.botIds.includes(m.player_code),
+      text: m.body,
+      round: this.round
+    });
   }
 
   _onAnnouncement(payload) {
     const a = payload?.announcement;
     if (!a) return;
     this.shortTermMemory.append({ kind: 'announcement', type: a.type, title: a.title, message: a.message });
+    this.rollingSummary.addAnnouncement(a, this.round);
     this._save();
   }
 
@@ -329,6 +284,11 @@ export class BotSession {
     }, delay);
   }
 
+  // Called by the ConversationDirector when it picks this bot to speak.
+  async takeChatTurn(reason) {
+    return this._act({ kind: 'chat_turn', reason });
+  }
+
   async _act(prompt) {
     if (!this.alive || this._closing) return;
     if (this.tokensUsed >= this.costCeiling) {
@@ -356,12 +316,12 @@ export class BotSession {
     this._save();
     if (action.kind === 'pass') { this.lastAction = 'pass'; this._logAction({ kind: 'pass' }); return; }
 
-    // Chat-reply turns may only emit chat (or pass). Forbid votes and night
-    // actions here so a chat reply cannot double-cast a vote or trigger a
-    // night action out of turn.
-    if (prompt?.kind === 'chat_reply' && (action.kind === 'vote' || action.kind === 'night_action')) {
+    // Chat-turn prompts (director-triggered) may only emit chat (or pass).
+    // Forbid votes and night actions here so a chat turn cannot double-cast a
+    // vote or trigger a night action out of turn.
+    if (prompt?.kind === 'chat_turn' && (action.kind === 'vote' || action.kind === 'night_action')) {
       this.lastAction = 'pass';
-      this._logAction({ kind: 'pass', note: `chat_reply cannot emit ${action.kind}` });
+      this._logAction({ kind: 'pass', note: `chat_turn cannot emit ${action.kind}` });
       return;
     }
 
@@ -404,80 +364,16 @@ export class BotSession {
       });
       this.lastAction = 'vote';
       this._lastVoteTarget = dispatch.payload?.targetCode || 'skip';
+      this.rollingSummary.addOwnVote(this.round, this._lastVoteTarget, dispatch.payload?.justification);
       this._logAction({ kind: 'vote', action, target: dispatch.payload?.targetCode });
     } else if (dispatch.type === 'action') {
       this._emit('action:submit', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`action:submit rejected for ${this.id}: ${ack.error}`);
       });
       this.lastAction = `action:${action.verb}`;
+      this.rollingSummary.addOwnNightAction(this.round, action.verb, dispatch.payload?.targetCode);
       this._logAction({ kind: 'action', verb: action.verb, action, target: dispatch.payload?.target, targetCode: dispatch.payload?.targetCode });
     }
-  }
-
-  _scheduleConsolidation() {
-    // Don't schedule if already closing, or if there's nothing to consolidate.
-    if (this._closing) return;
-    const items = this.shortTermMemory?.items || [];
-    if (items.length === 0) return;
-
-    // Cancel any pending consolidation (shouldn't happen but be safe).
-    if (this._consolidateTimer) { clearTimeout(this._consolidateTimer); }
-
-    // Use a short delay so the new phase's action prompt gets priority.
-    const delay = Math.min(2000, Number(this._config?.botActionDelayMs || 10000) / 5);
-    this._consolidateTimer = setTimeout(() => {
-      this._consolidateMemory().catch((e) => console.warn(`[bot-manager] consolidate failed for ${this.id}:`, e.message));
-      this._consolidateTimer = null;
-    }, delay);
-  }
-
-  async _consolidateMemory() {
-    if (this._closing) return;
-    const items = this.shortTermMemory?.items || [];
-    if (items.length === 0) return;
-
-    // Render short-term memory as bullet points for the LLM.
-    const memoryLines = items.map((it) => {
-      if (it.kind === 'chat_message') return `${it.author || it.from || '?'}: "${it.text || ''}"`;
-      if (it.kind === 'announcement') return `[ANNOUNCEMENT] ${it.title || it.type || ''}: ${it.message || ''}`;
-      if (it.kind === 'intel_return') return `[INTEL] ${it.intelKind || 'info'}: ${JSON.stringify(it)}`;
-      return `[${it.kind || 'event'}]: ${JSON.stringify(it)}`;
-    });
-
-    const lastPhase = this._lastPhase || this.phase;
-    const prompt = {
-      kind: 'memory_consolidation',
-      phase: lastPhase,
-      round: this.round,
-      memory: memoryLines
-    };
-
-    let response;
-    try {
-      response = await enqueueLLMCall(() => this._llm.generate({ session: this, prompt }));
-    } catch (e) {
-      console.warn(`[bot-manager] consolidate LLM error for ${this.id}:`, e.message);
-      return;
-    }
-
-    // Save any notes the LLM returned.
-    if (response?.notes && typeof response.notes === 'object') {
-      for (const [k, v] of Object.entries(response.notes)) {
-        this.notes.set(k, v);
-      }
-    }
-
-    // Prune old phase notes — keep at most 6 (3 full rounds).
-    const allNotes = this.notes.all();
-    const phaseKeys = Object.keys(allNotes).filter((k) => k.startsWith('phase-'));
-    if (phaseKeys.length > 6) {
-      const toRemove = phaseKeys.sort().slice(0, phaseKeys.length - 6);
-      for (const k of toRemove) this.notes.map.delete(k);
-    }
-
-    // Flush short-term memory now that we've summarised it.
-    this.shortTermMemory.flush();
-    this._save();
   }
 
   _logAction(entry) {
@@ -487,8 +383,8 @@ export class BotSession {
   }
 
   // Unwraps socket.io's `(err, ack)` callback shape so the rest of the session
-// code can treat its callback as if it only received the ack.
-_emit(event, payload, cb) {
+  // code can treat its callback as if it only received the ack.
+  _emit(event, payload, cb) {
     try {
       this._socket.timeout(5000).emit(event, payload, (err, ack) => {
         if (err) cb && cb({ ok: false, error: `${event} timed out`, timedOut: true });
@@ -518,10 +414,22 @@ _emit(event, payload, cb) {
   async close() {
     this._closing = true;
     if (this._actTimer) { clearTimeout(this._actTimer); this._actTimer = null; }
-    if (this._chatTimer) { clearTimeout(this._chatTimer); this._chatTimer = null; }
-    if (this._consolidateTimer) { clearTimeout(this._consolidateTimer); this._consolidateTimer = null; }
     try { this._socket && this._socket.disconnect(); } catch {}
     this._socket = null;
     this.lastAction = 'closed';
   }
+}
+
+// Renders a private intel-return meta payload as one compact line for the
+// RollingSummary. Meta shapes vary by role (zone/result/faction fields); we
+// fall back to a capped JSON dump for anything unrecognised.
+function summarizeIntel(meta) {
+  const bits = [];
+  if (meta.intelKind) bits.push(meta.intelKind);
+  if (meta.zone) bits.push(`zone=${meta.zone}`);
+  if (meta.result) bits.push(`result=${meta.result}`);
+  if (meta.faction) bits.push(`faction=${meta.faction}`);
+  if (meta.ownZone) bits.push(`ownZone=${meta.ownZone}`);
+  if (bits.length) return bits.join(' ');
+  return JSON.stringify(meta).slice(0, 160);
 }

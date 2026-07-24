@@ -47,6 +47,8 @@ docker compose down
 
 The client is exposed on port `8281` by default. The server is published only on `127.0.0.1:4100` by default so nginx/reverse proxies can reach it without exposing the API directly to the internet. SQLite data is mounted at `./data`; do not commit it. Set `ALLOWED_ORIGINS` to the deployed client origins and `TRUST_PROXY=true` only behind a trusted reverse proxy.
 
+AI-operated bots (`heresy-bot-manager`) are optional and pass every turn until `OPENAI_BASE_URL` is set to an OpenAI-compatible endpoint (e.g. a local LM Studio server running Qwen3-14B at 8k context). LM Studio must have "Serve on Local Network" enabled (binds `0.0.0.0`, not `127.0.0.1`) for the container to reach it at `http://host.docker.internal:1234/v1`; `docker-compose.yml` already sets `extra_hosts` for this.
+
 ## Documentation
 
 - [Architecture and protocol](docs/architecture.md)

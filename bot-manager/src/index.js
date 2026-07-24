@@ -5,7 +5,7 @@ import { EngineClient } from './engineClient.js';
 import { healthHandler } from './health.js';
 import { registerRestRoutes } from './rest.js';
 import { PassThroughLLM } from './llm/passthroughLLM.js';
-import { ChatMiniMax } from './llm/chatMiniMax.js';
+import { OpenAIChat } from './llm/openaiChat.js';
 import { ActionLLM } from './llm/actionLLM.js';
 import { BotPersistence } from './persistence.js';
 import { BotSession } from './session.js';
@@ -14,7 +14,7 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
 
-const sessionStore = new SessionStore();
+const sessionStore = new SessionStore({ config });
 const engineClient = new EngineClient({ baseUrl: config.heresyGameHost, botApiKey: config.botApiKey });
 const persistence = new BotPersistence({ dir: './data/bot-sessions' });
 app.set('sessionStore', sessionStore);
@@ -22,26 +22,28 @@ app.set('engineClient', engineClient);
 app.set('persistence', persistence);
 app.set('config', config);
 
-// Pick the LLM at boot: ChatMiniMax via ActionLLM if MiniMax_API_KEY is set,
+// Pick the LLM at boot: an OpenAI-compatible client via ActionLLM if
+// OPENAI_BASE_URL is set (e.g. LM Studio at http://host.docker.internal:1234/v1),
 // otherwise the PassThroughLLM (bots spawn but pass every turn). Tests can
 // inject a mock at any time via `app.set('llm', ...)`.
 let llm = new PassThroughLLM();
 if (hasLLMConfig(config)) {
   try {
-    const chat = new ChatMiniMax({
-      apiKey: config.miniMaxApiKey,
-      model: config.miniMaxModel,
-      baseUrl: config.miniMaxBaseUrl,
+    const chat = new OpenAIChat({
+      baseUrl: config.openaiBaseUrl,
+      apiKey: config.openaiApiKey,
+      model: config.openaiModel,
       temperature: config.llmTemperature,
       maxTokens: config.maxTokens,
       topP: config.topP,
       timeoutMs: config.llmTimeoutMs,
-      maxRetries: config.maxRetries
+      maxRetries: config.maxRetries,
+      structuredOutput: config.llmStructuredOutput
     });
     llm = new ActionLLM({ chatModel: chat, maxRetries: config.maxRetries });
-    console.log(`[bot-manager] LLM ready: ${chat.model} via ActionLLM`);
+    console.log(`[bot-manager] LLM ready: ${chat.model} via ${config.openaiBaseUrl}`);
   } catch (e) {
-    console.warn(`[bot-manager] ChatMiniMax init failed; falling back to PassThroughLLM:`, e.message);
+    console.warn(`[bot-manager] OpenAIChat init failed; falling back to PassThroughLLM:`, e.message);
     llm = new PassThroughLLM();
   }
 }
@@ -85,7 +87,7 @@ if (!config.botApiKey) {
   console.warn('[bot-manager] WARN: BOT_API_KEY unset — engine spawn/despawn calls will be rejected with 403.');
 }
 if (!hasLLMConfig(config)) {
-  console.warn('[bot-manager] WARN: MiniMax_API_KEY unset — LLM stack disabled; spawned bots will pass every turn.');
+  console.warn('[bot-manager] WARN: OPENAI_BASE_URL unset — LLM stack disabled; spawned bots will pass every turn.');
 }
 
 const port = config.heresyBotPort;
