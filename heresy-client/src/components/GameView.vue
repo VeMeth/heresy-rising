@@ -42,9 +42,7 @@
           <div v-if="!messages.length" class="empty-chat"><strong>No transmissions recorded</strong></div>
           <template v-else>
             <div class="day-sections">
-              <button v-if="earlierPastDays.length" class="load-history" @click="showEarlierDays = !showEarlierDays">
-                {{ showEarlierDays ? 'Hide earlier messages' : 'Load earlier messages' }}
-              </button>
+              <button v-if="earlierPastDays.length" class="load-history" @click="showEarlierDays = !showEarlierDays">{{ showEarlierDays ? 'Hide earlier messages' : 'Load earlier messages' }}</button>
               <section v-for="day in visibleDays" :key="day.label" class="day-section">
                 <header class="day-header" @click="toggleDay(day.label)">
                   <span class="day-toggle">{{ day.expanded ? '▼' : '▶' }}</span>

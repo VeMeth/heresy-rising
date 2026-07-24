@@ -24,12 +24,13 @@
 }
 .load-history {
   align-self: center;
-  margin: 8px auto 4px;
+  margin: 0 auto;
   background: #171916;
   border: 1px solid #43463d;
   color: #c4c1b5;
-  padding: 6px 14px;
+  padding: 3px 10px;
   font: 700 9px Inter, system-ui, sans-serif;
+  line-height: 1.4;
   text-transform: uppercase;
   letter-spacing: .12em;
   border-radius: 2px;
