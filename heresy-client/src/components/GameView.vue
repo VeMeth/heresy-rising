@@ -844,7 +844,7 @@ button.ghost.wide.stand-down-leading {
 .role-glyph { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none; }
 
 /* Stamped transcript: glyph + tint per event type, replacing the uniform amber line */
-.message.system { background: none; border: 0; border-radius: 0; padding: 0; margin: 8px 0; }
+.message.system { background: none; border: 0; border-radius: 0; padding: 0; margin: 13px 0 13px 41px; }
 .log-entry {
   --tint: var(--gold);
   display: flex; align-items: center; gap: .7rem;
