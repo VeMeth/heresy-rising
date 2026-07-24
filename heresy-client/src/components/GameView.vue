@@ -20,7 +20,7 @@
         </header>
         <ul class="player-list">
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)">
-            <span class="portrait" :data-status="portraitStatus(p)">{{ initial(p.name) }}</span>
+            <span class="portrait" :data-status="portraitStatus(p)"><svg class="portrait-glyph"><use :href="portraitGlyph(p)"/></svg></span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
             <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)">{{ targetVoteCount(p.playerCode) }}/{{ voteThreshold }}</small>
             <i :class="{online:p.connected}"></i>
@@ -233,6 +233,7 @@ const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-in
 function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
 const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.phase==='ended'?'#hr-verdict':'#hr-day');
 function portraitStatus(p){return !p.alive?'deceased':'alive';}
+function portraitGlyph(p){return !p.alive?'#hr-deceased':'#hr-alive';}
 // Classify a system-log line by its text so the transcript is scannable — glyph + tint per event type.
 function classifyEntry(body){const b=String(body||'');
   if(/victory|conclave is (ended|dissolved)|game over|ended by admin/i.test(b))return{type:'verdict',glyph:'#hr-verdict'};
@@ -774,6 +775,7 @@ button.ghost.wide.stand-down-leading {
 .player-list .portrait[data-status="alive"]    { --ring: #5c8a76; }
 .player-list .portrait[data-status="deceased"] { --ring: #3a2f22; color: #4a4034; filter: grayscale(1) brightness(.75); }
 .player-list .portrait[data-status="deceased"]::after { box-shadow: none; }
+.portrait-glyph { width: 18px; height: 18px; stroke: currentColor; fill: none; display: block; }
 
 /* Dossier role-card sigil */
 .dossier-glyph { width: 16px; height: 16px; stroke: currentColor; fill: none; display: block; }
