@@ -275,7 +275,7 @@
           </div>
         </header>
         <p v-if="botError" class="error">{{ botError }}</p>
-        <p v-if="bots.length > 0 && bots.every(b => b.llmPassive)" class="warning-banner">⚠️ All bots are in <strong>PASSIVE</strong> mode — no LLM API key configured. They will join games but pass every turn silently.</p>
+        <p v-if="bots.length > 0 && bots.every(b => b.llmPassive)" class="warning-banner">⚠️ All bots are in <strong>PASSIVE</strong> mode — no LLM endpoint configured (set OPENAI_BASE_URL and rebuild the bot-manager). They will join games but pass every turn silently.</p>
         <p v-if="bots.length > 0 && bots.some(b => b.llmPassive) && !bots.every(b => b.llmPassive)" class="warning-banner">⚠️ Some bots are in <strong>PASSIVE</strong> mode.</p>
 
         <section class="spawn-form">

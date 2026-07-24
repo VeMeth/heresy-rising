@@ -21,6 +21,14 @@ export class OpenAIChat {
   } = {}) {
     if (!baseUrl) throw new Error('OpenAIChat requires baseUrl');
     this.baseUrl = String(baseUrl).replace(/\/$/, '');
+    // Bare host:port (no path) is a common .env mistake for OpenAI-compatible
+    // servers whose API lives under /v1 (LM Studio, vLLM, llama.cpp server).
+    try {
+      if (new URL(this.baseUrl).pathname === '/') {
+        this.baseUrl += '/v1';
+        console.warn(`[bot-manager] OPENAI_BASE_URL has no path — assuming ${this.baseUrl}`);
+      }
+    } catch { /* leave malformed URLs to fail loudly at fetch time */ }
     this.apiKey = apiKey || '';
     this.model = model;
     this.temperature = temperature;
