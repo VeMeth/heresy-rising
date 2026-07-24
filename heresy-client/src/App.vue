@@ -37,14 +37,16 @@
     <AnnouncementOverlay :announcement="announcement" />
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
 
-    <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
-      <iframe
-        class="manual-frame"
-        :src="manualUrl"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-        title="Heresy Rising manual"
-      ></iframe>
-    </div>
+    <Transition name="manual">
+      <div v-if="manualMounted" v-show="showManual" class="manual-overlay" role="dialog" aria-modal="true" aria-label="Manual">
+        <iframe
+          class="manual-frame"
+          :src="manualUrl"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          title="Heresy Rising manual"
+        ></iframe>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -220,5 +222,22 @@ onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.o
   height: 100%;
   border: 0;
   background: #090a09;
+  transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.3, 1), opacity 0.32s ease;
+}
+
+/* Backdrop fades; the frame itself rises and settles — same rise-in
+   language as the join panel, just quick enough for a dialog. */
+.manual-enter-active,
+.manual-leave-active {
+  transition: opacity 0.28s ease;
+}
+.manual-enter-from,
+.manual-leave-to {
+  opacity: 0;
+}
+.manual-enter-from .manual-frame,
+.manual-leave-to .manual-frame {
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
 }
 </style>
