@@ -19,9 +19,10 @@
           <span class="roster-count"><strong>{{ alive.length }}</strong><small>Alive</small></span>
         </header>
         <ul class="player-list">
-          <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)">
+          <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)">
             <span class="portrait" :data-status="portraitStatus(p)"><svg class="portrait-glyph"><use :href="portraitGlyph(p)"/></svg></span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
+            <small v-if="p.crippleTier" class="tier-badge" :data-tier="p.crippleTier">T{{ p.crippleTier }}</small>
             <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)">{{ targetVoteCount(p.playerCode) }}</small>
             <i :class="{online:p.connected}"></i>
           </li>
@@ -379,6 +380,52 @@ function classifyEntry(body){const b=String(body||'');
   box-shadow: inset 3px 0 0 var(--gold);
 }
 .player-list li.voted:hover { background: rgba(182, 154, 92, 0.08); }
+
+/* Interrogated player row — gold left-border accent + amber tint */
+.player-list li.crippled {
+  border-left-color: #d4a84a;
+  background: linear-gradient(160deg, rgba(48, 40, 16, 0.5), rgba(22, 18, 8, 0.55));
+}
+.player-list li.crippled.me {
+  border-left-color: #d4a84a;
+  background: linear-gradient(160deg, rgba(52, 44, 20, 0.65), rgba(26, 20, 10, 0.65));
+}
+.player-list li.crippled.dead {
+  border-left-color: #26281f;
+}
+
+/* Tier badge — small colored pill shown below the player name */
+.tier-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 7px 2px;
+  font: 600 9px/1.4 Inter, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.tier-badge[data-tier="1"] {
+  color: #d4a84a;
+  border-color: rgba(212, 168, 74, 0.5);
+  box-shadow: 0 0 6px rgba(212, 168, 74, 0.15);
+}
+.tier-badge[data-tier="2"] {
+  color: #d99b95;
+  border-color: rgba(217, 155, 149, 0.5);
+  box-shadow: 0 0 6px rgba(217, 155, 149, 0.15);
+}
+.tier-badge[data-tier="3"] {
+  color: #ff8a8a;
+  border-color: rgba(255, 138, 138, 0.5);
+  box-shadow: 0 0 8px rgba(255, 60, 60, 0.25);
+  animation: tier3-pulse 1.5s ease-in-out infinite alternate;
+}
+@keyframes tier3-pulse {
+  from { box-shadow: 0 0 4px rgba(255, 60, 60, 0.15); }
+  to   { box-shadow: 0 0 12px rgba(255, 60, 60, 0.4); }
+}
 
 @keyframes lynchPulse {
   from { box-shadow: 0 0 0 1px rgba(255, 51, 51, 0.35), 0 0 14px rgba(255, 51, 51, 0.25); }
