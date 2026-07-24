@@ -772,7 +772,7 @@ button.ghost.wide.stand-down-leading {
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--ring); box-shadow: 0 0 8px var(--ring);
 }
-.player-list .portrait[data-status="alive"]    { --ring: #5c8a76; }
+.player-list .portrait[data-status="alive"]    { --ring: #b69a5c; }
 .player-list .portrait[data-status="deceased"] { --ring: #3a2f22; color: #4a4034; filter: grayscale(1) brightness(.75); }
 .player-list .portrait[data-status="deceased"]::after { box-shadow: none; }
 .portrait-glyph { width: 18px; height: 18px; stroke: currentColor; fill: none; display: block; }
