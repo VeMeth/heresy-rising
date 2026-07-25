@@ -270,7 +270,10 @@ function targetName(code){return players.value.find(p=>p.playerCode===code)?.nam
 const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen'};
 function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
 const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.phase==='ended'?'#hr-verdict':'#hr-day');
-function portraitStatus(p){return !p.alive?'deceased':'alive';}
+// Tiered Lynch v1.1.0: whoever was interrogated yesterday is one more
+// interrogation away from a free execution today — public knowledge
+// (game.atRiskTarget), independent of the live vote-in-progress border.
+function portraitStatus(p){if(!p.alive)return'deceased';if(props.game.atRiskTarget===p.playerCode)return'at-risk';return'alive';}
 function portraitGlyph(p){return !p.alive?'#hr-deceased':'#hr-alive';}
 // Classify a system-log line by its text so the transcript is scannable — glyph + tint per event type.
 function classifyEntry(body){const b=String(body||'');
@@ -962,6 +965,17 @@ button.ghost.wide.stand-down-leading {
 }
 .player-list .portrait[data-status="alive"]    { --ring: #b69a5c; }
 .player-list .portrait[data-status="deceased"] { --ring: #3a2f22; color: #4a4034; filter: grayscale(1) brightness(.75); }
+/* Tiered Lynch v1.1.0: interrogated yesterday — one more interrogation
+   (as today's lynch leader) away from a free execution. Persistent, unlike
+   the live vote-in-progress .lynch-leader border below. */
+.player-list .portrait[data-status="at-risk"] {
+  --ring: #ff9333;
+  animation: at-risk-pulse 1.8s ease-in-out infinite alternate;
+}
+@keyframes at-risk-pulse {
+  from { box-shadow: 0 0 0 0 rgba(255, 147, 51, 0); }
+  to   { box-shadow: 0 0 10px 1px rgba(255, 147, 51, .6); }
+}
 .player-list .portrait[data-status="deceased"]::after { box-shadow: none; }
 .portrait-glyph { width: 18px; height: 18px; stroke: currentColor; fill: none; display: block; }
 
