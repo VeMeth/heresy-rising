@@ -17,12 +17,64 @@ import {
 } from './agent.js';
 import { createRandomAgent } from './strategies/random.js';
 
+// ── Composition resolution ─────────────────────────────────────────────────
+
+/**
+ * Resolve the effective player count for a game, given an optional
+ * `composition` override (mirrors the shape `HeresyGameManager.start()`
+ * accepts — see heresy-server/src/validators/composition.js):
+ *   { source: 'preset', presetId: '8p', confirmedWarnings?: [] }
+ *   { source: 'custom', roster: ['murderer', ...], confirmedWarnings?: [] }
+ *
+ * When `composition` is a custom roster, playerCount is derived from
+ * `roster.length` (never required redundantly from the caller). When it's a
+ * preset, playerCount is derived by parsing the numeric prefix of
+ * `presetId`. If the caller also passes an explicit `playerCount`, it must
+ * agree with the derived value or this throws — catches a whole class of
+ * "I asked for 8p but sent a 9-role roster" bugs before any game runs.
+ *
+ * @param {Object} options
+ * @param {number} [options.playerCount]
+ * @param {Object} [options.composition]
+ * @returns {{ playerCount: number, composition: Object|undefined }}
+ */
+export function resolveGameSetup({ playerCount, composition } = {}) {
+  if (!composition) {
+    return { playerCount: playerCount ?? 8, composition: undefined };
+  }
+
+  let derivedCount;
+  if (composition.source === 'preset') {
+    const match = /^(\d+)/.exec(String(composition.presetId ?? ''));
+    if (!match) {
+      throw new Error(`Invalid preset composition: presetId must start with a number (got ${JSON.stringify(composition.presetId)}).`);
+    }
+    derivedCount = parseInt(match[1], 10);
+  } else if (composition.source === 'custom') {
+    if (!Array.isArray(composition.roster) || composition.roster.length === 0) {
+      throw new Error('Invalid custom composition: roster must be a non-empty array of role IDs.');
+    }
+    derivedCount = composition.roster.length;
+  } else {
+    throw new Error(`Invalid composition: unknown source "${composition.source}" (expected "preset" or "custom").`);
+  }
+
+  if (playerCount != null && playerCount !== derivedCount) {
+    throw new Error(`playerCount (${playerCount}) conflicts with composition-derived player count (${derivedCount}).`);
+  }
+
+  return { playerCount: derivedCount, composition };
+}
+
 // ── Single game ────────────────────────────────────────────────────────────
 
 /**
  * Run a single game to completion.
  * @param {Object} options
- * @param {number} options.playerCount - Number of players (5-12)
+ * @param {number} [options.playerCount] - Number of players (5-12). Derived
+ *   from `composition` if given; otherwise defaults to 8.
+ * @param {Object} [options.composition] - Optional composition override,
+ *   forwarded to `HeresyGameManager.start()`. See `resolveGameSetup`.
  * @param {number} [options.seed] - RNG seed
  * @param {boolean} [options.verbose] - Print every action
  * @param {number} [options.maxRounds] - Abort after this many rounds
@@ -30,8 +82,8 @@ import { createRandomAgent } from './strategies/random.js';
  * @returns {Object} { winner, rounds, players, composition, seed }
  */
 export function runSingleGame(options = {}) {
+  const { playerCount, composition } = resolveGameSetup(options);
   const {
-    playerCount = 8,
     seed = Date.now(),
     verbose = false,
     maxRounds = 50,
@@ -81,7 +133,11 @@ export function runSingleGame(options = {}) {
     }
 
     // Start game
-    manager.start(code, hostCode);
+    const startResult = manager.start(code, hostCode, { composition });
+    if (startResult && startResult.ok === false) {
+      const detail = (startResult.errors || []).map(e => e.message).join('; ') || 'composition validation failed';
+      throw new Error(`Game start rejected: ${detail}`);
+    }
 
     // Now we know roles — assign heuristic agents
     const rawPlayers = manager.players(code);
@@ -193,29 +249,37 @@ export function runSingleGame(options = {}) {
  * Run N games sequentially and collect results.
  * @param {Object} options
  * @param {number} options.games - Number of games
- * @param {number} options.playerCount - Players per game
+ * @param {number} [options.playerCount] - Players per game (derived from
+ *   `composition` if given; defaults to 8 otherwise)
+ * @param {Object} [options.composition] - Optional composition override
  * @param {number} [options.seed] - Base RNG seed
  * @param {'random'|'heuristic'} [options.strategy]
  * @param {number} [options.maxRounds]
  * @returns {Object} Results object
+ * @throws {Error} If `games > 0` and every game failed — a batch must never
+ *   silently report `gameCount: 0` as if it were a valid, empty result.
  */
 export function runBatch(options = {}) {
   const {
     games = 100,
-    playerCount = 8,
+    composition,
     seed = Date.now(),
     strategy = 'heuristic',
     maxRounds = 50,
   } = options;
+  const { playerCount } = resolveGameSetup(options);
 
   const results = [];
   const startTime = Date.now();
+  let firstErrorMessage;
+  let failureCount = 0;
 
   for (let i = 0; i < games; i++) {
     const gameSeed = seed + i;
     try {
       const result = runSingleGame({
         playerCount,
+        composition,
         seed: gameSeed,
         verbose: false,
         maxRounds,
@@ -230,11 +294,22 @@ export function runBatch(options = {}) {
         process.stderr.write(`\rGames: ${i + 1}/${games} (${rate} games/sec)${' '.repeat(10)}`);
       }
     } catch (err) {
+      failureCount++;
+      if (firstErrorMessage === undefined) firstErrorMessage = err.message;
       process.stderr.write(`\nGame ${i} failed: ${err.message}\n`);
     }
   }
 
   process.stderr.write('\n');
+
+  // A batch that was asked to run at least one game but produced zero valid
+  // results must fail loudly — never return a fake "200 OK, 0 games" shape.
+  if (games > 0 && results.length === 0) {
+    throw new Error(
+      `All ${failureCount} game(s) failed — batch produced no valid results.` +
+      (firstErrorMessage ? ` First error: ${firstErrorMessage}` : '')
+    );
+  }
 
   const elapsed = Date.now() - startTime;
   return {
@@ -258,22 +333,26 @@ export function runBatch(options = {}) {
  * Falls back to sequential if workers === 1.
  * @param {Object} options
  * @param {number} options.games - Number of games
- * @param {number} options.playerCount - Players per game
+ * @param {number} [options.playerCount] - Players per game (derived from
+ *   `composition` if given; defaults to 8 otherwise)
+ * @param {Object} [options.composition] - Optional composition override
  * @param {number} [options.seed] - Base RNG seed
  * @param {'random'|'heuristic'} [options.strategy]
  * @param {number} [options.maxRounds]
  * @param {number} [options.workers] - Number of worker threads (default: os.cpus().length)
  * @returns {Promise<Object>} Results object
+ * @throws {Error} If `games > 0` and every game failed — see `runBatch`.
  */
 export async function runBatchParallel(options = {}) {
   const {
     games = 100,
-    playerCount = 8,
+    composition,
     seed = Date.now(),
     strategy = 'heuristic',
     maxRounds = 50,
     workers: requestedWorkers,
   } = options;
+  const { playerCount } = resolveGameSetup(options);
 
   const available = os.cpus().length;
   const workers = Math.min(
@@ -284,7 +363,7 @@ export async function runBatchParallel(options = {}) {
 
   if (workers <= 1 || games < workers * 2) {
     // Small batches: sequential is faster (no worker-spawn overhead)
-    return runBatch({ games, playerCount, seed, strategy, maxRounds });
+    return runBatch({ games, playerCount, composition, seed, strategy, maxRounds });
   }
 
   const startTime = Date.now();
@@ -308,6 +387,7 @@ export async function runBatchParallel(options = {}) {
     workerPromises.push(
       spawnWorker({
         playerCount,
+        composition,
         baseSeed: seed,
         startIndex,
         count,
@@ -336,17 +416,36 @@ export async function runBatchParallel(options = {}) {
 
   const elapsed = Date.now() - startTime;
 
-  // Count and log errors before filtering
+  // Count and log errors before filtering. Note `filled` can be shorter than
+  // `games` even with zero reported errors: a worker that exits cleanly
+  // without ever posting a message (e.g. it was assigned 0 games, or died
+  // before its first postMessage) leaves its slice of `results` as `undefined`
+  // holes — those must count toward "this batch produced nothing" too, not
+  // just entries explicitly tagged `winner: 'error'`.
   const filled = results.filter(Boolean);
   const errors = filled.filter(r => r.winner === 'error');
   const valid = filled.filter(r => r.winner !== 'error' && Array.isArray(r.players));
+  const missing = games - filled.length;
 
   if (errors.length > 0) {
     process.stderr.write(`\n${errors.length} game(s) failed and will be excluded.\n`);
     process.stderr.write(`  First error: ${errors[0].error}\n`);
   }
-  if (valid.length === 0 && errors.length > 0) {
-    process.stderr.write(`⚠ WARNING: All ${errors.length} games failed — results are empty.\n`);
+  if (missing > 0) {
+    process.stderr.write(`\n${missing} game(s) never reported a result (worker exited without posting).\n`);
+  }
+
+  // A batch that was asked to run at least one game but produced zero valid
+  // results must fail loudly — never return a fake "200 OK, 0 games" shape.
+  // This covers both the "every game threw" case (errors.length === games)
+  // and the "workers exited silently" case (filled.length === 0).
+  if (games > 0 && valid.length === 0) {
+    const firstError = errors[0]?.error;
+    throw new Error(
+      `All ${games} game(s) failed — batch produced no valid results ` +
+      `(${errors.length} reported error(s), ${missing} worker slot(s) never reported).` +
+      (firstError ? ` First error: ${firstError}` : '')
+    );
   }
 
   return {
@@ -367,12 +466,12 @@ export async function runBatchParallel(options = {}) {
 /**
  * Spawn a worker thread and return a promise that resolves when it finishes.
  */
-function spawnWorker({ playerCount, baseSeed, startIndex, count, strategy, maxRounds, onProgress, onResult }) {
+function spawnWorker({ playerCount, composition, baseSeed, startIndex, count, strategy, maxRounds, onProgress, onResult }) {
   return new Promise((resolve, reject) => {
     const worker = new Worker(
       new URL('./worker.js', import.meta.url),
       {
-        workerData: { playerCount, baseSeed, startIndex, count, strategy, maxRounds },
+        workerData: { playerCount, composition, baseSeed, startIndex, count, strategy, maxRounds },
       }
     );
 

@@ -15,10 +15,15 @@ export function aggregateResults(games) {
         hereticWins: 0,
         draws: 0,
         loyalistWinRate: 0,
+        hereticWinRate: 0,
+        drawRate: 0,
         avgRounds: 0,
         medianRounds: 0,
+        totalGames: 0,
       },
       perRole: {},
+      perComposition: {},
+      driftDistribution: { '0-4': 0, '5-9': 0, '10-14': 0, '15-19': 0, '20': 0 },
     };
   }
 

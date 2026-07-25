@@ -17,6 +17,15 @@ program
   .description('Heresy Rising batch simulator — runs thousands of games with heuristic AI agents')
   .version('1.0.0');
 
+/** Parse a `--composition` flag value (a JSON string) into a composition object. */
+function parseComposition(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error(`--composition must be valid JSON, e.g. '{"source":"preset","presetId":"8p"}'`);
+  }
+}
+
 // ── single command ─────────────────────────────────────────────────────────
 
 program
@@ -27,11 +36,13 @@ program
   .option('-v, --verbose', 'Print every action and phase transition', false)
   .option('--max-rounds <n>', 'Abort after N rounds', (v) => parseInt(v), 50)
   .option('--strategy <s>', 'Agent strategy: heuristic|random', 'heuristic')
+  .option('--composition <json>', 'Composition override, e.g. \'{"source":"preset","presetId":"8p"}\' (overrides --players)', parseComposition, undefined)
   .action((options) => {
     const start = Date.now();
     try {
       const result = runSingleGame({
-        playerCount: options.players,
+        playerCount: options.composition ? undefined : options.players,
+        composition: options.composition,
         seed: options.seed ?? Date.now(),
         verbose: options.verbose,
         maxRounds: options.maxRounds,
@@ -71,21 +82,25 @@ program
   .option('--max-rounds <n>', 'Abort game after N rounds', (v) => parseInt(v), 50)
   .option('--strategy <s>', 'Agent strategy: heuristic|random', 'heuristic')
   .option('--parallel <n>', 'Number of worker threads (default: CPU count)', (v) => parseInt(v), undefined)
+  .option('--composition <json>', 'Composition override, e.g. \'{"source":"preset","presetId":"8p"}\' (overrides --players)', parseComposition, undefined)
   .action(async (options) => {
     const start = Date.now();
     try {
       const workers = options.parallel ?? undefined;
+      const playerCount = options.composition ? undefined : options.players;
       const result = workers === 1
         ? runBatch({
             games: options.games,
-            playerCount: options.players,
+            playerCount,
+            composition: options.composition,
             seed: options.seed ?? Date.now(),
             strategy: options.strategy,
             maxRounds: options.maxRounds,
           })
         : await runBatchParallel({
             games: options.games,
-            playerCount: options.players,
+            playerCount,
+            composition: options.composition,
             seed: options.seed ?? Date.now(),
             strategy: options.strategy,
             maxRounds: options.maxRounds,

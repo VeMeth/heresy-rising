@@ -8,6 +8,7 @@ import { runSingleGame } from './runner.js';
 
 const {
   playerCount,
+  composition,
   baseSeed,
   startIndex,
   count,
@@ -22,6 +23,7 @@ for (let i = 0; i < count; i++) {
   try {
     const result = runSingleGame({
       playerCount,
+      composition,
       seed: gameSeed,
       verbose: false,
       maxRounds,
