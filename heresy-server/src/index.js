@@ -10,6 +10,7 @@ import { HeresyGameManager } from './heresyGameManager.js';
 import { normalizeRoomCode, requirePlayerCode } from './utils.js';
 import { SocketRateLimiter } from './socketRateLimiter.js';
 import { deleteGameLog, getGameLog, listGameLogs } from './gameLogs.js';
+import { validateComposition } from './validators/composition.js';
 
 export function isOriginAllowed(origin, allowed) {
   return !origin || allowed === '*' || allowed.includes(origin);
@@ -27,6 +28,69 @@ export function isRequestOriginAllowed(req, allowed) {
 
 export function publicPresetMetadata(players) {
   return { count: Math.max(5, Math.min(12, Number(players)||5)), minPlayers: 5, maxPlayers: 12 };
+}
+
+// Engine floor/ceiling for a live game (heresyGameManager.js's start(): players.length<5||>12).
+// validateComposition() itself doesn't enforce this — it only checks roster.length===playerCount,
+// hard/soft role rules — so a 3p or 13p composition would otherwise sail through pre-validation
+// here and only fail once heresy-sim actually starts running real games (its own 500). Both sim
+// callers (host socket + admin REST) get a clean rejection up front instead of that round trip.
+const SIM_MIN_PLAYERS = 5, SIM_MAX_PLAYERS = 12;
+
+// Derives {roster, playerCount} from the same `composition` shape heresyGameManager.start()
+// accepts, then runs it through the shared validateComposition(). This mirrors (deliberately,
+// not accidentally) the tiny presetFor/derivation shim heresy-sim/src/server.js#createSimServer
+// already carries for the same reason: neither side can call the other's private preset lookup,
+// and pre-validating here — before ever making the network hop — is the whole point of this
+// check existing on the heresy-server side at all. Returns {ok:true,roster,playerCount} or
+// {ok:false,errors:[...]} — never throws, matching validateComposition's own return convention.
+export function resolveSimComposition(composition, gameManager) {
+  if (!composition || typeof composition !== 'object' || Array.isArray(composition)) {
+    return { ok: false, errors: [{ kind: 'input', rule: 'shape', message: 'composition is required and must be an object.' }] };
+  }
+  if (composition.source !== 'preset' && composition.source !== 'custom') {
+    return { ok: false, errors: [{ kind: 'input', rule: 'source', message: 'composition.source must be "preset" or "custom".' }] };
+  }
+  let playerCount, roster;
+  if (composition.source === 'preset') {
+    const match = /^(\d+)/.exec(String(composition.presetId ?? ''));
+    if (!match) return { ok: false, errors: [{ kind: 'input', rule: 'presetId', message: 'composition.presetId must start with a number, e.g. "8p".' }] };
+    playerCount = parseInt(match[1], 10);
+    roster = gameManager.presetFor(playerCount);
+  } else {
+    if (!Array.isArray(composition.roster) || composition.roster.length === 0) {
+      return { ok: false, errors: [{ kind: 'input', rule: 'roster', message: 'composition.roster must be a non-empty array of role IDs.' }] };
+    }
+    roster = composition.roster;
+    playerCount = roster.length;
+  }
+  if (playerCount < SIM_MIN_PLAYERS || playerCount > SIM_MAX_PLAYERS) {
+    return { ok: false, errors: [{ kind: 'hard', rule: 'H0', message: `Player count (${playerCount}) must be between ${SIM_MIN_PLAYERS} and ${SIM_MAX_PLAYERS}.` }] };
+  }
+  const validation = validateComposition({
+    roster,
+    playerCount,
+    confirmedWarnings: composition.confirmedWarnings || [],
+    validRoles: gameManager.config.roles,
+    hardRules: gameManager.config.hardRules,
+    source: composition.source
+  });
+  if (!validation.ok) return { ok: false, errors: validation.errors };
+  return { ok: true, roster, playerCount };
+}
+
+// fetch() with an AbortController-based timeout — mirrors bot-manager's
+// OpenAIChat.chat() (bot-manager/src/llm/openaiChat.js), the only other
+// outbound-call timeout pattern in this codebase. heresy-sim batches can
+// legitimately run for several seconds, so the caller supplies the budget.
+export async function fetchWithTimeout(url, init, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function constantTimeEquals(a, b) {
@@ -96,9 +160,44 @@ export function createHeresyServer({ databasePath, now } = {}) {
   app.post('/api/admin/bots/:id/notes',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}/notes`,{method:'POST',withBody:true}));
   app.get('/api/admin/bots/:id/notes',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}/notes`,{method:'GET',withBody:false}));
   app.delete('/api/admin/bots/by-conclave/:conclaveCode',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/by-conclave/${encodeURIComponent(req.params.conclaveCode)}`,{method:'DELETE',withBody:false}));
+  // ── Admin panel → heresy-sim proxy ──────────────────────────────────────
+  // Same shared-secret-on-the-hop model as botProxy above: the browser holds
+  // ADMIN_PASSWORD (validated by requireSimAdmin), we then present
+  // SIM_BYPASS_TOKEN to heresy-sim on the proxy hop. The browser never sees
+  // SIM_BYPASS_TOKEN. requireSimAdmin is deliberately its own middleware —
+  // NOT a reuse of requireBotsAdmin — because requireBotsAdmin fails closed
+  // on ADMIN_API_KEY (bot-manager's secret), which has nothing to do with
+  // whether SIM_BYPASS_TOKEN (heresy-sim's secret) is configured. Mirrors
+  // requireBotsAdmin's fail-closed-on-downstream-secret shape, keyed to the
+  // secret this route actually depends on.
+  const simLocked = process.env.NODE_ENV === 'production' && !config.sim.bypassToken;
+  if (simLocked) console.error('[SECURITY] Refusing sim admin proxy: SIM_BYPASS_TOKEN is unset in production.');
+  function requireSimAdmin(req,res,next){res.set('Cache-Control','no-store');if(simLocked)return res.status(503).json({error:'SIM_BYPASS_TOKEN is not configured'});if(!constantTimeEquals(req.get('X-Admin-Password'),config.adminPassword))return res.status(401).json({error:'Admin password required'});next();}
+  function simProxy(req,res,body){
+    if(!config.sim.bypassToken)return res.status(503).json({error:'SIM_BYPASS_TOKEN is not configured'});
+    const url=`${config.sim.url}/simulate`;
+    const init={method:'POST',headers:{'Authorization':`Bearer ${config.sim.bypassToken}`,'Content-Type':'application/json','X-Proxied-From':'heresy-server'},body:JSON.stringify(body)};
+    fetchWithTimeout(url,init,config.sim.fetchTimeoutMs).then(async upstream=>{const text=await upstream.text();res.status(upstream.status);const ct=upstream.headers.get('content-type');if(ct)res.set('Content-Type',ct);res.send(text);}).catch(e=>{const timedOut=e.name==='AbortError';res.status(timedOut?504:502).json({error:timedOut?'heresy-sim request timed out':'heresy-sim unreachable',detail:e.message});});
+  }
+  app.post('/api/admin/simulate',requireSimAdmin,(req,res)=>{
+    const {composition,games,seed}=req.body||{};
+    const resolved=resolveSimComposition(composition,gameManager);
+    if(!resolved.ok)return res.status(400).json({error:'Invalid composition',details:resolved.errors});
+    const clampedGames=Math.max(1,Math.min(config.sim.maxGamesAdmin,Number.isFinite(Number(games))?Math.floor(Number(games)):config.sim.maxGamesAdmin));
+    const body={composition,games:clampedGames};
+    if(Number.isFinite(Number(seed)))body.seed=Number(seed);
+    simProxy(req,res,body);
+  });
   app.get('/api/game/:code',(req,res)=>{try{res.set('Cache-Control','no-store').json({state:gameManager.state(normalizeRoomCode(req.params.code),requestPlayerCode(req))});}catch(e){res.status(400).json({error:e.message});}});
   app.get('/api/game/:code/chat',(req,res)=>{try{res.set('Cache-Control','no-store').json(gameManager.historyMessages(normalizeRoomCode(req.params.code),requestPlayerCode(req),req.query.channel,req.query.before,req.query.limit));}catch(e){res.status(400).json({error:e.message});}});
   app.use((err,req,res,next)=>{if(err?.message==='Origin not allowed')return res.status(403).json({error:'Origin not allowed'});next(err);});
+  // Per-lobby simulate cooldown, keyed by game code — NOT by socket.id like
+  // socketLimiter below. socketLimiter's rate limiting is trivially bypassed
+  // by a host reconnecting on a fresh socket; this Map survives that because
+  // it's scoped to the lobby, not the connection. Uses gameManager.now() (the
+  // injectable clock) rather than Date.now() so tests can control it exactly
+  // like every other time-dependent fixture in this repo.
+  const simCooldowns=new Map();
   const socketLimiter=new SocketRateLimiter({
     'game:create': { points: 5, duration: 60_000 },
     'game:join': { points: 20, duration: 60_000 },
@@ -152,6 +251,38 @@ export function createHeresyServer({ databasePath, now } = {}) {
     ackWrap(socket,'confession:ask',p=>{const code=normalizeRoomCode(p.code),state=gameManager.askConfession(code,auth(socket,p),String(p.targetCode||''));broadcast(code,'phase:updated');return {state};});
     ackWrap(socket,'game:leave',p=>{const code=normalizeRoomCode(p.code);auth(socket,p);socket.leave(code);gameManager.disconnect(socket.data.playerCode,code);broadcast(code);return {};});
     ackWrap(socket,'game:kick',p=>{const code=normalizeRoomCode(p.code);const hostCode=auth(socket,p);const targetCode=requirePlayerCode(p.targetCode);const state=gameManager.kick(code,hostCode,targetCode);for(const other of io.sockets.sockets.values()){if(other.data.playerCode===targetCode&&other.rooms.has(code)){other.emit('game:kicked',{code});other.disconnect(true);}}broadcast(code);return {state};});
+    // Host-only lobby roster preview. Request/response only (ack), never broadcast —
+    // other lobby members must not see a host's private test-batch results.
+    ackWrap(socket,'game:simulate',async p=>{
+      const code=normalizeRoomCode(p.code),playerCode=auth(socket,p);
+      const g=gameManager.requireHost(code,playerCode);
+      if(g.phase!=='lobby')throw new Error('Simulation is only available while the game is in the lobby');
+      const nowTs=gameManager.now();
+      const lastRun=simCooldowns.get(code);
+      if(lastRun!==undefined&&nowTs-lastRun<config.sim.hostCooldownMs){
+        const waitS=Math.ceil((config.sim.hostCooldownMs-(nowTs-lastRun))/1000);
+        throw new Error(`Simulation is cooling down for this lobby — try again in ${waitS}s.`);
+      }
+      const games=Math.max(1,Math.min(config.sim.maxGamesHost,Number.isFinite(Number(p.games))?Math.floor(Number(p.games)):config.sim.maxGamesHost));
+      const resolved=resolveSimComposition(p.composition,gameManager);
+      if(!resolved.ok)throw new Error(`Invalid composition: ${resolved.errors.map(e=>e.message).join(' ')}`);
+      if(!config.sim.bypassToken)throw new Error('SIM_BYPASS_TOKEN is not configured on the engine');
+      // Cooldown is burned here — only once the request has cleared every
+      // rejection path and is actually about to hit heresy-sim over the wire.
+      simCooldowns.set(code,nowTs);
+      const body={composition:p.composition,games};
+      if(Number.isFinite(Number(p.seed)))body.seed=Number(p.seed);
+      let upstream;
+      try{
+        upstream=await fetchWithTimeout(`${config.sim.url}/simulate`,{method:'POST',headers:{'Authorization':`Bearer ${config.sim.bypassToken}`,'Content-Type':'application/json'},body:JSON.stringify(body)},config.sim.fetchTimeoutMs);
+      }catch(e){
+        throw new Error(e.name==='AbortError'?`Simulation request timed out after ${config.sim.fetchTimeoutMs}ms`:`heresy-sim unreachable: ${e.message}`);
+      }
+      const text=await upstream.text();
+      let data;try{data=text?JSON.parse(text):null;}catch{data=null;}
+      if(upstream.status<200||upstream.status>=300)throw new Error(data?.error||`heresy-sim returned ${upstream.status}`);
+      return {result:data};
+    });
     socket.on('disconnecting',()=>{socketLimiter.clear(socket.id);if(socket.data.playerCode){gameManager.disconnect(socket.data.playerCode);for(const room of socket.rooms)broadcast(room);}});
   });
   const timer=setInterval(()=>{for(const code of gameManager.due()){try{gameManager.resolve(code);broadcast(code,'phase:updated');}catch(e){console.error('deadline resolution failed',code,e);}}},1000); timer.unref();

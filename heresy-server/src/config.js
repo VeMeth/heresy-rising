@@ -51,6 +51,21 @@ export const config = {
     botApiKey: process.env.BOT_API_KEY || '',
     adminApiKey: process.env.ADMIN_API_KEY || '',
     simBypassToken: process.env.SIM_BYPASS_TOKEN || ''
+  },
+  // Heresy Sim wiring (Phase 2). The simulator is a third sibling container
+  // that listens on :7879 and is reached at HERESY_SIM_URL. SIM_BYPASS_TOKEN
+  // is the bearer token *we* present to it on the proxy hop — the same
+  // secret provisioned above for bot-manager's own use, shared across both
+  // consumers per the locked v1.1.0 spec. Two independent caller-facing caps
+  // (host preview vs admin batch) and a per-lobby cooldown for the host path
+  // live here too, so index.js's socket/REST handlers don't hardcode them.
+  sim: {
+    url: process.env.HERESY_SIM_URL || 'http://heresy-sim:7879',
+    bypassToken: process.env.SIM_BYPASS_TOKEN || '',
+    maxGamesHost: parseNumber(process.env.SIM_MAX_GAMES_HOST, 100),
+    maxGamesAdmin: parseNumber(process.env.SIM_MAX_GAMES_ADMIN, 500),
+    hostCooldownMs: parseNumber(process.env.SIM_HOST_COOLDOWN_MS, 60_000),
+    fetchTimeoutMs: parseNumber(process.env.SIM_FETCH_TIMEOUT_MS, 30_000)
   }
 };
 

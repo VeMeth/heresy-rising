@@ -17,6 +17,11 @@ services:
       - ADMIN_API_KEY=${ADMIN_API_KEY:-change-me-admin-api}
       - SIM_BYPASS_TOKEN=${SIM_BYPASS_TOKEN:-change-me-sim}
       - MAX_BOTS_PER_GAME=${MAX_BOTS_PER_GAME:-4}
+      - HERESY_SIM_URL=http://heresy-sim:7879
+      - SIM_MAX_GAMES_HOST=${SIM_MAX_GAMES_HOST:-100}
+      - SIM_MAX_GAMES_ADMIN=${SIM_MAX_GAMES_ADMIN:-500}
+      - SIM_HOST_COOLDOWN_MS=${SIM_HOST_COOLDOWN_MS:-60000}
+      - SIM_FETCH_TIMEOUT_MS=${SIM_FETCH_TIMEOUT_MS:-30000}
     ports:
       - "${SERVER_HOST_BIND:-127.0.0.1}:${SERVER_PORT:-4100}:${SERVER_PORT:-4100}"
     volumes:
@@ -80,6 +85,30 @@ services:
           memory: 512M
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7878/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  heresy-sim:
+    build:
+      context: .
+      dockerfile: heresy-sim/Dockerfile
+    image: ghcr.io/vemeth/heresy-sim:latest
+    environment:
+      - NODE_ENV=production
+      - SIM_PORT=7879
+      - SIM_BYPASS_TOKEN=${SIM_BYPASS_TOKEN:-change-me-sim}
+      - SIM_HARD_MAX_GAMES=${SIM_HARD_MAX_GAMES:-1000}
+      - SIM_MAX_WORKERS=${SIM_MAX_WORKERS:-2}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7879/health"]
       interval: 30s
       timeout: 10s
       retries: 3
