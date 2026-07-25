@@ -208,7 +208,7 @@
       "actions": {
         "night": {
           "kind": "kill",
-          "target": "other",
+          "target": "hostile",
           "driftCost": 15
         },
         "day": null
