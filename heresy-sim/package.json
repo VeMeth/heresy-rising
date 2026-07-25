@@ -1,0 +1,15 @@
+{
+  "name": "heresy-sim",
+  "version": "1.0.0",
+  "description": "Batch simulator for Heresy Rising — runs thousands of games with heuristic AI agents",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "commander": "^12.0.0"
+  }
+}
