@@ -2,11 +2,8 @@
   <section class="landing">
     <div class="hero-copy">
       <span class="eyebrow">THE ENEMY IS AMONG YOU</span>
-      <h1>
-        <span v-for="(line, index) in quoteLines" :key="`${line}-${index}`">
-          <em v-if="index === quoteLines.length - 1">{{ line }}</em>
-          <template v-else>{{ line }}</template><br v-if="index < quoteLines.length - 1">
-        </span>
+      <h1 ref="heading">
+        <span v-if="quoteParts.lead">{{ quoteParts.lead }}</span><em>{{ quoteParts.highlight }}</em>
       </h1>
       <p class="tagline">Will you find the heretics before night falls—or ensure the faithful never see another dawn?</p>
       <p>A persistent, chat-driven game of hidden allegiance. Find the heretics before night falls—or ensure the faithful never see another dawn.</p>
@@ -34,23 +31,21 @@
   </section>
 </template>
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { nextTick, onMounted, onUnmounted, ref } from 'vue';
 const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object });
 const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref('');
-const fallbackQuote = 'Trust is a\nfatal weakness.';
-const quote = ref(fallbackQuote);
-const quoteLines = computed(() => quote.value.split('\n').map(line => line.trim()).filter(Boolean));
+const fallbackQuote = { lead: 'Trust is a ', highlight: 'fatal weakness.' };
+const quoteParts = ref(fallbackQuote);
 function join(){ if(name.value && code.value) emitJoin(); }
 const emit = defineEmits(['join','create','recover']);
 function emitJoin(){ emit('join',{ name:name.value, roomCode:code.value.toUpperCase() }); }
 function splitQuote(text) {
-  const normalized = text.replace(/\r\n?/g, '\n').trim();
+  const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return fallbackQuote;
-  if (normalized.includes('\n')) return normalized;
-  const words = normalized.split(/\s+/);
-  if (words.length < 4) return normalized;
+  const words = normalized.split(' ');
+  if (words.length < 4) return { lead: '', highlight: normalized };
   const midpoint = Math.ceil(words.length / 2);
-  return `${words.slice(0, midpoint).join(' ')}\n${words.slice(midpoint).join(' ')}`;
+  return { lead: `${words.slice(0, midpoint).join(' ')} `, highlight: words.slice(midpoint).join(' ') };
 }
 function parseQuotes(text) {
   return text
@@ -58,12 +53,52 @@ function parseQuotes(text) {
     .map(item => item.trim())
     .filter(Boolean);
 }
+const heading = ref(null);
+const MIN_SCALE = 0.6;
+const MAX_LINES = 4;
+const MAX_ITERATIONS = 6;
+const LINE_HEIGHT_RATIO = 0.99; // must match .hero-copy h1's CSS line-height
+let resizeTimer = null;
+function checkOverflow(scale) {
+  const el = heading.value;
+  el.style.setProperty('--fit-scale', String(scale));
+  const fontSizePx = parseFloat(getComputedStyle(el).fontSize);
+  const lineBudget = fontSizePx * LINE_HEIGHT_RATIO * MAX_LINES;
+  return el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > lineBudget + 1;
+}
+function fitHeading() {
+  const el = heading.value;
+  if (!el) return;
+  if (!checkOverflow(1)) return;
+  let lo = MIN_SCALE, hi = 1, best = MIN_SCALE;
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const mid = (lo + hi) / 2;
+    if (checkOverflow(mid)) hi = mid; else { best = mid; lo = mid; }
+  }
+  checkOverflow(best);
+}
+function onResize() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(fitHeading, 150);
+}
 onMounted(async () => {
+  await nextTick();
+  fitHeading();
+  window.addEventListener('resize', onResize);
+  if (document.fonts?.ready) document.fonts.ready.then(fitHeading);
   try {
     const response = await fetch('/quotes.txt', { cache: 'no-cache' });
     if (!response.ok) return;
     const quotes = parseQuotes(await response.text());
-    if (quotes.length) quote.value = splitQuote(quotes[Math.floor(Math.random() * quotes.length)]);
+    if (quotes.length) {
+      quoteParts.value = splitQuote(quotes[Math.floor(Math.random() * quotes.length)]);
+      await nextTick();
+      fitHeading();
+    }
   } catch {}
+});
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
+  clearTimeout(resizeTimer);
 });
 </script>
