@@ -53,26 +53,26 @@
                   <span class="day-count">{{ day.messages.length }}</span>
                 </header>
                 <div class="day-messages" v-show="day.expanded">
-                  <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction'}]">
+                  <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
                     <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m.body).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m.body).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
                     <template v-else>
                       <span class="avatar mini">{{ initial(m.author) }}</span>
                       <div>
                         <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
-                        <p>{{ m.body }}</p>
+                        <p v-html="renderMessageBody(m)"></p>
                       </div>
                     </template>
                   </article>
                 </div>
               </section>
             </div>
-            <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction'}]">
+            <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
               <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m.body).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m.body).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
               <template v-else>
                 <span class="avatar mini">{{ initial(m.author) }}</span>
                 <div>
                   <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
-                  <p>{{ m.body }}</p>
+                  <p v-html="renderMessageBody(m)"></p>
                 </div>
               </template>
             </article>
@@ -83,7 +83,12 @@
             <input type="checkbox" v-model="speakAsTarget">
             Speak as {{ possessedTarget.name }}
           </label>
-          <textarea v-model.trim="draft" maxlength="1000" rows="2" :disabled="!canChat" :placeholder="canChat?(speakAsTarget&&possessedTarget?'Transmit as '+possessedTarget.name+'… (Enter to send)':'Transmit… (Enter to send, Shift+Enter for newline)'):(me?.possessed?'Possessed — you cannot speak today':'Channel sealed')" @keydown.enter.exact.prevent="post"></textarea>
+          <div class="composer-field">
+            <ul v-if="mentionSuggestions.length" class="mention-suggestions">
+              <li v-for="(p,i) in mentionSuggestions" :key="p.playerCode" :class="{active:i===mentionActiveIndex}" @mousedown.prevent="selectMention(p)">{{ p.name }}</li>
+            </ul>
+            <textarea ref="composerInput" v-model.trim="draft" maxlength="1000" rows="2" :disabled="!canChat" :placeholder="canChat?(speakAsTarget&&possessedTarget?'Transmit as '+possessedTarget.name+'… (Enter to send)':'Transmit… (Enter to send, Shift+Enter for newline, @ to mention)'):(me?.possessed?'Possessed — you cannot speak today':'Channel sealed')" @keydown="onComposerKeydown" @input="syncMentionQuery" @keyup="onComposerKeyup" @click="syncMentionQuery"></textarea>
+          </div>
           <button class="primary" :disabled="!draft||!canChat">Transmit</button>
         </form>
         <div v-else class="composer"><p class="spectator-composer-note">Spectating — transmissions sealed.</p></div>
@@ -238,7 +243,7 @@ watch(()=>props.messages,()=>nextTick(()=>{
   if(wasNearBottom)el.scrollTop=el.scrollHeight;
   else if(heightDelta>0)el.scrollTop=preChangeScrollTop+heightDelta;
 }),{deep:false});
-watch(()=>props.channel,()=>{dayExpanded.value={};});
+watch(()=>props.channel,()=>{dayExpanded.value={};mentionQuery.value=null;});
 const actionTargets=computed(()=>alive.value.filter(p=>{if(nightAction.value?.target==='any')return true;if(p.playerCode===props.me?.playerCode){return nightAction.value?.kind==='protect';}if(nightAction.value?.target==='hostile')return p.faction!=='heretic';return true}));
 // Blood Ritual is faction-wide, independent of the viewer's own role — any
 // living, non-Heretic target is legal (self is excluded automatically since
@@ -264,8 +269,41 @@ const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.
 const driftPct=computed(()=>{const max=props.game.maxDrift||20;const d=props.me?.drift||0;return Math.min(100,Math.round((d/max)*100));});
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
 function castVote(choice){emit('vote',{choice,justification:voteJustification.value})}
-function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value=''}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+// @mention autocomplete: player names can contain spaces ("Player 1",
+// "Priestess Vale"), so the token can't just stop at the first whitespace —
+// findMentionQuery instead scans left from the caret for the nearest '@'
+// (bounded by the longest actual player name, so it never runs unbounded
+// down a whole message) and only accepts it if the text from '@' to the
+// caret is still a case-insensitive prefix of at least one real name. That
+// self-terminates the token the moment typing diverges from every
+// candidate (e.g. right after "@Player 1 " once no name starts with
+// "player 1 "), instead of needing an arbitrary length or space-count cap.
+const composerInput=ref(null),mentionQuery=ref(null),mentionActiveIndex=ref(0);
+const rawMentionNames=computed(()=>[...new Set(players.value.map(p=>p.name).filter(Boolean))]);
+function findMentionQuery(text,caret){const names=rawMentionNames.value;if(!names.length)return null;const maxLen=Math.max(...names.map(n=>n.length)),lower=names.map(n=>n.toLowerCase());for(let i=caret-1;i>=0&&caret-i<=maxLen+1;i--){if(text[i]!=='@')continue;if(i>0&&!/\s/.test(text[i-1]))continue;const query=text.slice(i+1,caret);if(query.includes('\n'))continue;if(lower.some(n=>n.startsWith(query.toLowerCase())))return{start:i,query};}return null;}
+function syncMentionQuery(e){const el=e.target;mentionQuery.value=findMentionQuery(el.value,el.selectionStart);mentionActiveIndex.value=0;}
+// keyup fires after keydown regardless of whether keydown's default was
+// prevented, so without this filter a dropdown-navigation ArrowDown/Up
+// (handled and preventDefault'd in onComposerKeydown) would still hit this
+// on keyup and stomp mentionActiveIndex back to 0 immediately after it was
+// set — only re-sync here for keys that can move the caret on their own
+// (Left/Right/Home/End/etc.), which onComposerKeydown never intercepts.
+function onComposerKeyup(e){if(['ArrowUp','ArrowDown','Enter','Tab','Escape'].includes(e.key))return;syncMentionQuery(e);}
+const mentionSuggestions=computed(()=>{if(!mentionQuery.value)return[];const q=mentionQuery.value.query.toLowerCase();return players.value.filter(p=>p.name.toLowerCase().startsWith(q)).slice(0,6);});
+function selectMention(p){const q=mentionQuery.value,el=composerInput.value;if(!q||!el)return;const text=el.value,before=text.slice(0,q.start),after=text.slice(el.selectionStart),inserted=`@${p.name} `;draft.value=before+inserted+after;mentionQuery.value=null;nextTick(()=>{el.focus();const pos=before.length+inserted.length;el.setSelectionRange(pos,pos);});}
+function onComposerKeydown(e){if(mentionSuggestions.value.length){if(e.key==='ArrowDown'){e.preventDefault();mentionActiveIndex.value=(mentionActiveIndex.value+1)%mentionSuggestions.value.length;return;}if(e.key==='ArrowUp'){e.preventDefault();mentionActiveIndex.value=(mentionActiveIndex.value-1+mentionSuggestions.value.length)%mentionSuggestions.value.length;return;}if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();selectMention(mentionSuggestions.value[mentionActiveIndex.value]);return;}if(e.key==='Escape'){e.preventDefault();mentionQuery.value=null;return;}}if(e.key==='Enter'&&!e.ctrlKey&&!e.shiftKey&&!e.altKey&&!e.metaKey){e.preventDefault();post();}}
 function targetName(code){return players.value.find(p=>p.playerCode===code)?.name||'unknown';}
+// @mentions: client-side only — every viewer renders the same message body,
+// but only the mentioned viewer's own client adds the 'mentions-me' glow
+// class, so the highlight is local to them without any server support.
+// Names are matched longest-first so "Player 10" isn't shadowed by "Player 1".
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+const mentionNames=computed(()=>[...new Set(players.value.map(p=>p.name).filter(Boolean))].sort((a,b)=>b.length-a.length).map(escapeHtml));
+function mentionPattern(){return mentionNames.value.length?new RegExp('@('+mentionNames.value.map(escapeRegExp).join('|')+')','gi'):null;}
+function renderMessageBody(m){const body=escapeHtml(m.body||'');const pattern=mentionPattern();return pattern?body.replace(pattern,(match,name)=>`<span class="mention">@${name}</span>`):body;}
+function messageMentionsMe(m){if(m.kind==='system'||!props.me?.name)return false;const name=escapeHtml(props.me.name);return new RegExp('@'+escapeRegExp(name)+'(?![\\w])','i').test(escapeHtml(m.body||''));}
 // ── Generated sigil assets (heresy-sigils.svg, inlined in index.html) ─────
 const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen'};
 function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
@@ -531,6 +569,73 @@ function classifyEntry(body){const b=String(body||'');
   margin-bottom: 6px;
 }
 .speak-as-toggle input { accent-color: #b79bff; }
+
+/* @mention autocomplete dropdown — anchored above the composer textarea
+   since the composer sits at the bottom of the panel and a below-anchored
+   list would usually be clipped by the viewport edge. */
+.composer-field {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mention-suggestions {
+  position: absolute;
+  z-index: 5;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin: 0 0 4px;
+  padding: 4px;
+  list-style: none;
+  max-height: 160px;
+  overflow-y: auto;
+  background: linear-gradient(160deg, #1c1f1a, #0d0f0d);
+  border: 1px solid rgba(182, 154, 92, 0.35);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.45);
+  border-radius: 2px;
+}
+.mention-suggestions li {
+  padding: 6px 10px;
+  font: 500 12px Inter, sans-serif;
+  color: var(--pale);
+  cursor: pointer;
+  border-radius: 2px;
+}
+.mention-suggestions li.active,
+.mention-suggestions li:hover {
+  background: rgba(111, 209, 224, 0.14);
+  color: #6fd1e0;
+}
+
+/* @mentions: the "@Name" token is injected via v-html (escaped body +
+   wrapped mention spans), so it never gets this component's scoped
+   data-v-* attribute — :deep() is required for the selector to match it.
+   The glowing border, by contrast, is a real template element (the
+   message's own <p>) and needs no :deep(). Only the mentioned viewer's
+   own client ever has 'mentions-me' set (see messageMentionsMe in
+   script), so the glow never appears on anyone else's screen. */
+.message :deep(.mention) {
+  color: #6fd1e0;
+  font-weight: 700;
+  text-shadow: 0 0 6px rgba(111, 209, 224, .45);
+}
+.message.mentions-me p {
+  border-color: #6fd1e0;
+  border-left-color: #6fd1e0;
+  box-shadow:
+    0 0 0 1px rgba(111, 209, 224, .4),
+    0 0 18px rgba(111, 209, 224, .35);
+  animation: mentionGlow 1.4s ease-in-out infinite alternate;
+}
+.message.mentions-me p::before {
+  border-color: rgba(111, 209, 224, .7);
+}
+@keyframes mentionGlow {
+  from { box-shadow: 0 0 0 1px rgba(111, 209, 224, .3), 0 0 10px rgba(111, 209, 224, .22); }
+  to   { box-shadow: 0 0 0 1px rgba(111, 209, 224, .55), 0 0 24px rgba(111, 209, 224, .5); }
+}
+@media (prefers-reduced-motion: reduce) { .message.mentions-me p { animation: none; } }
 
 @keyframes lynchPulse {
   from { box-shadow: 0 0 0 1px rgba(255, 51, 51, 0.35), 0 0 14px rgba(255, 51, 51, 0.25); }
