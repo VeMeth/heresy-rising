@@ -37,6 +37,7 @@
         <button type="button" :class="{ active: tab === 'cells' }" @click="tab = 'cells'">Conclaves</button>
         <button type="button" :class="{ active: tab === 'logs' }" @click="openLogs">Game Logs</button>
         <button type="button" :class="{ active: tab === 'bots' }" @click="openBots">Bots</button>
+        <button type="button" :class="{ active: tab === 'simulator' }" @click="tab = 'simulator'">Simulator</button>
       </nav>
 
       <section v-if="tab === 'cells'" class="layout">
@@ -477,13 +478,99 @@
           </section>
         </section>
       </section>
+
+      <section v-if="tab === 'simulator'" class="simulator">
+        <header class="detail-head">
+          <div><span>BALANCE LAB</span><h2>Composition Simulator</h2></div>
+        </header>
+        <p class="sim-tab-hint">
+          Runs heresy-sim against a composition you build here — not tied to any live conclave.
+          Games are capped server-side at 500.
+        </p>
+        <p v-if="simError" class="error">{{ simError }}</p>
+
+        <section class="sim-builder">
+          <h3>Composition</h3>
+          <div class="sim-mode-toggle">
+            <button type="button" :class="{ active: simMode === 'preset' }" @click="setSimMode('preset')">Preset doctrine</button>
+            <button type="button" :class="{ active: simMode === 'custom' }" @click="setSimMode('custom')">Custom roster</button>
+          </div>
+
+          <div v-if="simMode === 'preset'" class="sim-preset-picker">
+            <label v-for="n in simPresetCounts" :key="n" :class="{ selected: simPresetCount === n }">
+              <input type="radio" :value="n" v-model="simPresetCount">
+              <span><strong>{{ n }}p</strong><small>{{ presetFlavor[n] }}</small></span>
+            </label>
+          </div>
+
+          <div v-else class="sim-custom-picker">
+            <label class="sim-target-size">Target roster size
+              <input type="number" v-model.number="simTargetCount" min="5" max="12">
+            </label>
+
+            <div class="sim-summary-row">
+              <span>Roster <strong>{{ simCustomRoster.length }} / {{ simTargetCount }}</strong></span>
+              <span>Loyalists <strong class="loy">{{ simFactionCounts.loyalist }}</strong></span>
+              <span>Heretics <strong class="her" :class="{ bad: simFactionCounts.heretic > simFactionCounts.loyalist }">{{ simFactionCounts.heretic }}</strong></span>
+              <span>Citizens <strong>{{ simFactionCounts.citizen }}</strong></span>
+            </div>
+
+            <div class="sim-faction-columns">
+              <div v-for="faction in ['loyalist', 'heretic']" :key="faction" class="sim-faction-group">
+                <h4>{{ faction === 'loyalist' ? 'Loyalist choir' : 'Heretic cabal' }}</h4>
+                <ul>
+                  <li v-for="r in simRolesByFaction[faction]" :key="r.id" :class="{ selected: simCountInRoster(r.id) > 0 }">
+                    <span>{{ r.displayName }}</span>
+                    <span class="sim-count-controls">
+                      <button type="button" @click="simRemoveRole(r.id)" :disabled="simCountInRoster(r.id) === 0">−</button>
+                      <strong>{{ simCountInRoster(r.id) }}</strong>
+                      <button type="button" @click="simAddRole(r.id)" :disabled="!simCanAdd(r.id)">+</button>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="sim-roster-preview">
+              <span v-for="(id, i) in simCustomRoster" :key="id + '-' + i" class="sim-chip" :class="simRoleFaction(id)" @click="simRemoveRoleAt(i)">{{ simRoleDisplay(id) }} ×</span>
+              <span v-if="!simCustomRoster.length" class="empty">No roles selected.</span>
+            </div>
+            <div class="actions">
+              <button type="button" @click="simClearRoster" :disabled="!simCustomRoster.length">Clear roster</button>
+              <button type="button" @click="simSeedMinimal">Seed minimal legal roster</button>
+            </div>
+
+            <div v-if="simLocalWarnings.length" class="warning-banner sim-warnings">
+              <p v-for="w in simLocalWarnings" :key="w.rule">
+                <span :class="{ acked: simConfirmedWarnings.includes(w.rule) }">{{ simConfirmedWarnings.includes(w.rule) ? '✓' : '○' }}</span> {{ w.message }}
+              </p>
+              <button type="button" @click="simAcknowledgeAll">Acknowledge all &amp; proceed</button>
+            </div>
+            <div v-if="simLocalHardErrors.length" class="error sim-hard-errors">
+              <p v-for="e in simLocalHardErrors" :key="e.rule">{{ e.message }}</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="sim-run">
+          <label>Games
+            <input type="number" v-model.number="simGamesCount" min="1" max="500">
+          </label>
+          <button type="button" :disabled="simBusy || !simCompositionValid" @click="runAdminSimulation">{{ simBusy ? 'Running…' : 'Run Simulation' }}</button>
+        </section>
+
+        <SimResultsPanel v-if="simResult" :result="simResult" />
+      </section>
     </section>
   </main>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { pickBotName } from '../botNames.js';
+import { validRoles, hardRules, presetFlavor } from '../compositionData.js';
+import { validateComposition } from '../server-composition-validator.js';
+import SimResultsPanel from './SimResultsPanel.vue';
 
 const STORAGE_KEY = 'heresy-rising:adminPassword';
 const passwordInput = ref(sessionStorage.getItem(STORAGE_KEY) || '');
@@ -581,7 +668,9 @@ async function adminFetch(path, options = {}) {
   const res = await fetch(path, { ...options, headers: { ...headers.value, ...(options.headers || {}) } });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed (${res.status})`);
+    const err = new Error(body.error || `Request failed (${res.status})`);
+    if (body.details) err.details = body.details;
+    throw err;
   }
   return res.json();
 }
@@ -768,6 +857,123 @@ async function saveBotNote() {
     botError.value = err.message;
   }
 }
+// ── Simulator tab ────────────────────────────────────────────────────────
+// Standalone balance-check runner: build a composition (preset or custom —
+// same picker semantics as LobbyView's host-only composition card, but not
+// tied to a live conclave, so a "target roster size" stands in for the
+// player count a real lobby would otherwise supply) and POST it to
+// /api/admin/simulate. No cooldown here — the server enforces its own
+// (higher) cap on this path but doesn't rate-limit it per Phase 2.
+const simPresetCounts = [5, 6, 7, 8, 9, 10, 11, 12];
+const simMode = ref('preset');
+const simPresetCount = ref(5);
+const simTargetCount = ref(5);
+const simCustomRoster = ref([]);
+const simConfirmedWarnings = ref([]);
+const simGamesCount = ref(200);
+const simBusy = ref(false);
+const simError = ref('');
+const simResult = ref(null);
+
+const simRolesByFaction = computed(() => {
+  const loy = [], her = [];
+  for (const [, r] of validRoles) {
+    if (r.faction === 'loyalist') loy.push(r);
+    else her.push(r);
+  }
+  return { loyalist: loy, heretic: her };
+});
+function simCountInRoster(id) { return simCustomRoster.value.filter(x => x === id).length; }
+const simRosterFull = computed(() => simCustomRoster.value.length >= simTargetCount.value);
+const simFactionCounts = computed(() => {
+  let loyalist = 0, heretic = 0, citizen = 0;
+  for (const id of simCustomRoster.value) {
+    const r = validRoles.get(id);
+    if (!r) continue;
+    if (id === 'imperial-citizen') citizen++;
+    else if (r.faction === 'heretic') heretic++;
+    else loyalist++;
+  }
+  return { loyalist, heretic, citizen };
+});
+function simCanAdd(id) {
+  const role = validRoles.get(id);
+  if (!role) return false;
+  if (simRosterFull.value) return false;
+  if (id !== 'imperial-citizen' && simCountInRoster(id) >= 1) return false;
+  if (role.faction === 'heretic' && simFactionCounts.value.heretic + 1 > simFactionCounts.value.loyalist) return false;
+  return true;
+}
+function simAddRole(id) { if (simCanAdd(id)) simCustomRoster.value.push(id); }
+function simRemoveRole(id) { const idx = simCustomRoster.value.indexOf(id); if (idx !== -1) simCustomRoster.value.splice(idx, 1); }
+function simRemoveRoleAt(i) { simCustomRoster.value.splice(i, 1); }
+function simClearRoster() { simCustomRoster.value = []; simConfirmedWarnings.value = []; }
+function simSeedMinimal() {
+  const n = simTargetCount.value;
+  if (n < 5) return;
+  const base = ['murderer', 'interrogator'];
+  while (base.length < n) base.push('imperial-citizen');
+  simCustomRoster.value = base;
+  simConfirmedWarnings.value = [];
+}
+function simRoleDisplay(id) { return validRoles.get(id)?.displayName || id; }
+function simRoleFaction(id) { return validRoles.get(id)?.faction || ''; }
+function setSimMode(mode) {
+  if (simMode.value === mode) return;
+  simMode.value = mode;
+  simConfirmedWarnings.value = [];
+  simResult.value = null;
+  simError.value = '';
+}
+watch(simTargetCount, () => { simConfirmedWarnings.value = []; });
+
+const simLocalValidation = computed(() => {
+  if (simMode.value === 'preset') return { ok: true, errors: [], warnings: [] };
+  return validateComposition({
+    roster: simCustomRoster.value,
+    playerCount: simTargetCount.value,
+    confirmedWarnings: simConfirmedWarnings.value,
+    validRoles,
+    hardRules,
+    source: 'custom'
+  });
+});
+const simLocalHardErrors = computed(() => simLocalValidation.value.errors.filter(e => e.kind === 'hard'));
+const simLocalWarnings = computed(() => simLocalValidation.value.warnings);
+const simCompositionValid = computed(() => {
+  if (simMode.value === 'preset') return simPresetCounts.includes(simPresetCount.value);
+  return simLocalValidation.value.ok;
+});
+function simAcknowledgeAll() {
+  simConfirmedWarnings.value = Array.from(new Set([...simConfirmedWarnings.value, ...simLocalWarnings.value.map(w => w.rule)]));
+}
+
+function buildSimComposition() {
+  if (simMode.value === 'preset') {
+    return { source: 'preset', presetId: simPresetCount.value + 'p' };
+  }
+  return { source: 'custom', roster: [...simCustomRoster.value], confirmedWarnings: [...simConfirmedWarnings.value] };
+}
+
+async function runAdminSimulation() {
+  simError.value = '';
+  simBusy.value = true;
+  try {
+    const games = Math.min(500, Math.max(1, Math.round(Number(simGamesCount.value) || 200)));
+    simResult.value = await adminFetch('/api/admin/simulate', {
+      method: 'POST',
+      body: JSON.stringify({ composition: buildSimComposition(), games })
+    });
+  } catch (err) {
+    simError.value = err.details?.length
+      ? [err.message, ...err.details.map(d => d.message)].join(' — ')
+      : err.message;
+    simResult.value = null;
+  } finally {
+    simBusy.value = false;
+  }
+}
+
 async function copyJson(value) {
   await navigator.clipboard.writeText(JSON.stringify(value, null, 2));
 }
@@ -825,4 +1031,42 @@ if (authenticated.value) loadOverview();
 
 <style scoped>
 .admin-shell{min-height:100vh;background:#101312;color:#e7e3d5;padding:24px;font-family:Inter,system-ui,sans-serif}.login-panel,.control-room{max-width:1500px;margin:0 auto}.login-panel{width:min(440px,100%);margin-top:12vh;background:#171a16;border:1px solid #34372f;padding:28px}.login-panel span,.topbar span,.detail-head span{color:#b69a5c;font-size:11px;font-weight:800;letter-spacing:.16em}.login-panel h1,.topbar h1,.detail-head h2{margin:6px 0 18px;font-family:Cinzel,serif}.login-panel form{display:grid;gap:14px}label{display:grid;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa99d}input,select{background:#0d0f0d;border:1px solid #3a3c34;color:#e7e3d5;padding:9px;border-radius:2px}button{background:#8f7543;border:1px solid #b99c62;color:#0b0c0a;padding:9px 12px;text-transform:uppercase;font-size:10px;font-weight:800;letter-spacing:.1em;cursor:pointer}button.danger{background:#7a2a25;border-color:#a8463d;color:#fff}button:disabled{opacity:.5}.error{border:1px solid #70352f;background:#321916;color:#d99b95;padding:10px}.topbar,.detail-head,.actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.actions{justify-content:flex-end}.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:20px 0}.metrics div,.detail,.logs,.cell-list button{background:#171a16;border:1px solid #34372f}.metrics div{padding:14px}.metrics span,.facts span{display:block;color:#8f9287;font-size:10px;text-transform:uppercase;letter-spacing:.12em}.metrics strong{display:block;margin-top:5px;font-size:24px}.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs .active,.cell-list .selected{background:#2b271b;color:#dfc27c;border-color:#b69a5c}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}.cell-list{display:grid;align-content:start;gap:8px}.cell-list button{text-align:left;color:#e7e3d5;padding:14px}.cell-list strong,.cell-list span,.cell-list small{display:block}.cell-list span{margin-top:4px;color:#c8c0aa}.cell-list small{margin-top:5px;color:#8f9287}.detail,.logs{padding:18px;min-width:0}.facts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:16px 0}.facts span{background:#0d0f0d;border:1px solid #2c3028;padding:10px}.facts strong{display:block;color:#e7e3d5;margin-top:4px;text-transform:none;letter-spacing:0}.table-wrap{overflow:auto;border:1px solid #34372f}table{width:100%;border-collapse:collapse;min-width:900px}th,td{border-bottom:1px solid #2c3028;padding:9px;text-align:left;vertical-align:top}th{color:#b69a5c;font-size:10px;text-transform:uppercase;letter-spacing:.12em;background:#11130f}td code{display:block;margin-top:4px;color:#8f9287;font-size:10px}.checks{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:6px}.checks label{display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;letter-spacing:0}.checks input{width:auto}.columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}pre,.scroll-list{max-height:360px;overflow:auto;background:#0b0d0b;border:1px solid #2c3028;color:#d9d7cc;padding:12px;font-size:12px;line-height:1.5}.scroll-list p{border-bottom:1px solid #252820;margin:0;padding:9px 0;white-space:pre-wrap}.scroll-list span{display:block;color:#8f9287;font-size:10px;margin-bottom:4px}.badge-passive{display:inline-block;background:#5a3e1f;color:#f0c674;border:1px solid #8f6d3a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-active{display:inline-block;background:#1f3a25;color:#74c68a;border:1px solid #3a6d4a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-pending{display:inline-block;background:#2c2e28;color:#c8c0aa;border:1px solid #4a4c42;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-rejected{display:inline-block;background:#3a1c1a;color:#e08a80;border:1px solid #70352f;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-na{display:inline-block;background:#1a1c18;color:#6c6f64;border:1px solid #34372f;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.warning-banner{background:#3a2a0f;border:1px solid #8f6d3a;color:#f0c674;padding:10px;margin:10px 0;font-size:12px;border-radius:2px}.empty{color:#8f9287}.bot-detail{background:#171a16;border:1px solid #34372f;padding:18px;margin-top:14px}.bot-detail .facts{grid-template-columns:repeat(5,minmax(0,1fr))}.bot-tab-content h4{margin:0 0 10px;font-family:Cinzel,serif;color:#c8c0aa}.bot-tab-content h4 small{font-size:10px;color:#8f9287;font-weight:400}.mem-item{padding:7px 0;border-bottom:1px solid #252820;font-size:12px;line-height:1.5;white-space:pre-wrap}.mem-meta{display:block;color:#8f9287;font-size:10px;margin-bottom:3px}.mem-announce{color:#b69a5c}.mem-intel{color:#c67a5c}.action-detail{font-size:12px}.bot-notes-panel pre{max-height:200px}.bot-notes-panel .columns{gap:20px}@media(max-width:900px){.metrics,.facts,.columns,.layout{grid-template-columns:1fr}.topbar,.detail-head{align-items:flex-start;flex-direction:column}}
+
+/* Simulator tab */
+.simulator { max-width: 1100px; }
+.sim-tab-hint { color: #8f9287; font-size: 12.5px; line-height: 1.6; margin: -6px 0 18px; max-width: 720px; }
+.sim-builder { background: #171a16; border: 1px solid #34372f; padding: 18px; margin-bottom: 16px; }
+.sim-builder h3 { margin: 0 0 12px; font-family: Cinzel, serif; color: #c8c0aa; font-size: 15px; }
+.sim-mode-toggle { display: flex; gap: 10px; margin-bottom: 14px; }
+.sim-mode-toggle button { flex: 1; background: #0d0f0d; border: 1px solid #3a3c34; color: #b7b6aa; }
+.sim-mode-toggle button.active { border-color: #b69a5c; color: #dfc27c; background: #241f10; }
+.sim-preset-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.sim-preset-picker label { display: flex; align-items: flex-start; gap: 9px; padding: 11px 12px; border: 1px solid #34372f; background: #0d0f0d; border-radius: 2px; cursor: pointer; margin: 0; }
+.sim-preset-picker label.selected { border-color: #b69a5c; background: #241f10; }
+.sim-preset-picker label input { flex: 0 0 auto; margin-top: 3px; }
+.sim-preset-picker span { display: flex; flex-direction: column; gap: 3px; }
+.sim-preset-picker small { color: #8f9287; text-transform: none; font-weight: 500; letter-spacing: 0; }
+.sim-target-size { display: inline-flex; flex-direction: column; gap: 6px; width: 160px; margin-bottom: 14px; }
+.sim-summary-row { display: flex; flex-wrap: wrap; gap: 10px 20px; padding: 10px 12px; border: 1px solid #34372f; background: #0d0f0d; border-radius: 2px; margin-bottom: 14px; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #8f9287; }
+.sim-summary-row strong { display: block; margin-top: 3px; font-size: 15px; color: #e7e3d5; text-transform: none; letter-spacing: 0; }
+.sim-summary-row strong.loy { color: #9fbf8a; }
+.sim-summary-row strong.her { color: #d58c75; }
+.sim-summary-row strong.bad { text-decoration: underline; text-decoration-color: #d58c75; }
+.sim-faction-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; }
+.sim-faction-group h4 { margin: 0 0 8px; font-family: Cinzel, serif; font-size: 12.5px; letter-spacing: .05em; color: #dfc27c; }
+.sim-faction-group ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.sim-faction-group li { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #2a2c25; background: #0c0e0c; border-radius: 2px; padding: 8px 10px; font-size: 12.5px; }
+.sim-faction-group li.selected { border-color: #4a4434; background: #11100a; }
+.sim-count-controls { display: flex; align-items: center; gap: 7px; }
+.sim-count-controls button { width: 22px; height: 22px; padding: 0; border: 1px solid #43463d; background: #171916; color: #e7e3d5; font: 700 13px Inter; line-height: 1; }
+.sim-count-controls strong { min-width: 12px; text-align: center; font-size: 12px; }
+.sim-roster-preview { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0; }
+.sim-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid #43463d; background: #171916; color: #e7e3d5; font-size: 11px; border-radius: 2px; cursor: pointer; }
+.sim-chip.loyalist { border-color: #43503a; }
+.sim-chip.heretic { border-color: #5a3a36; color: #e2b3ac; }
+.sim-warnings p, .sim-hard-errors p { margin: 4px 0; font-size: 12px; }
+.sim-warnings span.acked { opacity: .55; }
+.sim-warnings button { margin-top: 8px; }
+.sim-run { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 6px; }
+.sim-run label { width: 120px; }
 </style>

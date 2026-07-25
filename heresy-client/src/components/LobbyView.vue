@@ -197,6 +197,26 @@
             Acknowledge all &amp; proceed
           </button>
         </div>
+
+        <!-- Private balance-check preview -->
+        <div class="sim-panel">
+          <header class="sim-panel-head">
+            <h3>Test this setup</h3>
+            <p class="sim-hint">Runs private simulated games against the roster above before you seal the chamber. Only you see the results.</p>
+          </header>
+          <div class="sim-controls">
+            <label class="sim-games-field">Games
+              <input type="number" v-model.number="simGames" min="1" max="100" :disabled="simBusy">
+            </label>
+            <button class="secondary" :disabled="simBusy || simOnCooldown || !compositionValid" @click="runSimulation">
+              <template v-if="simBusy">Simulating…</template>
+              <template v-else-if="simOnCooldown">Try again in {{ simCooldownRemaining }}s</template>
+              <template v-else>Run balance check</template>
+            </button>
+          </div>
+          <p v-if="simError" class="sim-error">{{ simError }}</p>
+          <SimResultsPanel v-if="simResult" :result="simResult" />
+        </div>
       </template>
 
       <!-- Non-host read-only summary -->
@@ -216,9 +236,11 @@
 </template>
 
 <script setup>
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue';
 import { validateComposition } from '../server-composition-validator.js';
 import { validRoles, hardRules, presetFlavor, roleThresholds } from '../compositionData.js';
+import { socket, ensureConnected, getPlayerCode } from '../socket.js';
+import SimResultsPanel from './SimResultsPanel.vue';
 
 const props = defineProps({
   game: { type: Object, required: true },
@@ -386,13 +408,90 @@ function acknowledgeAllWarnings() {
   confirmedWarnings.value = Array.from(new Set([...confirmedWarnings.value, ...localWarnings.value.map(w => w.rule)]));
 }
 
-function emitStart() {
+function buildCompositionPayload() {
   if (compositionMode.value === 'preset') {
-    emit('start', { source: 'preset', presetId: presetCount.value + 'p' });
-  } else {
-    emit('start', { source: 'custom', roster: [...customRoster.value], confirmedWarnings: [...confirmedWarnings.value] });
+    return { source: 'preset', presetId: presetCount.value + 'p' };
+  }
+  return { source: 'custom', roster: [...customRoster.value], confirmedWarnings: [...confirmedWarnings.value] };
+}
+
+function emitStart() {
+  emit('start', buildCompositionPayload());
+}
+
+// ── Host-only "test this setup" balance check ────────────────────────────
+// Runs the CURRENT composition state (same object emitStart() would submit)
+// against heresy-sim via the game:simulate socket event. This is a private
+// preview for the host only — it is never broadcast to other lobby members
+// or written into shared game state. We talk to the socket directly here
+// (rather than via App.vue's shared `command()`/global `busy`) so a
+// multi-second simulation run doesn't freeze chat/ready controls for
+// everyone in the lobby, and with a longer ack timeout since 100 games can
+// take a while.
+const simGames = ref(50);
+const simBusy = ref(false);
+const simResult = ref(null);
+const simError = ref('');
+const simCooldownRemaining = ref(0);
+const simOnCooldown = computed(() => simCooldownRemaining.value > 0);
+let simCooldownDeadline = 0;
+let simCooldownTimer = null;
+
+function startSimCooldown(seconds) {
+  simCooldownDeadline = Date.now() + seconds * 1000;
+  simCooldownRemaining.value = seconds;
+  if (simCooldownTimer) clearInterval(simCooldownTimer);
+  simCooldownTimer = setInterval(() => {
+    const remaining = Math.ceil((simCooldownDeadline - Date.now()) / 1000);
+    if (remaining <= 0) {
+      simCooldownRemaining.value = 0;
+      clearInterval(simCooldownTimer);
+      simCooldownTimer = null;
+    } else {
+      simCooldownRemaining.value = remaining;
+    }
+  }, 1000);
+}
+
+function emitSimulate(payload, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('The server did not answer in time.')), timeoutMs);
+    socket.emit('game:simulate', payload, (ack) => {
+      clearTimeout(timer);
+      if (!ack || ack.ok === false) {
+        reject(new Error(ack?.error || 'Simulation failed.'));
+        return;
+      }
+      resolve(ack.result);
+    });
+  });
+}
+
+async function runSimulation() {
+  if (simBusy.value || simOnCooldown.value) return;
+  simError.value = '';
+  simBusy.value = true;
+  try {
+    await ensureConnected();
+    const games = Math.min(100, Math.max(1, Math.round(Number(simGames.value) || 50)));
+    const result = await emitSimulate({
+      code: props.game.code,
+      composition: buildCompositionPayload(),
+      games,
+      playerCode: getPlayerCode(),
+    });
+    simResult.value = result;
+    startSimCooldown(60);
+  } catch (e) {
+    simError.value = e.message || 'Simulation failed.';
+  } finally {
+    simBusy.value = false;
   }
 }
+
+onUnmounted(() => {
+  if (simCooldownTimer) clearInterval(simCooldownTimer);
+});
 
 function initial(name) { return (name || '?').charAt(0).toUpperCase(); }
 const liveMode = computed(() => props.game.mode !== 'async');
@@ -697,4 +796,14 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 
 .nonhost-note { color:var(--muted); font-size:13px; line-height:1.6; margin:0; max-width:640px; }
 .full-row { width:100%; }
+
+.sim-panel { margin-top:20px; padding-top:18px; border-top:1px dashed #34372f; }
+.sim-panel-head { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+.sim-panel-head h3 { font:700 14px Cinzel; letter-spacing:.06em; margin:0; color:var(--gold2); }
+.sim-hint { color:var(--muted); font-size:11.5px; line-height:1.5; margin:0; max-width:640px; }
+.sim-controls { display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; }
+.sim-games-field { display:flex; flex-direction:column; gap:6px; margin:0; text-transform:uppercase; font-size:10px; letter-spacing:.1em; color:var(--muted); }
+.sim-games-field input { width:90px; padding:9px 10px; font-size:13px; text-align:center; }
+.sim-controls button { padding:11px 16px; font-size:10px; }
+.sim-error { margin-top:10px; padding:10px 12px; border:1px solid #5a3a36; background:#1a1110; color:#e2b3ac; font-size:12px; border-radius:2px; }
 </style>
