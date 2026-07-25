@@ -38,6 +38,11 @@ export const validRoles = new Map([
     claim: 'Priest (self)',
     ability: 'Each night choose a sermon tier and target. Whisper (−2 daily), Hymn (−5, 2/game), Litany (−10, once/game) to reduce a target\'s drift.'
   }],
+  ['sanctioned-psyker', {
+    id: 'sanctioned-psyker', displayName: 'Sanctioned Psyker', faction: 'loyalist', tier: 'T2',
+    claim: 'Imperial Citizen',
+    ability: 'One-shot warp-kill: once per game, fire a kill on any player, any night, any faction. +15 self-drift on fire (lands you at Red — a T2+ Interrogator scan executes you on sight). No role marker; looks identical to Murderer from the table\'s perspective.'
+  }],
   ['murderer', {
     id: 'murderer', displayName: 'Murderer', faction: 'heretic', tier: 'T2',
     claim: 'Imperial Citizen',

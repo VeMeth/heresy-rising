@@ -32,11 +32,16 @@ In short: **drift cost is the Warp's invoice for what you just did**. Every role
 | Role | Power | Drift |
 |---|---|---|
 | [Murderer](/roles/murderer) | Kill (drift-gated) | **T3 (+15) on fire** |
-| [Sanctioned Violence](/roles/sanctioned-violence) | Faction-wide attack (cabal picks attacker) | **T3 (+3) per attack** |
+| [Blood Ritual](/roles/blood-ritual) | Faction-wide attack (any living Heretic can carry it) | **+3 per attack** |
 | [Saboteur](/roles/saboteur) | Booby-trap (+5 on actor) | **T2/night** |
 | [Heretic Priest](/roles/heretic-priest) | Counter-sermons | varies |
 | [Recruiter](/roles/recruiter) | Catalyst (convert) | T3/night |
 | [Conspirator](/roles/conspirator) | Forge messages | T1/day |
+| [Animus](/roles/animus) | One-shot possession (speculative) | **+3 on the guess, win or lose** |
+
+> **Blood Ritual is not a role** — it's a shared night action any living Heretic can carry, including the Murderer (who gives up their own kill that night to use it instead). No slot, no assignment — just whichever Heretic claims it first that night.
+
+> **Animus is custom-roster only.** It doesn't appear in any of the deterministic per-player-count compositions below — a host adds it deliberately when building a custom roster (min. 8p recommended). Every other role in this table can turn up in a standard, randomly-assigned game.
 
 ## Composition by player count
 
