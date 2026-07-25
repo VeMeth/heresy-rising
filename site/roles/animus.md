@@ -41,6 +41,7 @@ You are the cabal's summoner. Once per game, you can reach into a player you *be
 **Counterplay against you:**
 
 - **Interrogator scan or Priest heal on your target, the night before you act** — either drops them out of Red before you ever reach them. Possession fails and you never know why.
+- **Chirurgeon protection on your target, the same night you act** — blocks the possession outright, indistinguishable from a wrong guess. You pay your +3 either way and never learn it was blocked.
 - **Saboteur trap on your target** — your +3 becomes +8 (trap's +5 on top), whether the guess was right or wrong.
 - **Lynching you directly** — denies the cabal the role entirely. You never got to use it.
 

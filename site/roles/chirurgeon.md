@@ -33,6 +33,7 @@ When the day reveals a player who should be dead but isn't, you now know your pr
 
 - **Kill blocked:** Murderer acts on your target → kill fails, Murderer wastes their action, you never know.
 - **Cripple blocked:** Recruiter's heretical-catalyst (or future Saboteur traps that cripple) on your target → cripple fails silently.
+- **Possession blocked:** Animus's possession attempt on your target fails outright, the same as a wrong-zone guess — the Animus never learns it was you.
 - **Both defenders on same target:** if you *and* the Arbitrator protect the same target, protection is *redundant*, not doubled. (See [Arbitrator](/roles/arbitrator).) Don't stack defenders — coordinate so one protects the Interrogator and the other protects the Priest.
 - **Day-phase Interrogation is not a night strike.** You cannot save someone from a T3 Interrogation.
 

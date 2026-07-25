@@ -30,7 +30,7 @@ Prefer T1/T2 early; save T3 to confirm a lynch target's faction.`],
 
   ['chirurgeon', `## YOUR ROLE: CHIRURGEON (Loyalist)
 Claim (public): "I am a Chirurgeon."
-Night: Protect one player (+1 drift). Blocks a night kill on them; you never learn if it fired.
+Night: Protect one player (+1 drift). Blocks a night kill, cripple, or Animus possession attempt on them; you never learn if it fired.
 Rotation: may protect the same target on consecutive nights only if you swapped in between (including self-protect — swap next night).
 Cripple: your Protect is silently rejected, no notice to anyone. T1 lose one action. T2 lose all + justify votes. T3 confess on ask, no actions.
 You MAY self-protect. Arbitrator bodyguards may die for the same target you're protecting — you both want the kill deflected.`],
