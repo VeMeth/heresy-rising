@@ -20,6 +20,8 @@
     "conspirator_rationale": "Forgery needs ≥10 living players for density to matter.",
     "sanctioned_psyker_min_player_count": 7,
     "sanctioned_psyker_rationale": "L7 Sanctioned Psyker ships at ≥7p (locked 2026-07-18). Optional, max 1 per game. At 7p replaces one Citizen slot via fallback priority.",
+    "animus_min_player_count": 8,
+    "animus_rationale": "H6 Animus (locked roles/animus.md v1.0.0, 2026-07-25). Soft rule only — NOT yet added to the preset tables below (composition-slot mechanics explicitly marked TBD in the locked spec). Custom rosters may include it at any count; ≥8p matches the Recruiter threshold per spec.",
     "parity_friendly_start": "Heretic count ≤ Loyalist count at game start (parity win rule)."
   },
 

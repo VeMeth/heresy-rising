@@ -202,6 +202,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
     'game:create': { points: 5, duration: 60_000 },
     'game:join': { points: 20, duration: 60_000 },
     'chat:send': { points: 12, duration: 10_000 },
+    'chat:send-as': { points: 12, duration: 10_000 },
     'vote:submit': { points: 20, duration: 10_000 },
     'action:submit': { points: 20, duration: 10_000 },
     'game:kick': { points: 6, duration: 60_000 }
@@ -242,6 +243,10 @@ export function createHeresyServer({ databasePath, now } = {}) {
     ackWrap(socket,'game:advance-phase',p=>{const code=normalizeRoomCode(p.code);gameManager.advance(code,auth(socket,p),true);broadcast(code,'phase:updated');return {state:gameManager.state(code,socket.data.playerCode)};});
     ackWrap(socket,'chat:history',p=>(gameManager.historyMessages(normalizeRoomCode(p.code),auth(socket,p),p.channel,p.before,p.limit)));
     ackWrap(socket,'chat:send',p=>{const code=normalizeRoomCode(p.code),message=gameManager.sendMessage(code,auth(socket,p),p.channel||'public',p.body);broadcastMessage(code,message);return {message};});
+    // H6 Animus's possession-day chat — no once-per-day limit (unlike
+    // Conspirator's forge), target is never client-supplied (see
+    // sendMessageAs's own comment).
+    ackWrap(socket,'chat:send-as',p=>{const code=normalizeRoomCode(p.code),message=gameManager.sendMessageAs(code,auth(socket,p),p.body);broadcastMessage(code,message);return {message};});
     ackWrap(socket,'vote:submit',p=>{const code=normalizeRoomCode(p.code),result=gameManager.vote(code,auth(socket,p),String(p.targetCode||''),p.justification);io.to(code).emit('vote:state',{votes:result.votes});if(result.message)broadcastMessage(code,result.message);return {votes:result.votes};});
     ackWrap(socket,'vote:retract',p=>{const code=normalizeRoomCode(p.code),votes=gameManager.retractVote(code,auth(socket,p));io.to(code).emit('vote:state',{votes});return {votes};});
     ackWrap(socket,'action:submit',p=>{const code=normalizeRoomCode(p.code),action=gameManager.submitAction(code,auth(socket,p),p);if(action?.message)broadcastMessage(code,action.message);return {action};});

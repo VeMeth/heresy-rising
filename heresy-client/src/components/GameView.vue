@@ -23,6 +23,7 @@
             <span class="portrait" :data-status="portraitStatus(p)"><svg class="portrait-glyph"><use :href="portraitGlyph(p)"/></svg></span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
             <small v-if="p.crippleTier" class="tier-badge" :data-tier="p.crippleTier">T{{ p.crippleTier }}</small>
+            <small v-if="p.possessed" class="possessed-badge">POSSESSED</small>
             <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)">{{ targetVoteCount(p.playerCode) }}</small>
             <i :class="{online:p.connected}"></i>
           </li>
@@ -77,7 +78,11 @@
           </template>
         </div>
         <form v-if="!spectator" class="composer" @submit.prevent="post">
-          <textarea v-model.trim="draft" maxlength="1000" rows="2" :disabled="!canChat" :placeholder="canChat?'Transmit… (Enter to send, Shift+Enter for newline)':'Channel sealed'" @keydown.enter.exact.prevent="post"></textarea>
+          <label v-if="possessedTarget" class="speak-as-toggle">
+            <input type="checkbox" v-model="speakAsTarget">
+            Speak as {{ possessedTarget.name }}
+          </label>
+          <textarea v-model.trim="draft" maxlength="1000" rows="2" :disabled="!canChat" :placeholder="canChat?(speakAsTarget&&possessedTarget?'Transmit as '+possessedTarget.name+'… (Enter to send)':'Transmit… (Enter to send, Shift+Enter for newline)'):(me?.possessed?'Possessed — you cannot speak today':'Channel sealed')" @keydown.enter.exact.prevent="post"></textarea>
           <button class="primary" :disabled="!draft||!canChat">Transmit</button>
         </form>
         <div v-else class="composer"><p class="spectator-composer-note">Spectating — transmissions sealed.</p></div>
@@ -195,8 +200,8 @@
 <script setup>
 import { computed,nextTick,ref,watch } from 'vue';
 // TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
-const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','history','vote','retract-vote','action','retract-action','respond','ask-confession','open-manual','leave']);
-const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref('');
+const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','action','retract-action','respond','ask-confession','open-manual','leave']);
+const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
 const showEarlierDays = ref(false);
 function isDayStart(m){return m.kind==='system'&&/Day\s+\d+(\s*:|\s+begins)/i.test(m.body);}
@@ -220,14 +225,20 @@ watch(()=>props.messages,()=>nextTick(()=>{
 }),{deep:false});
 watch(()=>props.channel,()=>{dayExpanded.value={};});
 const actionTargets=computed(()=>alive.value.filter(p=>{if(nightAction.value?.target==='any')return true;if(p.playerCode===props.me?.playerCode){return nightAction.value?.kind==='protect';}if(nightAction.value?.target==='hostile')return p.faction!=='heretic';return true}));
-const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(!props.spectator&&props.me?.faction==='heretic'?[{id:'faction',label:'Cabal',note:'heretics'}]:[]),...(!props.spectator&&!props.me?.alive?[{id:'graveyard',label:'Graveyard',note:'dead'}]:[])]),canChat=computed(()=>props.game.phase!=='ended'&&(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard'));
+const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(!props.spectator&&props.me?.faction==='heretic'?[{id:'faction',label:'Cabal',note:'heretics'}]:[]),...(!props.spectator&&!props.me?.alive?[{id:'graveyard',label:'Graveyard',note:'dead'}]:[])]),canChat=computed(()=>props.game.phase!=='ended'&&(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard')&&!props.me?.possessed);
+// H6 Animus: only the Animus's own client ever sees `possessed:true` on
+// another player's row before the reveal (server-gated, see state()'s
+// per-row comment in heresyGameManager.js) — so finding "the possessed row
+// that isn't me" IS "my current target," no extra role check needed, but we
+// check role.id anyway for clarity/defensiveness.
+const possessedTarget=computed(()=>role.value.id==='animus'?players.value.find(p=>p.possessed&&p.playerCode!==props.me?.playerCode)||null:null);
 const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeader=computed(()=>{if(!votingOpen.value)return null;const counts=voteCounts.value;let leader=null,max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max){max=count;leader=code;}}return leader}),standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 const secondsLeft=computed(()=>{if(!deadline.value)return null;return Math.max(0,Math.floor((deadline.value-props.now)/1000));});
 const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.game.nightMs:props.game.dayMs)||0;if(!total||secondsLeft.value==null)return 0;return Math.min(1,Math.max(0,1-(secondsLeft.value*1000)/total));});
 const driftPct=computed(()=>{const max=props.game.maxDrift||20;const d=props.me?.drift||0;return Math.min(100,Math.round((d/max)*100));});
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
 function castVote(choice){emit('vote',{choice,justification:voteJustification.value})}
-function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(draft.value&&canChat.value){emit('send',draft.value);draft.value=''}}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value=''}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 function targetName(code){return players.value.find(p=>p.playerCode===code)?.name||'unknown';}
 // ── Generated sigil assets (heresy-sigils.svg, inlined in index.html) ─────
 const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen'};
@@ -426,6 +437,37 @@ function classifyEntry(body){const b=String(body||'');
   from { box-shadow: 0 0 4px rgba(255, 60, 60, 0.15); }
   to   { box-shadow: 0 0 12px rgba(255, 60, 60, 0.4); }
 }
+
+/* Possessed badge (H6 Animus) — same pill shape as tier badges, distinct
+   violet tone so it never gets confused with an interrogation tier. Server
+   only ever sends p.possessed to a client entitled to see it (the Animus's
+   own view of their target, the possessed player's own view of themself,
+   or everyone once the reveal has fired) — no extra gating needed here. */
+.possessed-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 7px 2px;
+  font: 600 9px/1.4 Inter, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(168, 130, 255, 0.5);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #b79bff;
+  box-shadow: 0 0 6px rgba(168, 130, 255, 0.2);
+}
+
+.speak-as-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 10px/1.4 Inter, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b79bff;
+  margin-bottom: 6px;
+}
+.speak-as-toggle input { accent-color: #b79bff; }
 
 @keyframes lynchPulse {
   from { box-shadow: 0 0 0 1px rgba(255, 51, 51, 0.35), 0 0 14px rgba(255, 51, 51, 0.25); }

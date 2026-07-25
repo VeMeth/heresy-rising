@@ -63,6 +63,11 @@ export const validRoles = new Map([
     claim: 'Imperial Citizen',
     ability: 'Each night target one player at Black zone (drift 20) to flip them to Heretic — silent and immediate. Failure if the target is not at Black.'
   }],
+  ['animus', {
+    id: 'animus', displayName: 'Animus', faction: 'heretic', tier: 'T3',
+    claim: 'Imperial Citizen',
+    ability: 'One-shot speculation: target a non-Heretic you believe is in Red drift. If right, you possess them for a day (speak in their name, their vote is voided, their night is skipped) — the body detonates at day\'s end, revealing full role and faction. Wrong guess just wastes the attempt.'
+  }],
 ]);
 
 export const hardRules = {
@@ -70,6 +75,7 @@ export const hardRules = {
   heretic_priest_min_player_count: 6,
   recruiter_min_player_count: 8,
   conspirator_min_player_count: 11,
+  animus_min_player_count: 8,
 };
 
 // Human-readable labels for the soft-rule thresholds, used by the picker to
@@ -79,6 +85,7 @@ export const roleThresholds = {
   'heretic-priest': { min: 6,  label: 'Needs a Priest claim and ≥1 other Heretic for cover (6p+).' },
   recruiter:        { min: 8,  label: 'Catalyst carrier required for the conversion win path (8p+).' },
   conspirator:      { min: 11, label: 'Forgery needs ≥10 living players for density (11p+).' },
+  animus:           { min: 8,  label: 'Possession needs a big enough table for a speculation guess to matter (8p+).' },
 };
 
 export const presetFlavor = {

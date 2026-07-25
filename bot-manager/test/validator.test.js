@@ -114,6 +114,24 @@ test('validator: H1 murderer cannot target a fellow Heretic when targetsByFactio
   assert.match(r.reason, /Heretic/i);
 });
 
+test('validator: H6 animus possess requires a living target', () => {
+  const r = actionValidator('animus', { kind: 'night_action', verb: 'possess' }, ctx5p());
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /target/i);
+});
+
+test('validator: H6 animus cannot target a fellow Heretic when targetsByFaction provided', () => {
+  const hereticTargets = ctx5p({ targetsByFaction: { heretic: ['human-p2'] } });
+  const r = actionValidator('animus', { kind: 'night_action', verb: 'possess', target: 'human-p2' }, hereticTargets);
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /Heretic/i);
+});
+
+test('validator: H6 animus possess on a living, non-Heretic target is allowed (drift-blind — engine gates the Red-zone speculation)', () => {
+  const r = actionValidator('animus', { kind: 'night_action', verb: 'possess', target: 'human-p1' }, ctx5p());
+  assert.equal(r.ok, true);
+});
+
 test('validator: H4 saboteur cannot trap self', () => {
   const r = actionValidator('saboteur', { kind: 'night_action', verb: 'trap', target: 'HR-BOT-deadbeef' }, ctx5p());
   assert.equal(r.ok, false);

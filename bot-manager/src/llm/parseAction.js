@@ -90,7 +90,7 @@ export const ACTION_SCHEMA = {
     target: { type: ['string', 'null'] },
     verb: {
       type: ['string', 'null'],
-      enum: ['interrogate', 'kill', 'protect', 'bodyguard', 'scan_drift', 'sermon', 'trap', 'recruit', 'forge', 'sleep', null]
+      enum: ['interrogate', 'kill', 'protect', 'bodyguard', 'scan_drift', 'sermon', 'trap', 'recruit', 'forge', 'possess', 'sleep', null]
     },
     tier: { type: ['integer', 'null'], enum: [1, 2, 3, null] },
     sermonTier: {

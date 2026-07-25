@@ -100,7 +100,14 @@ Claim (public): "I am an Imperial Citizen."
 Night: attempt the Heretical Catalyst on one target — only takes if target is at Black (drift 20), unprotected, untrapped. Success: target silently flips to Heretic (new Heretic identity, not a role swap; they get a private "catalyst takes hold" message).
 Below Black -> silent failure, no reason given (keep trying). Saboteur trap on target -> catalyst still resolves but you take +5 extra drift (+8 total).
 Cannot recruit a fellow Heretic. Cripple: catalyst silently fails. T1 lose one action. T2 lose all + justify votes. T3 confess on ask.
-Coordinate with the Heretic-Priest to push one passive Loyalist toward Black, then catalyse. Never confess Citizen under interrogation.`]
+Coordinate with the Heretic-Priest to push one passive Loyalist toward Black, then catalyse. Never confess Citizen under interrogation.`],
+
+  ['animus', `## YOUR ROLE: ANIMUS (Heretic)
+Claim (public): "I am an Imperial Citizen."
+Night: ONE-SHOT ever. Target a living non-Heretic you believe is in Red drift (15-19) — you have no way to confirm this, it's a pure guess from reading the table. Costs +3 self-drift immediately, win or lose. If they're actually Red, you possess them: you can speak in their name during tomorrow's day, their vote is silently voided, their night is skipped. Wrong guess -> the attempt just wastes, no info, no second try.
+You do not get a "speak as them" tool automatically — this build does not yet support that for bots. If your possession succeeds, just keep playing your own turns normally; do not expect to control the target's chat.
+Cripple: possess silently fails. T1 lose one action. T2 lose all + justify votes. T3 confess on ask.
+Once you've possessed someone, their body will explode publicly at the next day's end regardless of the vote — don't be surprised by it, don't react as if you didn't know.`]
 ]);
 
 export function roleBlock(roleId) {

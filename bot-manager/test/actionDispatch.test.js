@@ -91,8 +91,8 @@ test('buildEnginePayload: heretic priest warp_litany passes through unchanged', 
   assert.equal(r.payload.variant, 'warp-litany');
 });
 
-test('buildEnginePayload: protect / bodyguard / scan_drift / kill / recruit carry no variant', () => {
-  for (const verb of ['protect', 'bodyguard', 'scan_drift', 'kill', 'recruit']) {
+test('buildEnginePayload: protect / bodyguard / scan_drift / kill / recruit / possess carry no variant', () => {
+  for (const verb of ['protect', 'bodyguard', 'scan_drift', 'kill', 'recruit', 'possess']) {
     const r = buildEnginePayload({ kind: 'night_action', verb, target: 'P-zzz', tier: 2 }, session());
     assert.equal(r.type, 'action', `${verb} should resolve to action`);
     assert.equal(r.payload.variant, null, `${verb} should have null variant`);

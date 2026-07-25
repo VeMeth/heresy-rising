@@ -333,6 +333,30 @@
       },
       "ability": "Each night, target one player at Black zone (drift 20) to perform the heretical catalyst. Flip is silent and immediate — victim wakes as Heretic. Failure (target not at Black): silent fail. If Saboteur trapped the target tonight: flip still resolves, but you take +5 drift extra (= +8 total).",
       "objective": "Burn max-drift players. Force Heretic parity via conversion, not just kills."
+    },
+    {
+      "id": "animus",
+      "displayName": "Animus",
+      "faction": "heretic",
+      "driftWeight": 3,
+      "tier": "T3",
+      "possessLimit": "1_per_game",
+      "actions": {
+        "night": {
+          "kind": "possess",
+          "target": "hostile",
+          "driftCost": 3
+        },
+        "day": null
+      },
+      "crippleProfile": {
+        "blocks": [
+          "possess"
+        ],
+        "onCripple": "disable-one"
+      },
+      "ability": "Once per game, target a living non-Heretic you believe is in Red drift (15-19). Costs +3 self-drift immediately, win or lose, paid the moment you submit. If confirmed Red at night-end, you possess them: you write their day chat, their vote is silently suppressed, their night action is skipped. At day's end, after the vote tally, the body detonates — they die, revealed as Neverborn with full role, faction, and drift shown. Guess wrong and the attempt wastes silently; you don't learn why.",
+      "objective": "Speculate a target into Red-zone possession. One shot, no confirmation on failure — read the table, not the feedback."
     }
   ]
 }

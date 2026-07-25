@@ -27,14 +27,14 @@
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :has-more="hasMoreByChannel[channel]"
         :busy="busy" :now="now" :spectator="spectator" :voting-enabled="game?.votingEnabled"
-        @channel="changeChannel" @send="sendMessage" @history="loadHistory"
+        @channel="changeChannel" @send="sendMessage" @send-as="sendMessageAs" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
         @retract-action="retractAction" @respond="respondInterrogation" @ask-confession="askConfession"
         @open-manual="openManual" @leave="leaveGame" />
     </main>
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
-    <AnnouncementOverlay :announcement="announcement" />
+    <AnnouncementOverlay :announcement="announcement" @dismiss="dismissAnnouncement" />
     <footer>Unofficial, non-commercial fan project. Not affiliated with or endorsed by Games Workshop.</footer>
 
     <Transition name="manual">
@@ -114,6 +114,10 @@ async function startGame(composition) { try { await command('game:start', { code
 function clearCompositionErrors() { compositionErrors.value = []; }
 async function configureGame(setup) { try { await command('game:configure', { code: game.value.code, setup }); } catch (e) { notify(e.message || 'Failed to update parameters'); } }
 async function sendMessage(body) { try { await command('chat:send', { code: game.value.code, channel: channel.value, body }); } catch {} }
+// H6 Animus's possession-day "speak as" — always public, no channel param
+// (the server derives who you're speaking as from its own live
+// possessed_by record, never from anything the client sends).
+async function sendMessageAs(body) { try { await command('chat:send-as', { code: game.value.code, body }); } catch {} }
 async function loadHistory(before) { try { if (before == null) { let all = []; let cursor; let hasMore = true; while (hasMore) { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before: cursor, limit: 100 }); const batch = data?.messages || []; if (!batch.length) break; all = [...batch, ...all]; hasMore = !!data?.hasMore; cursor = batch[0]?.id; if (!cursor) break; } messagesByChannel.value = { ...messagesByChannel.value, [channel.value]: all }; hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: hasMore }; } else { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before, limit: 50 }); mergeMessages(channel.value, data?.messages || [], true); hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: !!data?.hasMore }; } } catch {} }
 async function submitVote(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
 async function retractVote() { try { await command('vote:retract', { code: game.value.code }); } catch {} }
@@ -190,9 +194,13 @@ function receiveAnnouncement(payload) {
   if (a.targetCode && a.targetCode !== getPlayerCode()) return;
   announcement.value = a;
   clearTimeout(announcementTimer);
+  // The Neverborn reveal is persistent — it waits for an explicit
+  // acknowledgement instead of auto-dismissing like every other type.
+  if (a.type === 'neverborn-reveal') return;
   const duration = a.type === 'gameover' ? 8000 : 5000;
   announcementTimer = setTimeout(() => { announcement.value = null; }, duration);
 }
+function dismissAnnouncement() { clearTimeout(announcementTimer); announcement.value = null; }
 function onConnect() { connected.value = true; reconnecting.value = false; const code=game.value?.code||readJson('heresy-rising:game');const profile=readJson('heresy-rising:profile',{});if(code){if(profile.isSpectator){spectateGame(code).catch(()=>{});}else{emitWithAck('game:state',{code,playerCode:getPlayerCode()}).then(data=>{receiveState(data);return loadHistory();}).catch(()=>{});}}}
 function onDisconnect() { connected.value = false; reconnecting.value = true; }
 async function maybeAutoJoin() {

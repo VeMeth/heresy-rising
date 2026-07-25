@@ -3,7 +3,8 @@ const SOFT_MESSAGES = {
   S2: "Heretic Priest below 6p lacks a Priest to mimic. Proceed?",
   S3: "Recruiter below 8p shortens the catalyst carrier window. Proceed?",
   S4: "Conspirator below 11p may produce sparse forgeries. Proceed?",
-  S5: "Heretic Priest without a Priest/chirurgeon target has weaker mimicry. Proceed?"
+  S5: "Heretic Priest without a Priest/chirurgeon target has weaker mimicry. Proceed?",
+  S6: "Animus below 8p makes a wrong speculation guess costlier relative to the table size. Proceed?"
 };
 
 /**
@@ -78,6 +79,9 @@ export function validateComposition({ roster, playerCount, confirmedWarnings = [
     }
     if (roster.includes('heretic-priest') && !roster.includes('priest') && !roster.includes('chirurgeon')) {
       warnings.push({ kind: 'soft', rule: 'S5', message: SOFT_MESSAGES.S5 });
+    }
+    if (roster.includes('animus') && playerCount < (hardRules.animus_min_player_count ?? 8)) {
+      warnings.push({ kind: 'soft', rule: 'S6', message: SOFT_MESSAGES.S6 });
     }
 
     for (const w of warnings) {

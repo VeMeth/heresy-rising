@@ -18,7 +18,8 @@ function verbToIntent(verb, session) {
     case 'scan_drift':
     case 'trap':
     case 'kill':
-    case 'recruit':    return { engineType: 'action', variantFrom: null };
+    case 'recruit':
+    case 'possess':    return { engineType: 'action', variantFrom: null };
     case 'forge':      return { engineType: 'action', variantFrom: null, day: true, forge: true };
     default:           return { engineType: 'unknown' };
   }

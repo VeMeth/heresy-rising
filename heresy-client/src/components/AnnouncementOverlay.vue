@@ -1,5 +1,5 @@
 <template>
-  <div v-if="announcement" :key="animationKey" class="announcement-wrapper" :class="[`type-${announcement.type}`, factionClass]" role="alert">
+  <div v-if="announcement" :key="animationKey" class="announcement-wrapper" :class="[`type-${announcement.type}`, factionClass, { persistent }]" role="alert">
     <div class="announcement-backdrop"></div>
     <div class="letterbox top" aria-hidden="true"></div>
     <div class="letterbox bottom" aria-hidden="true"></div>
@@ -7,6 +7,7 @@
       <span class="announcement-badge">{{ badgeLabel }}</span>
       <h1 class="announcement-title">{{ displayTitle }}</h1>
       <p class="announcement-message">{{ announcement.message }}</p>
+      <button v-if="persistent" class="announcement-dismiss" @click="emit('dismiss')">Acknowledge</button>
     </div>
   </div>
 </template>
@@ -18,6 +19,12 @@ const props = defineProps({
   announcement: { type: Object, default: null }
 });
 
+const emit = defineEmits(['dismiss']);
+
+// The Neverborn reveal holds the screen until the table acknowledges it —
+// it doesn't auto-dismiss like every other announcement type.
+const persistent = computed(() => props.announcement?.type === 'neverborn-reveal');
+
 const badgeLabels = {
   'kill': 'NIGHT SLAYING',
   'bodyguard': 'BLADE DEFLECTED',
@@ -27,7 +34,8 @@ const badgeLabels = {
   'torture-chamber': 'TORTURE CHAMBER',
   'confession': 'CONFESSION',
   'gameover': 'CONCLUSION',
-  'role-reveal': 'DOSSIER ISSUED'
+  'role-reveal': 'DOSSIER ISSUED',
+  'neverborn-reveal': 'THE BODY RUPTURES'
 };
 
 const badgeLabel = computed(() => {
@@ -225,6 +233,36 @@ const animationKey = computed(() => {
 .type-role-reveal.faction-heretic .announcement-card { border-color: #6b3030; color: #ff8a8a; }
 .type-role-reveal.faction-loyalist .announcement-backdrop { background: rgba(28, 24, 12, 0.6); }
 .type-role-reveal.faction-loyalist .announcement-card { border-color: #5b533d; color: #dfc27c; }
+
+.type-neverborn-reveal .announcement-backdrop { background: rgba(30, 10, 50, 0.65); }
+.type-neverborn-reveal .announcement-card { border-color: #6a4fb0; color: #b79bff; }
+.type-neverborn-reveal .announcement-title {
+  font-size: 2.6rem;
+  animation: title-track 0.9s ease 0.15s both, neverborn-pulse 2.2s ease-in-out 1.1s infinite alternate;
+}
+@keyframes neverborn-pulse {
+  from { text-shadow: 0 0 16px rgba(183, 155, 255, 0.45); }
+  to   { text-shadow: 0 0 34px rgba(183, 155, 255, 0.85), 0 0 70px rgba(183, 155, 255, 0.35); }
+}
+
+/* Persistent announcements (Neverborn reveal) hold the screen and require
+   an explicit acknowledgement instead of auto-dismissing. */
+.announcement-wrapper.persistent .announcement-card { pointer-events: auto; }
+.announcement-dismiss {
+  display: block;
+  margin: 1.5rem auto 0;
+  padding: 0.6em 1.6em;
+  font: 700 0.75rem Inter, sans-serif;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.announcement-dismiss:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
 
 .type-gameover .announcement-backdrop { background: rgba(0, 0, 0, 0.75); }
 .type-gameover .announcement-card { border-color: #8b0000; color: #ff3333; }

@@ -25,7 +25,8 @@ const ROLES_VERBS = new Map([
   ['heretic-priest', { verbs: ['sermon', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: ['false-comfort', 'twisted-hymn', 'warp-litany'] }],
   ['conspirator', { verbs: ['forge', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
   ['saboteur', { verbs: ['trap', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
-  ['recruiter', { verbs: ['recruit', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }]
+  ['recruiter', { verbs: ['recruit', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
+  ['animus', { verbs: ['possess', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }]
 ]);
 
 const SERMON_USAGE_LIMITS = {
@@ -131,6 +132,18 @@ function validateNightAction(roleId, action, gameState) {
       if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'kill target not alive' };
       if (roleId === 'murderer' && gameState.targetsByFaction && gameState.targetsByFaction.heretic?.includes(action.target)) {
         return { ok: false, reason: 'murderer cannot target another Heretic' };
+      }
+      return { ok: true };
+    }
+    case 'possess': {
+      // H6 Animus: manager-side check mirrors murderer's — engine is still
+      // the real gate (drift-blind here, targetsByFaction only populated
+      // when known), plus the engine ALSO enforces the Red-zone-at-night-end
+      // speculation that this soft validator has no visibility into at all.
+      if (!action.target) return { ok: false, reason: 'possess requires a target' };
+      if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'possess target not alive' };
+      if (gameState.targetsByFaction && gameState.targetsByFaction.heretic?.includes(action.target)) {
+        return { ok: false, reason: 'animus cannot target a fellow Heretic' };
       }
       return { ok: true };
     }
