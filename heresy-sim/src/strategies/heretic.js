@@ -17,6 +17,17 @@ export function createH1Murderer(id, factionState) {
     label: `h1-murderer-${id}`,
     nightAction(s) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
+      // Kill costs a flat +15 self-drift and is gated once drift+15 exceeds
+      // maxDrift (engine: heresyGameManager.js resolveNight's murderer gate
+      // check) — a single kill attempt (successful or blocked, cost applies
+      // either way) already lands at ~15-17, so every later attempt would be
+      // gated. Sleeping instead of attacking earns the passive -1/night
+      // recovery, the only way back under the gate to ever kill again.
+      // Mirrors the drift-awareness L3 Chirurgeon and L7 Sanctioned Psyker
+      // already have — without this, the Murderer effectively gets exactly
+      // one kill for the entire game, every game, regardless of targeting.
+      const myDrift = s.me?.drift || 0;
+      if (myDrift + 15 > (s.maxDrift || 20)) return null;
       // Target a Loyalist not killed recently
       let candidates = s.legalTargets.filter(t => !recentTargets.includes(t));
       if (candidates.length === 0) candidates = [...s.legalTargets];
