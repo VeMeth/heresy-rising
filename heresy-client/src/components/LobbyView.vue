@@ -136,12 +136,12 @@
             <div class="summary-stat"><span>Roster</span><strong :class="rosterLengthClass">{{ customRoster.length }} / {{ targetPlayerCount }}</strong></div>
             <div class="summary-stat"><span>Loyalists</span><strong class="loy">{{ factionCounts.loyalist }}</strong></div>
             <div class="summary-stat"><span>Heretics</span>
-              <strong :class="{her: true, bad: factionCounts.heretic > factionCounts.loyalist}">{{ factionCounts.heretic }}</strong>
+              <strong :class="{her: true, bad: factionCounts.heretic > loyalistAligned}">{{ factionCounts.heretic }}</strong>
             </div>
             <div class="summary-stat"><span>Citizens</span><strong>{{ factionCounts.citizen }}</strong></div>
-            <p class="parity-note" :class="{bad: factionCounts.heretic > factionCounts.loyalist}">
+            <p class="parity-note" :class="{bad: factionCounts.heretic > loyalistAligned}">
               Parity win rule: Heretics must be ≤ Loyalists at launch.
-              <span v-if="factionCounts.heretic > factionCounts.loyalist">Currently violated — add Loyalists or remove Heretics.</span>
+              <span v-if="factionCounts.heretic > loyalistAligned">Currently violated — add Loyalists or remove Heretics.</span>
             </p>
           </div>
 
@@ -331,6 +331,11 @@ const factionCounts = computed(() => {
   }
   return { loyalist, heretic, citizen };
 });
+// H4 parity (Heretics <= Loyalists) counts Imperial Citizens as
+// Loyalist-aligned server-side (validateComposition, shared with the
+// server) — factionCounts.loyalist alone excludes them, so any
+// heretic/loyalist comparison for the parity indicator needs this instead.
+const loyalistAligned = computed(() => factionCounts.value.loyalist + factionCounts.value.citizen);
 
 function canAdd(id) {
   const role = validRoles.get(id);
@@ -338,11 +343,18 @@ function canAdd(id) {
   if (rosterFull.value) return false;
   // H2 — non-citizen roles are unique per game.
   if (id !== 'imperial-citizen' && countInRoster(id) >= 1) return false;
-  // H4 — adding a Heretic must not push Heretics above Loyalists.
-  if (role.faction === 'heretic' && factionCounts.value.heretic + 1 > factionCounts.value.loyalist) {
-    // Allow only if there would still be parity, i.e. hereticCount+1 <= loyalistCount.
-    return false;
-  }
+  // H4 (parity: Heretics <= Loyalists) is deliberately NOT enforced here.
+  // A mid-construction snapshot check blocked adding the FIRST Heretic
+  // outright (0 Loyalists so far means any heretic add "exceeds" them) —
+  // it also compared against factionCounts.loyalist, which excludes
+  // Imperial Citizens, while the real H4 rule (validateComposition, shared
+  // with the server) counts Citizens as Loyalist-aligned. Both made it
+  // wrongly stricter than the actual rule, and only for an in-progress
+  // roster the host hasn't finished building yet. Parity is still fully
+  // enforced — just by the existing live summary (the Heretics stat turns
+  // red / the parity-note warns) and by compositionValid/rosterShapeValid,
+  // which block "Seal the chamber" and "Run balance check" on a roster
+  // that's ACTUALLY unbalanced once the host is done editing it.
   return true;
 }
 
@@ -351,7 +363,6 @@ function addDisabledReason(id) {
   const role = validRoles.get(id);
   if (!role) return '';
   if (id !== 'imperial-citizen' && countInRoster(id) >= 1) return 'Non-citizen roles are unique per game';
-  if (role.faction === 'heretic' && factionCounts.value.heretic + 1 > factionCounts.value.loyalist) return 'Would violate Heretic ≤ Loyalist parity';
   return '';
 }
 
