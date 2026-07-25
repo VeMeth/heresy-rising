@@ -12,7 +12,7 @@
   "LOSING_SIDE_HALTS_AFTER_DAY": 5,
   "TRAP_DRIFT": 5,
   "MURDERER_GATE_TARGET_DRIFT": 1,
-  "SANCTIONED_VIOLENCE_ATTACKER_COST": 3,
+  "BLOOD_RITUAL_ATTACKER_COST": 3,
   "zones": [
     {"id":"green","min":0,"max":4,"noise":0},
     {"id":"yellow","min":5,"max":9,"noise":0.2},
