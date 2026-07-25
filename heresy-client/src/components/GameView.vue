@@ -19,7 +19,7 @@
           <span class="roster-count"><strong>{{ alive.length }}</strong><small>Alive</small></span>
         </header>
         <ul class="player-list">
-          <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode}" @click="voteFor(p)">
+          <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',interrogate:lynchLeader===p.playerCode&&lynchLeaderOutcome==='interrogate'}" @click="voteFor(p)">
             <span class="portrait" :data-status="portraitStatus(p)"><svg class="portrait-glyph"><use :href="portraitGlyph(p)"/></svg></span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
             <small v-if="p.crippleTier" class="tier-badge" :data-tier="p.crippleTier">T{{ p.crippleTier }}</small>
@@ -250,7 +250,14 @@ const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(!p
 // that isn't me" IS "my current target," no extra role check needed, but we
 // check role.id anyway for clarity/defensiveness.
 const possessedTarget=computed(()=>role.value.id==='animus'?players.value.find(p=>p.possessed&&p.playerCode!==props.me?.playerCode)||null:null);
-const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeader=computed(()=>{if(!votingOpen.value)return null;const counts=voteCounts.value;let leader=null,max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max){max=count;leader=code;}}return leader}),standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
+const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeader=computed(()=>{if(!votingOpen.value)return null;const counts=voteCounts.value;let leader=null,max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max){max=count;leader=code;}}return leader}),
+// Tiered Lynch (tiered-lynch.md v1.0.0): outcome is same-day, decided by
+// what fraction of LIVING votes the leader cleared — >=60% executes,
+// otherwise (any positive count) interrogates. Border color previews this
+// live during the vote so players can coordinate before it resolves.
+lynchThreshold=computed(()=>Math.ceil(alive.value.length*0.6)),
+lynchLeaderOutcome=computed(()=>{if(!lynchLeader.value)return null;return targetVoteCount(lynchLeader.value)>=lynchThreshold.value?'kill':'interrogate'}),
+standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 const secondsLeft=computed(()=>{if(!deadline.value)return null;return Math.max(0,Math.floor((deadline.value-props.now)/1000));});
 const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.game.nightMs:props.game.dayMs)||0;if(!total||secondsLeft.value==null)return 0;return Math.min(1,Math.max(0,1-(secondsLeft.value*1000)/total));});
 const driftPct=computed(()=>{const max=props.game.maxDrift||20;const d=props.me?.drift||0;return Math.min(100,Math.round((d/max)*100));});
@@ -391,7 +398,9 @@ function classifyEntry(body){const b=String(body||'');
   border-radius: 2px;
   letter-spacing: 0.04em;
 }
-.player-list li.lynch-leader {
+/* Tiered Lynch (tiered-lynch.md v1.0.0): red = will execute (>=60% of
+   living votes), orange = will be interrogated (leading, but under 60%). */
+.player-list li.lynch-leader.kill {
   border-color: #ff3333;
   /* background-color only — the fx layer adds a red corner reticle via
      background-image, and a shorthand here would wipe it out */
@@ -400,6 +409,14 @@ function classifyEntry(body){const b=String(body||'');
     0 0 0 1px rgba(255, 51, 51, 0.35),
     0 0 20px rgba(255, 51, 51, 0.35);
   animation: lynchPulse 1s ease-in-out infinite alternate;
+}
+.player-list li.lynch-leader.interrogate {
+  border-color: #ff9333;
+  background-color: rgba(255, 147, 51, 0.16);
+  box-shadow:
+    0 0 0 1px rgba(255, 147, 51, 0.32),
+    0 0 20px rgba(255, 147, 51, 0.3);
+  animation: lynchPulseAmber 1s ease-in-out infinite alternate;
 }
 
 .player-list li.voted {
@@ -490,6 +507,10 @@ function classifyEntry(body){const b=String(body||'');
 @keyframes lynchPulse {
   from { box-shadow: 0 0 0 1px rgba(255, 51, 51, 0.35), 0 0 14px rgba(255, 51, 51, 0.25); }
   to   { box-shadow: 0 0 0 1px rgba(255, 51, 51, 0.55), 0 0 28px rgba(255, 51, 51, 0.5); }
+}
+@keyframes lynchPulseAmber {
+  from { box-shadow: 0 0 0 1px rgba(255, 147, 51, 0.32), 0 0 14px rgba(255, 147, 51, 0.22); }
+  to   { box-shadow: 0 0 0 1px rgba(255, 147, 51, 0.5), 0 0 28px rgba(255, 147, 51, 0.45); }
 }
 
 button.ghost.wide.stand-down-leading {

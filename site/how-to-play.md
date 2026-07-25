@@ -35,9 +35,17 @@ Each operative chooses a single night action (or sleep). Some roles have strong 
 
 ### Day
 
-The day is a vote. You pick someone to accuse. The first consecutive day on a target is an **interrogate** (cripple one tier; no death). The second consecutive day on the same target is a **lynch** (kill, alignment revealed).
+The day is a vote. You pick someone to accuse. The outcome depends on how many living votes land on the lynch leader:
 
-> You can also vote **"Stand down"** to skip the day. Useful when no good target is named.
+| Vote share | Outcome | Border |
+|---|---|---|
+| **≥60%** of living players | **Lynch** — target dies, alignment revealed | 🔴 Red |
+| **<60%** but still the leader | **Interrogate** — target survives but skips next night action | 🟠 Orange |
+| Everyone votes Stand down | **Skip** — no event | — |
+
+> **60% of living players**, not max players. If 5 are alive, 3 votes = 60%.
+
+The orange border is your probe. Interrogation doesn't kill — it *cripples*. The target loses their next night action (no kill, no scan, no prophecy that night). Same suspect can be interrogated multiple rounds; each time they lose one more night. Bleed their tempo without committing to a kill.
 
 ## Drift — what the Warp leaves on a soul
 
@@ -65,7 +73,7 @@ Interrogation is what you do *instead* of killing. It cripples a target one tier
 | Tier 2 | Severe. They permanently lose a night-action slot. |
 | Tier 3 | Critically crippled. They must publicly confess their role on a direct ask. |
 
-A target *accused* of wrongdoing for two consecutive days is **lynched** (Tier 3 + killed + alignment revealed). Interrogation is the Loyalist's primary weapon — death is rare.
+A target who clears **60% of living votes** in a single day is **lynched** (killed, alignment revealed, Tier 3 cripple). A target below that threshold but still the lynch leader is **interrogated** (one cripple tier, skips next night action). The Loyalist's day weapon is a *tiered probe* — investigate without killing, or kill when the table agrees. Death is rare; cripple is the workhorse.
 
 ## The Roles
 
