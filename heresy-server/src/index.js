@@ -79,6 +79,19 @@ export function resolveSimComposition(composition, gameManager) {
   return { ok: true, roster, playerCount };
 }
 
+// Canonical identity of a sim composition request, used to tell "the host
+// re-submitted the exact same setup" apart from "the host changed the
+// roster and wants a fresh test" — deliberately excludes confirmedWarnings
+// (an acknowledgement, not part of the setup) and games/seed (batch
+// parameters, not the setup itself). Roster order doesn't matter for this
+// comparison — a re-sorted but otherwise identical roster is the same setup.
+export function simCompositionKey(composition) {
+  if (!composition || typeof composition !== 'object') return '';
+  if (composition.source === 'preset') return `preset:${composition.presetId}`;
+  if (composition.source === 'custom' && Array.isArray(composition.roster)) return `custom:${[...composition.roster].sort().join(',')}`;
+  return JSON.stringify(composition);
+}
+
 // fetch() with an AbortController-based timeout — mirrors bot-manager's
 // OpenAIChat.chat() (bot-manager/src/llm/openaiChat.js), the only other
 // outbound-call timeout pattern in this codebase. heresy-sim batches can
@@ -197,7 +210,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
   // it's scoped to the lobby, not the connection. Uses gameManager.now() (the
   // injectable clock) rather than Date.now() so tests can control it exactly
   // like every other time-dependent fixture in this repo.
-  const simCooldowns=new Map();
+  const simCooldowns=new Map();// code -> { ts, key: simCompositionKey(lastComposition) }
   const socketLimiter=new SocketRateLimiter({
     'game:create': { points: 5, duration: 60_000 },
     'game:join': { points: 20, duration: 60_000 },
@@ -265,8 +278,16 @@ export function createHeresyServer({ databasePath, now } = {}) {
       if(g.phase!=='lobby')throw new Error('Simulation is only available while the game is in the lobby');
       const nowTs=gameManager.now();
       const lastRun=simCooldowns.get(code);
-      if(lastRun!==undefined&&nowTs-lastRun<config.sim.hostCooldownMs){
-        const waitS=Math.ceil((config.sim.hostCooldownMs-(nowTs-lastRun))/1000);
+      const requestedKey=simCompositionKey(p.composition);
+      // Re-submitting the EXACT same setup is blocked outright, regardless of
+      // how much cooldown time has elapsed — there's nothing new to learn
+      // from re-running an unchanged roster. A genuinely different setup
+      // only ever has to clear the standard per-lobby cooldown below.
+      if(lastRun!==undefined&&lastRun.key===requestedKey){
+        throw new Error('This exact setup was already simulated — change the roster to run it again.');
+      }
+      if(lastRun!==undefined&&nowTs-lastRun.ts<config.sim.hostCooldownMs){
+        const waitS=Math.ceil((config.sim.hostCooldownMs-(nowTs-lastRun.ts))/1000);
         throw new Error(`Simulation is cooling down for this lobby — try again in ${waitS}s.`);
       }
       const games=Math.max(1,Math.min(config.sim.maxGamesHost,Number.isFinite(Number(p.games))?Math.floor(Number(p.games)):config.sim.maxGamesHost));
@@ -275,7 +296,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
       if(!config.sim.bypassToken)throw new Error('SIM_BYPASS_TOKEN is not configured on the engine');
       // Cooldown is burned here — only once the request has cleared every
       // rejection path and is actually about to hit heresy-sim over the wire.
-      simCooldowns.set(code,nowTs);
+      simCooldowns.set(code,{ts:nowTs,key:requestedKey});
       const body={composition:p.composition,games};
       if(Number.isFinite(Number(p.seed)))body.seed=Number(p.seed);
       let upstream;

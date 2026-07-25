@@ -117,6 +117,7 @@ function emitAck(socket, event, payload) {
 }
 
 const preset5p = { source: 'preset', presetId: '5p' };
+const preset6p = { source: 'preset', presetId: '6p' };
 
 test('game:simulate — host can simulate their own lobby (happy path)', async () => {
   const f = await fixtureServer({ count: 5 });
@@ -165,7 +166,7 @@ test('game:simulate — wrong phase (already started) is rejected', async () => 
   } finally { await f.close(); }
 });
 
-test('game:simulate — per-lobby cooldown rejects a rapid second call, allows it after the window', async () => {
+test('game:simulate — re-submitting the EXACT same setup is blocked outright, even after the cooldown window passes', async () => {
   let now = 1_000_000;
   const f = await fixtureServer({ count: 5, now: () => now });
   fakeSim.received.length = 0;
@@ -178,13 +179,56 @@ test('game:simulate — per-lobby cooldown rejects a rapid second call, allows i
 
       const second = await emitAck(socket, 'game:simulate', { code: f.code, playerCode: 'HOST-0000', composition: preset5p, games: 5 });
       assert.equal(second.ok, false);
+      assert.match(second.error, /already simulated/i, 'a same-setup rejection is a distinct message from a cooldown rejection');
+      assert.equal(fakeSim.callCount(), 1, 'a same-setup rejection must not reach heresy-sim');
+
+      now += config.sim.hostCooldownMs + 10; // advance well past the cooldown window
+      const third = await emitAck(socket, 'game:simulate', { code: f.code, playerCode: 'HOST-0000', composition: preset5p, games: 5 });
+      assert.equal(third.ok, false, 'the SAME setup stays blocked regardless of elapsed time — only a changed setup clears it');
+      assert.match(third.error, /already simulated/i);
+      assert.equal(fakeSim.callCount(), 1);
+    } finally { socket.close(); }
+  } finally { await f.close(); }
+});
+
+test('game:simulate — per-lobby cooldown still applies to a DIFFERENT setup requested too soon', async () => {
+  let now = 1_000_000;
+  const f = await fixtureServer({ count: 5, now: () => now });
+  fakeSim.received.length = 0;
+  try {
+    const socket = await connect(f.url);
+    try {
+      const first = await emitAck(socket, 'game:simulate', { code: f.code, playerCode: 'HOST-0000', composition: preset5p, games: 5 });
+      assert.equal(first.ok, true);
+      assert.equal(fakeSim.callCount(), 1);
+
+      const second = await emitAck(socket, 'game:simulate', { code: f.code, playerCode: 'HOST-0000', composition: preset6p, games: 5 });
+      assert.equal(second.ok, false, 'a different setup is not blocked outright, but still owes the standard cooldown');
       assert.match(second.error, /cooling down/i);
       assert.equal(fakeSim.callCount(), 1, 'a cooldown rejection must not reach heresy-sim');
 
       now += config.sim.hostCooldownMs + 10; // advance past the cooldown window
-      const third = await emitAck(socket, 'game:simulate', { code: f.code, playerCode: 'HOST-0000', composition: preset5p, games: 5 });
-      assert.equal(third.ok, true);
+      const third = await emitAck(socket, 'game:simulate', { code: f.code, playerCode: 'HOST-0000', composition: preset6p, games: 5 });
+      assert.equal(third.ok, true, 'the different setup succeeds once the cooldown clears');
       assert.equal(fakeSim.callCount(), 2);
+    } finally { socket.close(); }
+  } finally { await f.close(); }
+});
+
+test('game:simulate — a custom roster is "the same setup" as an equivalent roster in a different order', async () => {
+  let now = 1_000_000;
+  const f = await fixtureServer({ count: 5, now: () => now });
+  fakeSim.received.length = 0;
+  try {
+    const socket = await connect(f.url);
+    try {
+      const rosterA = { source: 'custom', roster: ['murderer', 'priest', 'interrogator', 'chirurgeon', 'imperial-citizen'] };
+      const rosterAReordered = { source: 'custom', roster: ['imperial-citizen', 'chirurgeon', 'interrogator', 'priest', 'murderer'] };
+      const first = await emitAck(socket, 'game:simulate', { code: f.code, playerCode: 'HOST-0000', composition: rosterA, games: 5 });
+      assert.equal(first.ok, true);
+      const second = await emitAck(socket, 'game:simulate', { code: f.code, playerCode: 'HOST-0000', composition: rosterAReordered, games: 5 });
+      assert.equal(second.ok, false, 'same roles, different order — still the same setup');
+      assert.match(second.error, /already simulated/i);
     } finally { socket.close(); }
   } finally { await f.close(); }
 });

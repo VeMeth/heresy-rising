@@ -223,8 +223,9 @@
             <label class="sim-games-field">Games
               <input type="number" v-model.number="simGames" min="1" max="100" :disabled="simBusy">
             </label>
-            <button class="secondary" :disabled="simBusy || simOnCooldown || !rosterShapeValid" @click="runSimulation">
+            <button class="secondary" :disabled="simBusy || simIsSameSetup || simOnCooldown || !rosterShapeValid" @click="runSimulation">
               <template v-if="simBusy">Simulating…</template>
+              <template v-else-if="simIsSameSetup">Change the setup to test again</template>
               <template v-else-if="simOnCooldown">Try again in {{ simCooldownRemaining }}s</template>
               <template v-else>Run balance check</template>
             </button>
@@ -498,6 +499,17 @@ const simOnCooldown = computed(() => simCooldownRemaining.value > 0);
 let simCooldownDeadline = 0;
 let simCooldownTimer = null;
 
+// Mirrors heresy-server's simCompositionKey() so the button can tell the
+// host "this exact setup was already run" without waiting on a round trip.
+function simCompositionKey(composition) {
+  if (!composition || typeof composition !== 'object') return '';
+  if (composition.source === 'preset') return `preset:${composition.presetId}`;
+  if (composition.source === 'custom' && Array.isArray(composition.roster)) return `custom:${[...composition.roster].sort().join(',')}`;
+  return JSON.stringify(composition);
+}
+const lastSimulatedKey = ref(null);
+const simIsSameSetup = computed(() => lastSimulatedKey.value !== null && simCompositionKey(buildCompositionPayload()) === lastSimulatedKey.value);
+
 function startSimCooldown(seconds) {
   simCooldownDeadline = Date.now() + seconds * 1000;
   simCooldownRemaining.value = seconds;
@@ -529,19 +541,21 @@ function emitSimulate(payload, timeoutMs = 30000) {
 }
 
 async function runSimulation() {
-  if (simBusy.value || simOnCooldown.value) return;
+  if (simBusy.value || simIsSameSetup.value || simOnCooldown.value) return;
   simError.value = '';
   simBusy.value = true;
   try {
     await ensureConnected();
     const games = Math.min(100, Math.max(1, Math.round(Number(simGames.value) || 50)));
+    const composition = buildCompositionPayload();
     const result = await emitSimulate({
       code: props.game.code,
-      composition: buildCompositionPayload(),
+      composition,
       games,
       playerCode: getPlayerCode(),
     });
     simResult.value = result;
+    lastSimulatedKey.value = simCompositionKey(composition);
     startSimCooldown(60);
   } catch (e) {
     simError.value = e.message || 'Simulation failed.';
