@@ -63,7 +63,92 @@ node src/index.js run [options]
 Prints a text summary table to stdout. Writes `results.json` to the output
 directory.
 
-### Output (`results.json`)
+### HTTP API (container / direct access)
+
+`heresy-sim` also runs as a long-lived HTTP service
+(`heresy-sim/src/server.js`, `npm run serve`) — this is what the Docker image
+actually runs (`heresy-sim/Dockerfile`'s `CMD`). It's a *second* entrypoint
+into the same `runner.js` / `agent.js` / `report.js` code the CLI uses above,
+not a replacement for it.
+
+heresy-server proxies two callers to this service in the normal deployed
+stack — a game host previewing their own lobby's roster (`game:simulate`
+socket event) and a site admin running larger batches
+(`POST /api/admin/simulate`) — see `.env.example`'s "Heresy Sim" section.
+Both hops are capped and cooldown-limited on heresy-server's side and present
+the shared `SIM_BYPASS_TOKEN` to this service.
+
+### Direct HTTP access
+
+The container also publishes its own port directly
+(`docker-compose*.yml`, `SIM_HOST_BIND` / `SIM_PORT` — defaults to
+`127.0.0.1:7879`, loopback-only), so a trusted local caller can skip
+heresy-server's host/admin caps and per-lobby cooldown entirely and hit
+`POST /simulate` straight on. This is the intended path for local tooling —
+scripts, bots, CI — that needs to run batches without those caps.
+**heresy-sim itself applies no per-caller rate limiting beyond
+`SIM_HARD_MAX_GAMES`** — only `SIM_BYPASS_TOKEN` auth and the hard game cap
+gate this endpoint, by design, for exactly this use case.
+
+Because there's no rate limiting on this path, **never widen `SIM_HOST_BIND`
+past loopback (`127.0.0.1`) on a host that has any port forwarded to the
+internet.** If your caller runs on the same machine as the Docker host, the
+default already works with zero config changes — loopback is still reachable
+from that machine's own shell/scripts, just not from other hosts on the LAN
+or the internet. Only widen it (e.g. to a specific LAN IP) if the caller runs
+elsewhere on your network.
+
+#### `GET /health`
+
+No auth required. Returns `{ "ok": true }`.
+
+#### `POST /simulate`
+
+Auth: `Authorization: Bearer <SIM_BYPASS_TOKEN>` — the same secret configured
+in `.env` for the heresy-server → heresy-sim hop. Missing/wrong token → 401.
+Token unset on the container → 503 (fails closed; never silently accepts
+unauthenticated requests).
+
+Request body:
+```json
+{
+  "composition": { "source": "preset", "presetId": "8p" },
+  "games": 500,
+  "seed": 42
+}
+```
+or a custom roster:
+```json
+{
+  "composition": { "source": "custom", "roster": ["murderer", "priest", "interrogator", "chirurgeon", "imperial-citizen"] },
+  "games": 200
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `composition.source` | yes | `"preset"` (player count derived from the numeric prefix of `presetId`, e.g. `"8p"` → 8) or `"custom"` (player count derived from `roster.length`). |
+| `games` | yes | Positive integer. Silently clamped server-side to `SIM_HARD_MAX_GAMES` (default 1000) regardless of what's requested — never rejected, just capped. |
+| `seed` | no | Finite number. Omit for a random seed; the same seed always reproduces the same batch (see "Determinism" below). |
+
+Responses:
+- `200` — same shape as `results.json` below (see "Output"), plus a
+  `perComposition` breakdown.
+- `400` — invalid composition, with `validateComposition`'s structured
+  `details` array (same validator heresy-server and heresy-client use).
+- `401` / `503` — auth failure (see above).
+- `500` — every game in the batch failed. Never a fake `200 OK, 0 games`
+  success (`runner.js`'s zero-games guard turns a fully-failed batch into a
+  thrown error before this handler ever sees a result).
+
+```bash
+curl -sX POST http://localhost:7879/simulate \
+  -H "Authorization: Bearer $SIM_BYPASS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"composition":{"source":"preset","presetId":"8p"},"games":200,"seed":42}'
+```
+
+## Output (`results.json`)
 
 ```json
 {
@@ -170,7 +255,7 @@ Heretics share a `factionState` Map for coordination (approximates faction chat)
 
 | Role | ID | Key behavior |
 |------|-----|-------------|
-| Murderer | `murderer` | Kills Loyalists avoiding recent repeats. Buses Heretics in votes. |
+| Murderer | `murderer` | Kills Loyalists avoiding recent repeats. Sleeps instead of attacking once the drift-gate would block the kill (drift + 15 > maxDrift), to recover via passive sleep drift and stay able to kill again later. Buses Heretics in votes. |
 | Heretic Priest | `heretic-priest` | Targets lowest-drift Loyalist. Escalates sermon tier with target zone. |
 | Conspirator | `conspirator` | Forges messages from Loyalists once/day. Frames Interrogator if known. |
 | Saboteur | `saboteur` | Traps the player most likely scanned by Interrogator. |
@@ -220,7 +305,16 @@ Same seed → same role distribution, same action outcomes → identical results
 ## Testing
 
 ```bash
-# No test suite yet — use the single command to smoke-check:
+npm test   # node --test — runner.js, server.js, and per-strategy heuristics
+```
+
+Covers `resolveGameSetup`/`runBatch`/`runBatchParallel` (including the
+zero-games-must-throw guard), the HTTP server's auth/validation/caps
+(`test/server.test.js`), and individual heuristic behavior like the
+Murderer's drift-gate awareness (`test/heretic-strategy.test.js`).
+
+For ad-hoc exploration beyond the test suite:
+```bash
 node src/index.js single --players 5 --seed 42 --verbose
 node src/index.js single --players 12 --seed 123 --strategy random
 

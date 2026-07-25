@@ -100,6 +100,8 @@ services:
       - SIM_BYPASS_TOKEN=${SIM_BYPASS_TOKEN:-change-me-sim}
       - SIM_HARD_MAX_GAMES=${SIM_HARD_MAX_GAMES:-1000}
       - SIM_MAX_WORKERS=${SIM_MAX_WORKERS:-2}
+    ports:
+      - "${SIM_HOST_BIND:-127.0.0.1}:${SIM_PORT:-7879}:${SIM_PORT:-7879}"
     restart: unless-stopped
     deploy:
       resources:
