@@ -29,6 +29,7 @@
         :busy="busy" :now="now" :spectator="spectator" :voting-enabled="game?.votingEnabled"
         @channel="changeChannel" @send="sendMessage" @send-as="sendMessageAs" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
+        @faction-action="submitFactionAction"
         @retract-action="retractAction" @respond="respondInterrogation" @ask-confession="askConfession"
         @open-manual="openManual" @leave="leaveGame" />
     </main>
@@ -122,6 +123,7 @@ async function loadHistory(before) { try { if (before == null) { let all = []; l
 async function submitVote(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
 async function retractVote() { try { await command('vote:retract', { code: game.value.code }); } catch {} }
 async function submitAction(payload) { try { const data=await command('action:submit', { code: game.value.code, ...(typeof payload==='string'?{targetCode:payload}:payload) }); if(data?.action) game.value={...game.value,myAction:data.action}; } catch {} }
+async function submitFactionAction(payload) { try { const data=await command('action:submit-faction', { code: game.value.code, ...payload }); if(data?.action) game.value={...game.value,myAction:data.action}; } catch {} }
 async function retractAction() { try { const data = await command('action:retract', { code: game.value.code }); if (data?.action === null) game.value = { ...game.value, myAction: null }; } catch {} }
 async function respondInterrogation(response) { try { await command('interrogation:respond', { code: game.value.code, response }); } catch {} }
 async function askConfession(targetCode) { try { await command('confession:ask', { code: game.value.code, targetCode }); } catch {} }

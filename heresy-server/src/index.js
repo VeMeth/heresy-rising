@@ -205,6 +205,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
     'chat:send-as': { points: 12, duration: 10_000 },
     'vote:submit': { points: 20, duration: 10_000 },
     'action:submit': { points: 20, duration: 10_000 },
+    'action:submit-faction': { points: 20, duration: 10_000 },
     'game:kick': { points: 6, duration: 60_000 }
   });
   const io=new Server(server,{cors:{origin:allowed==='*'?'*':allowed,methods:['GET','POST'],credentials:false},allowRequest(req,cb){cb(null,isRequestOriginAllowed(req,allowed));},maxHttpBufferSize:32768,transports:['websocket'],pingTimeout:10000,pingInterval:20000});

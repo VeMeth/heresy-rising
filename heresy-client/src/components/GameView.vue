@@ -170,7 +170,8 @@
             </template>
             <p v-else-if="pending" class="notice">Waiting for the accused to answer.</p>
           </div>
-          <div v-else-if="game.phase !== 'day'" class="order-block night-directive" :class="{ disabled: !me?.alive }">
+          <template v-else-if="game.phase !== 'day'">
+          <div class="order-block night-directive" :class="{ disabled: !me?.alive }">
             <span class="eyebrow">Night directive</span>
             <h2 class="directive-title">{{ actionLabel }}</h2>
             <template v-if="me?.alive">
@@ -180,18 +181,31 @@
                   <select v-model="variant"><option v-for="v in variants" :key="v" :value="v">{{ intensityLabel(v) }}</option></select>
                 </label>
                 <div class="targets">
-                  <button v-for="p in actionTargets" :key="p.playerCode" :class="{selected:game.myAction?.targetCode===p.playerCode}" @click="act(p.playerCode)">
+                  <button v-for="p in actionTargets" :key="p.playerCode" :class="{selected:game.myAction?.kind===nightAction?.kind&&game.myAction?.targetCode===p.playerCode}" @click="act(p.playerCode)">
                     <span class="target-avatar">{{ initial(p.name) }}</span>
                     <span class="target-name">{{ p.name }}</span>
                   </button>
                 </div>
-                <div v-if="game.myAction" class="selected-summary">Directive locked on <strong>{{ targetName(game.myAction.targetCode) }}</strong></div>
-                <button class="ghost wide" @click="$emit('retract-action')">Retract directive</button>
+                <div v-if="game.myAction?.kind===nightAction?.kind" class="selected-summary">Directive locked on <strong>{{ targetName(game.myAction.targetCode) }}</strong></div>
+                <button v-if="game.myAction?.kind===nightAction?.kind" class="ghost wide" @click="$emit('retract-action')">Retract directive</button>
               </template>
-              <p v-else class="notice">No directive tonight. Skipping the night counts as sleep.</p>
+              <p v-else-if="me?.faction!=='heretic'" class="notice">No directive tonight. Skipping the night counts as sleep.</p>
             </template>
             <p v-else class="notice deceased-notice">You are deceased. You have no night directives.</p>
           </div>
+          <div v-if="me?.alive && me?.faction==='heretic'" class="order-block cabal-directive">
+            <span class="eyebrow">Cabal Directive · Blood Ritual</span>
+            <p class="dossier-text cabal-hint">Faction-wide — only one Heretic's claim lands each night. This shares your night action slot: submitting it replaces any personal directive above, and vice versa.</p>
+            <div class="targets">
+              <button v-for="p in bloodRitualTargets" :key="p.playerCode" :class="{selected:game.myAction?.kind==='blood-ritual'&&game.myAction?.targetCode===p.playerCode}" @click="bloodRitual(p.playerCode)">
+                <span class="target-avatar">{{ initial(p.name) }}</span>
+                <span class="target-name">{{ p.name }}</span>
+              </button>
+            </div>
+            <div v-if="game.myAction?.kind==='blood-ritual'" class="selected-summary">Blood Ritual locked on <strong>{{ targetName(game.myAction.targetCode) }}</strong></div>
+            <button v-if="game.myAction?.kind==='blood-ritual'" class="ghost wide" @click="$emit('retract-action')">Retract directive</button>
+          </div>
+          </template>
         </template>
       </aside>
     </div>
@@ -200,7 +214,7 @@
 <script setup>
 import { computed,nextTick,ref,watch } from 'vue';
 // TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
-const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','action','retract-action','respond','ask-confession','open-manual','leave']);
+const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
 const showEarlierDays = ref(false);
@@ -225,6 +239,10 @@ watch(()=>props.messages,()=>nextTick(()=>{
 }),{deep:false});
 watch(()=>props.channel,()=>{dayExpanded.value={};});
 const actionTargets=computed(()=>alive.value.filter(p=>{if(nightAction.value?.target==='any')return true;if(p.playerCode===props.me?.playerCode){return nightAction.value?.kind==='protect';}if(nightAction.value?.target==='hostile')return p.faction!=='heretic';return true}));
+// Blood Ritual is faction-wide, independent of the viewer's own role — any
+// living, non-Heretic target is legal (self is excluded automatically since
+// a Heretic viewer's own faction always reads 'heretic').
+const bloodRitualTargets=computed(()=>alive.value.filter(p=>p.faction!=='heretic'));
 const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(!props.spectator&&props.me?.faction==='heretic'?[{id:'faction',label:'Cabal',note:'heretics'}]:[]),...(!props.spectator&&!props.me?.alive?[{id:'graveyard',label:'Graveyard',note:'dead'}]:[])]),canChat=computed(()=>props.game.phase!=='ended'&&(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard')&&!props.me?.possessed);
 // H6 Animus: only the Animus's own client ever sees `possessed:true` on
 // another player's row before the reveal (server-gated, see state()'s
@@ -238,7 +256,7 @@ const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.
 const driftPct=computed(()=>{const max=props.game.maxDrift||20;const d=props.me?.drift||0;return Math.min(100,Math.round((d/max)*100));});
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
 function castVote(choice){emit('vote',{choice,justification:voteJustification.value})}
-function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value=''}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value=''}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 function targetName(code){return players.value.find(p=>p.playerCode===code)?.name||'unknown';}
 // ── Generated sigil assets (heresy-sigils.svg, inlined in index.html) ─────
 const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen'};
@@ -778,6 +796,41 @@ button.ghost.wide.stand-down-leading {
 .order-block .eyebrow {
   color: var(--gold);
   letter-spacing: 0.2em;
+}
+
+/* Cabal Directive — Blood Ritual is faction-wide, not a personal role
+   ability, so it gets the heretic red tint (matching .role-card.heretic)
+   instead of the gold used for every personal night directive. */
+.cabal-directive {
+  border-color: #6b3030;
+  box-shadow:
+    0 0 0 1px rgba(193, 69, 69, 0.25),
+    0 0 18px rgba(255, 90, 90, 0.14),
+    inset 0 0 24px rgba(193, 69, 69, 0.08);
+  animation: cabalGlow 2.6s ease-in-out infinite alternate;
+}
+.cabal-directive .eyebrow {
+  color: #d77272;
+}
+.cabal-hint {
+  font: 400 11px/1.5 Georgia, serif;
+  color: var(--muted);
+  font-style: italic;
+  margin: 4px 0 14px;
+}
+@keyframes cabalGlow {
+  from {
+    box-shadow:
+      0 0 0 1px rgba(193, 69, 69, 0.2),
+      0 0 14px rgba(255, 90, 90, 0.1),
+      inset 0 0 20px rgba(193, 69, 69, 0.06);
+  }
+  to {
+    box-shadow:
+      0 0 0 1px rgba(193, 69, 69, 0.4),
+      0 0 26px rgba(255, 90, 90, 0.24),
+      inset 0 0 32px rgba(193, 69, 69, 0.12);
+  }
 }
 
 /* Final judgement — give the reveal list nicer pills instead of plain text rows */
