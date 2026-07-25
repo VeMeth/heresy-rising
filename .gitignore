@@ -23,6 +23,7 @@ heresy-server/data/
 *.db-shm
 *.db-wal
 backups/
+heresy-sim/sim-results/
 test-results/
 playwright-report/
 trace.zip
