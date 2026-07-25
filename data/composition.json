@@ -1,11 +1,11 @@
 {
   "$schema": "../projects/heresy-rising/mechanics/composition.schema.md",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "status": "proposed",
-  "lastUpdated": "2026-07-18T03:24:00+02:00",
+  "lastUpdated": "2026-07-25T01:50:00+02:00",
   "owner": "Heretic",
   "origin": "Composition table derived 2026-07-06 from ROSTER.md locked kit (11 roles) + parity rule (Heretics ≤ Loyalists at start). Updated 2026-07-18 to include L7 Sanctioned Psyker at ≥7p.",
-  "notes": "TODO(heresy-spec): Composition drafted in 2026-07-06 session, not playtested. Updated 2026-07-18 to add Sanctioned Psyker at 7p+ (optional, max 1 per game).",
+  "notes": "TODO(heresy-spec): Composition drafted in 2026-07-06 session, not playtested. Updated 2026-07-18 to add Sanctioned Psyker at 7p+ (optional, max 1 per game). 2026-07-25 — 9p drops Saboteur (was 3H/6L), 10p drops Saboteur and replaces Recruiter-to-Citizen swap... actually 10p drops Recruiter (was 4H/6L, now 3H/6L+1Cit). Re-balance after sims showed 9p/10p Murderer pattern converged on parity win regardless of heuristic targeting.",
 
   "hardRules": {
     "non_citizen_roles_unique": "All roles except imperial-citizen are unique per game (no duplicate Interrogators, etc.).",
@@ -30,8 +30,8 @@
     "6":  ["murderer", "heretic-priest", "priest", "interrogator", "chirurgeon", "novice-psychic"],
     "7":  ["murderer", "heretic-priest", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic"],
     "8":  ["murderer", "heretic-priest", "saboteur", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "arbitrator"],
-    "9":  ["murderer", "heretic-priest", "saboteur", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator"],
-    "10": ["murderer", "heretic-priest", "saboteur", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator"],
+    "9":  ["murderer", "heretic-priest", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen"],
+    "10": ["murderer", "heretic-priest", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen"],
     "11": ["murderer", "heretic-priest", "conspirator", "saboteur", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator"],
     "12": ["murderer", "heretic-priest", "conspirator", "saboteur", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen"]
   },
@@ -41,8 +41,8 @@
     "6":  { "heretic": 2, "loyalist": 4, "citizen": 0, "non_citizen_unique": 6 },
     "7":  { "heretic": 2, "loyalist": 5, "citizen": 0, "non_citizen_unique": 7 },
     "8":  { "heretic": 3, "loyalist": 5, "citizen": 0, "non_citizen_unique": 8 },
-    "9":  { "heretic": 3, "loyalist": 6, "citizen": 0, "non_citizen_unique": 9 },
-    "10": { "heretic": 4, "loyalist": 6, "citizen": 0, "non_citizen_unique": 10 },
+    "9":  { "heretic": 2, "loyalist": 6, "citizen": 1, "non_citizen_unique": 8 },
+    "10": { "heretic": 3, "loyalist": 6, "citizen": 1, "non_citizen_unique": 9 },
     "11": { "heretic": 5, "loyalist": 6, "citizen": 0, "non_citizen_unique": 11 },
     "12": { "heretic": 5, "loyalist": 6, "citizen": 1, "non_citizen_unique": 11 }
   }

@@ -1,0 +1,3726 @@
+{
+  "meta": {
+    "simVersion": "1.0.0",
+    "timestamp": "2026-07-25T00:11:54.259Z",
+    "seed": 1,
+    "playerCount": 8,
+    "gameCount": 50,
+    "strategyMix": {
+      "heuristic": 100
+    },
+    "elapsed": 1929
+  },
+  "summary": {
+    "loyalistWins": 0,
+    "hereticWins": 37,
+    "draws": 13,
+    "loyalistWinRate": 0,
+    "hereticWinRate": 0.74,
+    "drawRate": 0.26,
+    "avgRounds": 8.5,
+    "medianRounds": 2,
+    "totalGames": 50
+  },
+  "perRole": {
+    "interrogator": {
+      "games": 50,
+      "survivedToEnd": 30,
+      "avgDriftAtEnd": 10.4,
+      "lynchedRate": 0.04
+    },
+    "saboteur": {
+      "games": 50,
+      "survivedToEnd": 48,
+      "avgDriftAtEnd": 10,
+      "lynchedRate": 0
+    },
+    "priest": {
+      "games": 50,
+      "survivedToEnd": 25,
+      "avgDriftAtEnd": 11.4,
+      "lynchedRate": 0
+    },
+    "heretic-priest": {
+      "games": 50,
+      "survivedToEnd": 40,
+      "avgDriftAtEnd": 13,
+      "lynchedRate": 0
+    },
+    "arbitrator": {
+      "games": 50,
+      "survivedToEnd": 28,
+      "avgDriftAtEnd": 10.4,
+      "lynchedRate": 0.02
+    },
+    "murderer": {
+      "games": 50,
+      "survivedToEnd": 38,
+      "avgDriftAtEnd": 14.7,
+      "lynchedRate": 0
+    },
+    "sanctioned-psyker": {
+      "games": 50,
+      "survivedToEnd": 35,
+      "avgDriftAtEnd": 1.4,
+      "lynchedRate": 0.04
+    },
+    "chirurgeon": {
+      "games": 50,
+      "survivedToEnd": 29,
+      "avgDriftAtEnd": 8.3,
+      "lynchedRate": 0
+    }
+  },
+  "games": [
+    {
+      "seed": 1,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "interrogator",
+        "saboteur",
+        "priest",
+        "heretic-priest",
+        "arbitrator",
+        "murderer",
+        "sanctioned-psyker",
+        "chirurgeon"
+      ],
+      "players": [
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 2,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 2,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "priest",
+        "arbitrator",
+        "murderer",
+        "saboteur",
+        "interrogator",
+        "chirurgeon",
+        "sanctioned-psyker",
+        "heretic-priest"
+      ],
+      "players": [
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 3,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "priest",
+        "heretic-priest",
+        "chirurgeon",
+        "arbitrator",
+        "sanctioned-psyker",
+        "murderer",
+        "saboteur",
+        "interrogator"
+      ],
+      "players": [
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 4,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "arbitrator",
+        "interrogator",
+        "heretic-priest",
+        "chirurgeon",
+        "priest",
+        "sanctioned-psyker",
+        "saboteur",
+        "murderer"
+      ],
+      "players": [
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 5,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 5,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "chirurgeon",
+        "saboteur",
+        "arbitrator",
+        "interrogator",
+        "priest",
+        "murderer",
+        "heretic-priest",
+        "sanctioned-psyker"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 8,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 8,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 6,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "heretic-priest",
+        "chirurgeon",
+        "interrogator",
+        "saboteur",
+        "priest",
+        "sanctioned-psyker",
+        "murderer",
+        "arbitrator"
+      ],
+      "players": [
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 8,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 7,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "arbitrator",
+        "interrogator",
+        "heretic-priest",
+        "sanctioned-psyker",
+        "priest",
+        "chirurgeon",
+        "murderer",
+        "saboteur"
+      ],
+      "players": [
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 5,
+          "lynched": true
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 8,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "interrogator",
+        "saboteur",
+        "priest",
+        "heretic-priest",
+        "murderer",
+        "sanctioned-psyker",
+        "arbitrator",
+        "chirurgeon"
+      ],
+      "players": [
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 2,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 9,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "arbitrator",
+        "priest",
+        "saboteur",
+        "sanctioned-psyker",
+        "interrogator",
+        "murderer",
+        "chirurgeon",
+        "heretic-priest"
+      ],
+      "players": [
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 10,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "saboteur",
+        "priest",
+        "chirurgeon",
+        "heretic-priest",
+        "murderer",
+        "sanctioned-psyker",
+        "arbitrator",
+        "interrogator"
+      ],
+      "players": [
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 3,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 2,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 11,
+      "winner": "heretic",
+      "rounds": 3,
+      "composition": [
+        "priest",
+        "saboteur",
+        "chirurgeon",
+        "sanctioned-psyker",
+        "heretic-priest",
+        "arbitrator",
+        "interrogator",
+        "murderer"
+      ],
+      "players": [
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 10,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 15,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 12,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "chirurgeon",
+        "interrogator",
+        "saboteur",
+        "murderer",
+        "heretic-priest",
+        "sanctioned-psyker",
+        "arbitrator",
+        "priest"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 5,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 13,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "chirurgeon",
+        "interrogator",
+        "priest",
+        "saboteur",
+        "heretic-priest",
+        "murderer",
+        "sanctioned-psyker",
+        "arbitrator"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 5,
+          "lynched": true
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 18,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 19,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 14,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "priest",
+        "saboteur",
+        "interrogator",
+        "murderer",
+        "heretic-priest",
+        "chirurgeon",
+        "arbitrator",
+        "sanctioned-psyker"
+      ],
+      "players": [
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 5,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 15,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "heretic-priest",
+        "sanctioned-psyker",
+        "interrogator",
+        "priest",
+        "arbitrator",
+        "murderer",
+        "saboteur",
+        "chirurgeon"
+      ],
+      "players": [
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 3,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 16,
+      "winner": "heretic",
+      "rounds": 3,
+      "composition": [
+        "arbitrator",
+        "interrogator",
+        "priest",
+        "murderer",
+        "chirurgeon",
+        "sanctioned-psyker",
+        "saboteur",
+        "heretic-priest"
+      ],
+      "players": [
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 10,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 2,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 17,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "sanctioned-psyker",
+        "arbitrator",
+        "chirurgeon",
+        "priest",
+        "saboteur",
+        "murderer",
+        "heretic-priest",
+        "interrogator"
+      ],
+      "players": [
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 10,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 17,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 18,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "heretic-priest",
+        "saboteur",
+        "chirurgeon",
+        "priest",
+        "interrogator",
+        "sanctioned-psyker",
+        "arbitrator",
+        "murderer"
+      ],
+      "players": [
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 19,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "arbitrator",
+        "chirurgeon",
+        "saboteur",
+        "interrogator",
+        "sanctioned-psyker",
+        "heretic-priest",
+        "murderer",
+        "priest"
+      ],
+      "players": [
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 20,
+      "winner": "heretic",
+      "rounds": 8,
+      "composition": [
+        "saboteur",
+        "murderer",
+        "heretic-priest",
+        "interrogator",
+        "sanctioned-psyker",
+        "priest",
+        "chirurgeon",
+        "arbitrator"
+      ],
+      "players": [
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 8,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 21,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "priest",
+        "saboteur",
+        "murderer",
+        "interrogator",
+        "arbitrator",
+        "heretic-priest",
+        "chirurgeon",
+        "sanctioned-psyker"
+      ],
+      "players": [
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 22,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "heretic-priest",
+        "murderer",
+        "saboteur",
+        "sanctioned-psyker",
+        "arbitrator",
+        "priest",
+        "interrogator",
+        "chirurgeon"
+      ],
+      "players": [
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 3,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 10,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 10,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 23,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "arbitrator",
+        "sanctioned-psyker",
+        "interrogator",
+        "murderer",
+        "chirurgeon",
+        "heretic-priest",
+        "priest",
+        "saboteur"
+      ],
+      "players": [
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 19,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 24,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "heretic-priest",
+        "sanctioned-psyker",
+        "murderer",
+        "saboteur",
+        "arbitrator",
+        "chirurgeon",
+        "priest",
+        "interrogator"
+      ],
+      "players": [
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 3,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 25,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "interrogator",
+        "chirurgeon",
+        "saboteur",
+        "priest",
+        "arbitrator",
+        "heretic-priest",
+        "sanctioned-psyker",
+        "murderer"
+      ],
+      "players": [
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 2,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 26,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "chirurgeon",
+        "interrogator",
+        "heretic-priest",
+        "saboteur",
+        "murderer",
+        "arbitrator",
+        "sanctioned-psyker",
+        "priest"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 17,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 2,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 27,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "chirurgeon",
+        "interrogator",
+        "sanctioned-psyker",
+        "priest",
+        "murderer",
+        "heretic-priest",
+        "saboteur",
+        "arbitrator"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 5,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 28,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "interrogator",
+        "heretic-priest",
+        "arbitrator",
+        "chirurgeon",
+        "murderer",
+        "priest",
+        "saboteur",
+        "sanctioned-psyker"
+      ],
+      "players": [
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 2,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 29,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "murderer",
+        "saboteur",
+        "priest",
+        "sanctioned-psyker",
+        "interrogator",
+        "arbitrator",
+        "heretic-priest",
+        "chirurgeon"
+      ],
+      "players": [
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 18,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 30,
+      "winner": "heretic",
+      "rounds": 4,
+      "composition": [
+        "arbitrator",
+        "sanctioned-psyker",
+        "chirurgeon",
+        "interrogator",
+        "heretic-priest",
+        "priest",
+        "murderer",
+        "saboteur"
+      ],
+      "players": [
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 10,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 13,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 31,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "chirurgeon",
+        "priest",
+        "saboteur",
+        "sanctioned-psyker",
+        "arbitrator",
+        "heretic-priest",
+        "murderer",
+        "interrogator"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 32,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "murderer",
+        "interrogator",
+        "sanctioned-psyker",
+        "arbitrator",
+        "saboteur",
+        "priest",
+        "chirurgeon",
+        "heretic-priest"
+      ],
+      "players": [
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 33,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "murderer",
+        "arbitrator",
+        "interrogator",
+        "sanctioned-psyker",
+        "saboteur",
+        "heretic-priest",
+        "chirurgeon",
+        "priest"
+      ],
+      "players": [
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 34,
+      "winner": "heretic",
+      "rounds": 4,
+      "composition": [
+        "chirurgeon",
+        "heretic-priest",
+        "sanctioned-psyker",
+        "murderer",
+        "saboteur",
+        "priest",
+        "interrogator",
+        "arbitrator"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 19,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 11,
+          "lynched": true
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 15,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 35,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "murderer",
+        "interrogator",
+        "arbitrator",
+        "chirurgeon",
+        "saboteur",
+        "heretic-priest",
+        "priest",
+        "sanctioned-psyker"
+      ],
+      "players": [
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 36,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "interrogator",
+        "saboteur",
+        "heretic-priest",
+        "murderer",
+        "sanctioned-psyker",
+        "arbitrator",
+        "priest",
+        "chirurgeon"
+      ],
+      "players": [
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 2,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 3,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 8,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 37,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "priest",
+        "interrogator",
+        "murderer",
+        "arbitrator",
+        "chirurgeon",
+        "heretic-priest",
+        "sanctioned-psyker",
+        "saboteur"
+      ],
+      "players": [
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 8,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 38,
+      "winner": "heretic",
+      "rounds": 3,
+      "composition": [
+        "priest",
+        "heretic-priest",
+        "saboteur",
+        "murderer",
+        "chirurgeon",
+        "arbitrator",
+        "sanctioned-psyker",
+        "interrogator"
+      ],
+      "players": [
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 15,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 18,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 39,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "murderer",
+        "interrogator",
+        "sanctioned-psyker",
+        "arbitrator",
+        "priest",
+        "chirurgeon",
+        "saboteur",
+        "heretic-priest"
+      ],
+      "players": [
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 40,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "chirurgeon",
+        "heretic-priest",
+        "murderer",
+        "sanctioned-psyker",
+        "arbitrator",
+        "interrogator",
+        "saboteur",
+        "priest"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 3,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 41,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "arbitrator",
+        "sanctioned-psyker",
+        "interrogator",
+        "chirurgeon",
+        "priest",
+        "saboteur",
+        "heretic-priest",
+        "murderer"
+      ],
+      "players": [
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 10,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "chirurgeon",
+        "saboteur",
+        "heretic-priest",
+        "arbitrator",
+        "priest",
+        "interrogator",
+        "murderer",
+        "sanctioned-psyker"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 8,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 43,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "interrogator",
+        "sanctioned-psyker",
+        "priest",
+        "heretic-priest",
+        "chirurgeon",
+        "saboteur",
+        "murderer",
+        "arbitrator"
+      ],
+      "players": [
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 2,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 44,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "priest",
+        "heretic-priest",
+        "arbitrator",
+        "sanctioned-psyker",
+        "murderer",
+        "interrogator",
+        "chirurgeon",
+        "saboteur"
+      ],
+      "players": [
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 16,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 6,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 45,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "sanctioned-psyker",
+        "arbitrator",
+        "heretic-priest",
+        "priest",
+        "murderer",
+        "saboteur",
+        "chirurgeon",
+        "interrogator"
+      ],
+      "players": [
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 8,
+          "lynched": true
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 19,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 46,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "sanctioned-psyker",
+        "priest",
+        "murderer",
+        "saboteur",
+        "arbitrator",
+        "chirurgeon",
+        "interrogator",
+        "heretic-priest"
+      ],
+      "players": [
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 8,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 47,
+      "winner": "heretic",
+      "rounds": 2,
+      "composition": [
+        "sanctioned-psyker",
+        "chirurgeon",
+        "interrogator",
+        "murderer",
+        "heretic-priest",
+        "saboteur",
+        "arbitrator",
+        "priest"
+      ],
+      "players": [
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 0,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 14,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 17,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 7,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 15,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 48,
+      "winner": "draw",
+      "rounds": 26,
+      "composition": [
+        "arbitrator",
+        "sanctioned-psyker",
+        "chirurgeon",
+        "saboteur",
+        "heretic-priest",
+        "interrogator",
+        "priest",
+        "murderer"
+      ],
+      "players": [
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 0,
+          "lynched": true
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 19,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 11,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 49,
+      "winner": "heretic",
+      "rounds": 3,
+      "composition": [
+        "priest",
+        "interrogator",
+        "chirurgeon",
+        "murderer",
+        "heretic-priest",
+        "saboteur",
+        "arbitrator",
+        "sanctioned-psyker"
+      ],
+      "players": [
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 4,
+          "lynched": false
+        },
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": false,
+          "drift": 12,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 13,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 2,
+          "lynched": false
+        }
+      ]
+    },
+    {
+      "seed": 50,
+      "winner": "heretic",
+      "rounds": 3,
+      "composition": [
+        "chirurgeon",
+        "murderer",
+        "priest",
+        "heretic-priest",
+        "saboteur",
+        "interrogator",
+        "sanctioned-psyker",
+        "arbitrator"
+      ],
+      "players": [
+        {
+          "role": "chirurgeon",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "murderer",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "priest",
+          "faction": "loyalist",
+          "alive": false,
+          "drift": 20,
+          "lynched": false
+        },
+        {
+          "role": "heretic-priest",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 15,
+          "lynched": false
+        },
+        {
+          "role": "saboteur",
+          "faction": "heretic",
+          "alive": true,
+          "drift": 11,
+          "lynched": false
+        },
+        {
+          "role": "interrogator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 9,
+          "lynched": false
+        },
+        {
+          "role": "sanctioned-psyker",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 1,
+          "lynched": false
+        },
+        {
+          "role": "arbitrator",
+          "faction": "loyalist",
+          "alive": true,
+          "drift": 14,
+          "lynched": false
+        }
+      ]
+    }
+  ]
+}

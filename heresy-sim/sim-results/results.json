@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "simVersion": "1.0.0",
+    "timestamp": "2026-07-25T00:39:26.277Z",
+    "seed": 1784939966176,
+    "playerCount": 8,
+    "gameCount": 0,
+    "strategyMix": {
+      "heuristic": 100
+    },
+    "workers": 16,
+    "elapsed": 100
+  },
+  "summary": {
+    "loyalistWins": 0,
+    "hereticWins": 0,
+    "draws": 0,
+    "loyalistWinRate": 0,
+    "avgRounds": 0,
+    "medianRounds": 0
+  },
+  "perRole": {},
+  "games": []
+}

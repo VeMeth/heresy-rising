@@ -1,13 +1,14 @@
 <template>
   <section class="landing">
     <div class="hero-copy">
-      <span class="eyebrow">THE ENEMY IS AMONG US</span>
+      <span class="eyebrow">THE ENEMY IS AMONG YOU</span>
       <h1>
         <span v-for="(line, index) in quoteLines" :key="`${line}-${index}`">
           <em v-if="index === quoteLines.length - 1">{{ line }}</em>
           <template v-else>{{ line }}</template><br v-if="index < quoteLines.length - 1">
         </span>
       </h1>
+      <p class="tagline">Will you find the heretics before night falls—or ensure the faithful never see another dawn?</p>
       <p>A persistent, chat-driven game of hidden allegiance. Find the heretics before night falls—or ensure the faithful never see another dawn.</p>
       <div class="feature-row"><span>5–12 players</span><span>Live or asynchronous</span><span>Persistent campaigns</span></div>
     </div>

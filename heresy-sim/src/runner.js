@@ -335,7 +335,19 @@ export async function runBatchParallel(options = {}) {
   process.stderr.write('\n');
 
   const elapsed = Date.now() - startTime;
-  const valid = results.filter(Boolean);
+
+  // Count and log errors before filtering
+  const filled = results.filter(Boolean);
+  const errors = filled.filter(r => r.winner === 'error');
+  const valid = filled.filter(r => r.winner !== 'error' && Array.isArray(r.players));
+
+  if (errors.length > 0) {
+    process.stderr.write(`\n${errors.length} game(s) failed and will be excluded.\n`);
+    process.stderr.write(`  First error: ${errors[0].error}\n`);
+  }
+  if (valid.length === 0 && errors.length > 0) {
+    process.stderr.write(`⚠ WARNING: All ${errors.length} games failed — results are empty.\n`);
+  }
 
   return {
     meta: {
