@@ -34,8 +34,13 @@ const PRESETS = {
   6:  ['murderer','heretic-priest','priest','interrogator','chirurgeon','novice-psychic'],
   7:  ['murderer','heretic-priest','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic'],
   8:  ['murderer','heretic-priest','saboteur','sanctioned-psyker','priest','interrogator','chirurgeon','arbitrator'],
-  9:  ['murderer','heretic-priest','saboteur','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator'],
-  10: ['murderer','heretic-priest','saboteur','recruiter','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator'],
+  // 9p/10p rebalanced (data/composition.json, 2026-07-25): sim results showed
+  // the prior Murderer pattern converging on parity regardless of heuristic
+  // targeting. 9p drops Saboteur for a Citizen; 10p drops Saboteur (keeps
+  // Recruiter) and also adds a Citizen. See composition.json's own changelog
+  // note for the full rationale.
+  9:  ['murderer','heretic-priest','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator','imperial-citizen'],
+  10: ['murderer','heretic-priest','recruiter','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator','imperial-citizen'],
   11: ['murderer','heretic-priest','conspirator','saboteur','recruiter','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator'],
   12: ['murderer','heretic-priest','conspirator','saboteur','recruiter','sanctioned-psyker','priest','interrogator','chirurgeon','novice-psychic','arbitrator','imperial-citizen']
 };
