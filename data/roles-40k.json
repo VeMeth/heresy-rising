@@ -201,13 +201,15 @@
       "id": "murderer",
       "displayName": "Murderer",
       "faction": "heretic",
-      "driftWeight": 2,
-      "tier": "T2",
+      "driftWeight": 15,
+      "tier": "T3",
+      "driftGated": true,
+      "cueTable": "murderer-cue-zones",
       "actions": {
         "night": {
           "kind": "kill",
           "target": "other",
-          "driftCost": 2
+          "driftCost": 15
         },
         "day": null
       },
@@ -217,7 +219,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Each night, kill one player. Traditional hidden-killer role. Full Heretic chat access. Sees other Heretics' plans.",
+      "ability": "Each night, kill one player for +15 self-drift, gated against MAX_DRIFT (20) — if the kill would push you over, it fails silently instead and you get a private warning. Traditional hidden-killer role. Full Heretic chat access. Sees other Heretics' plans.",
       "objective": "Heretic win: achieve parity (Heretic living count ≥ Loyalist living count)."
     },
     {

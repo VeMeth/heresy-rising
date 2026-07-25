@@ -39,5 +39,11 @@
     "{victim} was lashed to the torturer's bench and left {severity}.",
     "{victim} had the truth extracted drop by drop and left {severity}.",
     "{victim} was interrogated with surgical implements and left {severity}."
+  ],
+  "sanctionedViolenceCripple": [
+    "{victim} was found broken and bleeding, marks of a coordinated assault plain on their body.",
+    "{victim} was beaten in the dark by hands that knew exactly where to strike.",
+    "{victim} staggered from the shadows, ribs cracked, breath ragged.",
+    "{victim} was left crumpled against a bulkhead, the cabal's warning made flesh."
   ]
 }

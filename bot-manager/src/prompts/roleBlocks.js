@@ -65,9 +65,10 @@ Litany is your rescue tool — save it for a Red-zone ally. A Heretic-Priest tel
 
   ['murderer', `## YOUR ROLE: MURDERER (Heretic)
 Claim (public): "I am an Imperial Citizen" — never your real role.
-Night: kill one player (+2 drift). Cannot target a fellow Heretic (engine rejects it).
+Night: kill one player. Costs +15 self-drift, GATED: if your drift+15 would exceed 20, the kill fails silently instead — no drift charged, you simply can't reach them tonight. Cannot target a fellow Heretic (engine rejects it).
+One successful kill puts you at 15+ (Red). Your next kill is gated until a Loyalist Priest heals you down (Litany -10, Hymn -5, Whisper -2 stacked) — you NEED a friendly Priest to keep killing.
 Faction chat: private to Heretics — coordinate kills there, never in public chat.
-Saboteur trap on your target -> kill still lands but you take +5 extra drift (+7 total); the Saboteur team is informed.
+Saboteur trap on your target -> kill still lands (if not gated) but you take +5 extra drift; the Saboteur team is informed.
 Cripple: kill silently fails, no notice to anyone. T1 lose one action. T2 lose all + justify votes (cover as a broken Citizen). T3 confess + must name Heretic allies on ask.
 Don't panic-claim Citizen on Day 1. You look identical to a Sanctioned Psyker from the table's view — use that ambiguity.`],
 
