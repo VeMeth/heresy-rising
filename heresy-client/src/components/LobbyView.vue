@@ -79,7 +79,7 @@
       <header>
         <h2>Conclave composition</h2>
         <span v-if="isHost" :class="compositionValid ? 'ok' : 'warn'">
-          {{ compositionValid ? 'Valid' : `${[...serverErrors, ...localErrors].length} issue(s)` }}
+          {{ compositionValid ? 'Valid' : headcountMismatch ? 'Awaiting operatives' : `${[...serverErrors, ...localErrors].length} issue(s)` }}
         </span>
       </header>
 
@@ -94,7 +94,7 @@
           Presets are designer-balanced doctrines. The exact role spread is sealed — only the operative count and flavour are visible here. The chamber will reject any preset whose size differs from the present operative count.
         </p>
         <p v-else class="picker-hint">
-          Build a roster of exactly <strong>{{ playerCount }}</strong> roles. Non-citizen roles may appear only once; Imperial Citizens fill the remainder. Roles are shuffled randomly across seats at launch. Soft warnings flag imbalance and must be acknowledged before the chamber can be sealed.
+          Build a roster of exactly <strong>{{ targetPlayerCount }}</strong> roles. Non-citizen roles may appear only once; Imperial Citizens fill the remainder. Roles are shuffled randomly across seats at launch. Soft warnings flag imbalance and must be acknowledged before the chamber can be sealed.
         </p>
 
         <!-- PRESET MODE -->
@@ -117,8 +117,23 @@
 
         <!-- CUSTOM MODE -->
         <div v-else class="custom-picker">
+          <div class="target-size-picker">
+            <label>Design for
+              <span class="stepper">
+                <button type="button" class="ghost small" @click="setTargetPlayerCount(targetPlayerCount-1)" :disabled="targetPlayerCount<=5">−</button>
+                <strong>{{ targetPlayerCount }}</strong>
+                <button type="button" class="ghost small" @click="setTargetPlayerCount(targetPlayerCount+1)" :disabled="targetPlayerCount>=12">+</button>
+              </span>
+              operatives
+            </label>
+            <p v-if="targetPlayerCount!==playerCount" class="target-mismatch-note">
+              {{ playerCount }} joined so far.
+              <template v-if="targetPlayerCount>playerCount">Drafting ahead — the chamber needs {{ targetPlayerCount }} operatives seated before it can seal with this roster.</template>
+              <template v-else>Add roles or raise the target to match everyone present.</template>
+            </p>
+          </div>
           <div class="composition-summary">
-            <div class="summary-stat"><span>Roster</span><strong :class="rosterLengthClass">{{ customRoster.length }} / {{ playerCount }}</strong></div>
+            <div class="summary-stat"><span>Roster</span><strong :class="rosterLengthClass">{{ customRoster.length }} / {{ targetPlayerCount }}</strong></div>
             <div class="summary-stat"><span>Loyalists</span><strong class="loy">{{ factionCounts.loyalist }}</strong></div>
             <div class="summary-stat"><span>Heretics</span>
               <strong :class="{her: true, bad: factionCounts.heretic > factionCounts.loyalist}">{{ factionCounts.heretic }}</strong>
@@ -165,7 +180,7 @@
           </div>
 
           <div class="roster-preview">
-            <h4>Current roster ({{ customRoster.length }}/{{ playerCount }})</h4>
+            <h4>Current roster ({{ customRoster.length }}/{{ targetPlayerCount }})</h4>
             <ul v-if="customRoster.length" class="roster-chips">
               <li v-for="(id, i) in customRoster" :key="id + '-' + i" class="roster-chip"
                   :class="roleFaction(id)" @click="removeRoleAt(i)" :title="'Remove ' + roleDisplay(id)">
@@ -208,7 +223,7 @@
             <label class="sim-games-field">Games
               <input type="number" v-model.number="simGames" min="1" max="100" :disabled="simBusy">
             </label>
-            <button class="secondary" :disabled="simBusy || simOnCooldown || !compositionValid" @click="runSimulation">
+            <button class="secondary" :disabled="simBusy || simOnCooldown || !rosterShapeValid" @click="runSimulation">
               <template v-if="simBusy">Simulating…</template>
               <template v-else-if="simOnCooldown">Try again in {{ simCooldownRemaining }}s</template>
               <template v-else>Run balance check</template>
@@ -272,7 +287,23 @@ const customRoster = ref([]);
 const confirmedWarnings = ref([]);
 const expandedRole = ref(null);
 
-watch(playerCount, (n) => { presetCount.value = n; }, { immediate: true });
+// Custom mode lets the host DRAFT a roster sized for more (or fewer)
+// operatives than have actually joined so far — e.g. planning/simulating a
+// 10p doctrine while only 5 people are in the lobby. targetPlayerCount is
+// the size the host is CURRENTLY DESIGNING FOR; playerCount (above) stays
+// the real, live headcount and is what actually gates "Seal the chamber"
+// (via compositionValid below) — the two are deliberately decoupled.
+const targetPlayerCount = ref(playerCount.value);
+function setTargetPlayerCount(n) {
+  targetPlayerCount.value = Math.max(5, Math.min(12, Math.round(Number(n) || playerCount.value)));
+}
+watch(playerCount, (n) => {
+  presetCount.value = n;
+  // Real headcount grew past the current draft target — bump up (never
+  // down) so the target is never smaller than reality, which would make
+  // "Seal the chamber" impossible to ever satisfy without the host noticing.
+  if (n > targetPlayerCount.value) targetPlayerCount.value = n;
+}, { immediate: true });
 watch(compositionMode, () => { confirmedWarnings.value = []; emit('clear-errors'); });
 
 const rolesByFaction = computed(() => {
@@ -287,7 +318,7 @@ const rolesByFaction = computed(() => {
 function countInRoster(id) {
   return customRoster.value.filter(x => x === id).length;
 }
-const rosterFull = computed(() => customRoster.value.length >= playerCount.value);
+const rosterFull = computed(() => customRoster.value.length >= targetPlayerCount.value);
 
 const factionCounts = computed(() => {
   let loyalist = 0, heretic = 0, citizen = 0;
@@ -355,7 +386,7 @@ function roleFaction(id) {
 // data/composition.json here, to avoid leaking the doctrine roster into the
 // client bundle.
 function seedMinimalRoster() {
-  const n = playerCount.value;
+  const n = targetPlayerCount.value;
   if (n < 5) return;
   const base = ['murderer', 'interrogator'];
   while (base.length < n) base.push('imperial-citizen');
@@ -374,7 +405,7 @@ const localValidation = computed(() => {
   if (compositionMode.value === 'preset') return { ok: true, errors: [], warnings: [] };
   return validateComposition({
     roster: customRoster.value,
-    playerCount: playerCount.value,
+    playerCount: targetPlayerCount.value,
     confirmedWarnings: confirmedWarnings.value,
     validRoles,
     hardRules,
@@ -395,14 +426,33 @@ const serverErrors = computed(() => props.compositionErrors);
 // loop that hangs the tab. Acknowledgements simply grow the set; clearing
 // the roster or reseeding resets it explicitly.
 
+// Roster is internally self-consistent for whatever size it's currently
+// drafted/selected for — independent of whether that matches who's actually
+// in the lobby right now. Gates the sim/balance-check preview, which is
+// exactly the "let the host play around" path: drafting and simulating a
+// bigger doctrine ahead of real headcount should never be blocked.
+const rosterShapeValid = computed(() => {
+  if (compositionMode.value === 'preset') return presetCounts.includes(presetCount.value);
+  return localValidation.value.ok;
+});
+
+// True when the roster is otherwise perfectly valid (for its drafted size)
+// but just doesn't match who's actually here yet — distinct from a real
+// roster-shape problem, so the header badge doesn't claim "0 issues" while
+// still being unable to seal.
+const headcountMismatch = computed(() => compositionMode.value === 'custom' && localValidation.value.ok && serverErrors.value.length === 0 && customRoster.value.length !== playerCount.value);
+
+// Gates "Seal the chamber" — unlike rosterShapeValid, this ALSO requires the
+// draft to match the real, live headcount, since the engine will reject a
+// roster whose length doesn't equal the actual joined player count.
 const compositionValid = computed(() => {
   if (compositionMode.value === 'preset') {
     return presetCounts.includes(presetCount.value) && presetCount.value === playerCount.value;
   }
-  return localValidation.value.ok && serverErrors.value.length === 0;
+  return localValidation.value.ok && serverErrors.value.length === 0 && customRoster.value.length === playerCount.value;
 });
 
-const rosterLengthClass = computed(() => customRoster.value.length === playerCount.value ? 'ok' : 'warn');
+const rosterLengthClass = computed(() => customRoster.value.length === targetPlayerCount.value ? 'ok' : 'warn');
 
 function acknowledgeAllWarnings() {
   confirmedWarnings.value = Array.from(new Set([...confirmedWarnings.value, ...localWarnings.value.map(w => w.rule)]));
@@ -715,6 +765,21 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 .preset-current { grid-column:1/-1; margin:10px 2px 0; color:var(--muted); font-size:12px; }
 .preset-current .ok { color:#9fbf8a; margin-left:6px; }
 .preset-current .warn { color:#d58c75; margin-left:6px; }
+
+.target-size-picker {
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px;
+  padding:10px 14px; border:1px solid #34372f; background:#0d0f0d; border-radius:2px; margin-bottom:12px;
+}
+.target-size-picker label {
+  display:flex; align-items:center; gap:8px; font-size:11px; text-transform:uppercase;
+  letter-spacing:.1em; color:var(--muted);
+}
+.target-size-picker .stepper { display:flex; align-items:center; gap:8px; }
+.target-size-picker .stepper button { padding:2px 10px; font:700 14px Cinzel; line-height:1.4; }
+.target-size-picker .stepper strong { font:700 16px Cinzel; color:var(--pale); min-width:1.4em; text-align:center; }
+.target-mismatch-note {
+  flex:1 1 260px; margin:0; font-size:11px; line-height:1.5; color:#d58c75;
+}
 
 .composition-summary {
   display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center;
