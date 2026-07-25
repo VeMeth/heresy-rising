@@ -157,24 +157,28 @@ export function collectNightActions(manager, code, agents, verbose = false) {
 
     const agentState = buildAgentState(manager, code, player.player_code);
 
-    // Skip roles with no night action (sleep)
+    // Skip roles with an explicit sleep action (imperial-citizen). A role
+    // with NO night action at all (Conspirator — its own action is day-only
+    // forge()) still gets a turn: Blood Ritual is a faction-wide action any
+    // living Heretic can submit, independent of their own role's kit, so an
+    // otherwise-idle-at-night Heretic can still pick it up.
     const roleData = player.role_id ? manager.role(player.role_id) : null;
     const nightActionDef = roleData?.actions?.night;
-    if (!nightActionDef || nightActionDef.kind === 'sleep') continue;
+    if (nightActionDef?.kind === 'sleep') continue;
 
     try {
       const action = agent.nightAction(agentState);
       if (!action) continue;
       if (!action.targetCode) continue;
 
-      const result = manager.submitAction(code, player.player_code, {
-        targetCode: action.targetCode,
-        variant: action.variant,
-      });
+      const result = action.factionAction
+        ? manager.submitFactionAction(code, player.player_code, { targetCode: action.targetCode })
+        : manager.submitAction(code, player.player_code, { targetCode: action.targetCode, variant: action.variant });
       submitted.push({ playerCode: player.player_code, action, result });
       if (verbose) {
         const targetName = manager.player(code, action.targetCode)?.name || '?';
-        console.log(`  Night: ${player.name} (${player.role_id}) → ${targetName}${action.variant ? ` [${action.variant}]` : ''}`);
+        const label = action.factionAction ? 'blood-ritual' : action.variant;
+        console.log(`  Night: ${player.name} (${player.role_id}) → ${targetName}${label ? ` [${label}]` : ''}`);
       }
     } catch (err) {
       // Agent made an illegal choice — skip silently

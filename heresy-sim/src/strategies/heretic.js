@@ -7,9 +7,81 @@
 
 import { pickRandom } from '../util.js';
 
+// ── Blood Ritual coordination ────────────────────────────────────────────
+// Blood Ritual (blood-ritual.md v1.0.0) is a faction-wide night action: any
+// living, uncrippled Heretic can submit it, but only one claim per night
+// wins (engine: submitFactionAction rejects a second submission outright).
+// Escalation to a kill is tracked by TARGET only, not by attacker — hitting
+// the same target on the immediately following night escalates regardless
+// of which Heretic did it — so a "second Heretic rotating the attack" is
+// exactly what the engine already supports.
+//
+// Priority for who takes Blood Ritual duty on a given night (highest first):
+// Conspirator (has no other night action — forge() is day-only, so this is
+// pure upside), Heretic Priest (its sermons are the weakest standalone
+// heretic tool), Saboteur (moderate value, only reached if the above are
+// dead/crippled/absent), Murderer (last resort — only reachable from H1's
+// own gated branch below, since Murderer always prefers its own kill).
+// Recruiter is deliberately excluded: heretical-catalyst is a second,
+// distinct win path (conversion) worth preserving undiluted.
+const BLOOD_RITUAL_PRIORITY = ['conspirator', 'heretic-priest', 'saboteur', 'murderer'];
+
+/**
+ * Publish this agent's own role once, at creation time (before any round
+ * runs), so every Heretic's priority computation below sees the full
+ * roster immediately — approximates the faction already knowing each
+ * other's roles via private chat, same as the existing `factionState`
+ * coordination pattern (`lastKillTarget`, `consensusVoteTarget`, etc.).
+ */
+function registerHereticRole(factionState, id, roleId) {
+  factionState?.set(`role:${id}`, roleId);
+}
+
+/**
+ * Is `id` the highest-priority living, uncrippled Heretic eligible for
+ * Blood Ritual duty this round? Every Heretic runs this same deterministic
+ * computation independently and agrees on the same answer — no explicit
+ * hand-off message needed, no collision risk.
+ */
+function isBloodRitualDuty(id, s, factionState) {
+  if (!factionState) return false;
+  const living = s.living || [];
+  const candidates = living
+    .filter(p => p.faction === 'heretic' && (p.crippleTier || 0) === 0)
+    .map(p => ({ id: p.playerCode, role: factionState.get(`role:${p.playerCode}`) }))
+    .filter(c => BLOOD_RITUAL_PRIORITY.includes(c.role));
+  if (candidates.length === 0) return false;
+  candidates.sort((a, b) => BLOOD_RITUAL_PRIORITY.indexOf(a.role) - BLOOD_RITUAL_PRIORITY.indexOf(b.role));
+  return candidates[0].id === id;
+}
+
+/**
+ * Build the Blood Ritual action for whoever has duty this round. Locks onto
+ * the same target across nights (via factionState) to trigger the engine's
+ * escalation-to-kill on a repeat hit; picks a fresh target once the locked
+ * one is no longer legal (dead, or a Heretic — e.g. after a catalyst
+ * conversion changed their faction).
+ */
+function bloodRitualNightAction(s, factionState) {
+  if (!s.legalTargets || s.legalTargets.length === 0) return null;
+  const hereticCodes = new Set(
+    (s.living || []).filter(p => p.faction === 'heretic').map(p => p.playerCode)
+  );
+  const locked = factionState?.get('bloodRitualTarget');
+  if (locked && s.legalTargets.includes(locked) && !hereticCodes.has(locked)) {
+    return { targetCode: locked, factionAction: true };
+  }
+  const fresh = s.legalTargets.filter(t => !hereticCodes.has(t));
+  if (fresh.length === 0) return null;
+  const target = fresh[0];
+  factionState?.set('bloodRitualTarget', target);
+  return { targetCode: target, factionAction: true };
+}
+
 // ── H1 — Murderer ──────────────────────────────────────────────────────────
 
 export function createH1Murderer(id, factionState) {
+  registerHereticRole(factionState, id, 'murderer');
   /** @type {string[]} recent kill targets (for rotation) */
   const recentTargets = [];
   return {
@@ -27,7 +99,13 @@ export function createH1Murderer(id, factionState) {
       // already have — without this, the Murderer effectively gets exactly
       // one kill for the entire game, every game, regardless of targeting.
       const myDrift = s.me?.drift || 0;
-      if (myDrift + 15 > (s.maxDrift || 20)) return null;
+      if (myDrift + 15 > (s.maxDrift || 20)) {
+        // Gated — fall back to Blood Ritual only if no other living Heretic
+        // is available to carry it instead (last resort in the priority
+        // order; a solo Heretic, e.g. 5p, always reaches this branch).
+        if (isBloodRitualDuty(id, s, factionState)) return bloodRitualNightAction(s, factionState);
+        return null;
+      }
       // Target a Loyalist not killed recently
       let candidates = s.legalTargets.filter(t => !recentTargets.includes(t));
       if (candidates.length === 0) candidates = [...s.legalTargets];
@@ -79,12 +157,14 @@ export function createH1Murderer(id, factionState) {
 // ── H2 — Heretic Priest ────────────────────────────────────────────────────
 
 export function createH2HereticPriest(id, factionState) {
+  registerHereticRole(factionState, id, 'heretic-priest');
   let sermonRound = 0;
   return {
     id,
     label: `h2-heretic-priest-${id}`,
     nightAction(s) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
+      if (isBloodRitualDuty(id, s, factionState)) return bloodRitualNightAction(s, factionState);
       sermonRound++;
       const hereticCodes = new Set(
         s.living?.filter(p => p.faction === 'heretic').map(p => p.playerCode) || []
@@ -113,11 +193,18 @@ export function createH2HereticPriest(id, factionState) {
 // ── H3 — Conspirator ──────────────────────────────────────────────────────
 
 export function createH3Conspirator(id, factionState) {
+  registerHereticRole(factionState, id, 'conspirator');
   let knownInterrogator = null;
   return {
     id,
     label: `h3-conspirator-${id}`,
-    nightAction() { return null; }, // No night action
+    // Conspirator's own kit (forge()) is day-only — no role night action to
+    // give up, so it's top priority for Blood Ritual duty whenever alive.
+    nightAction(s) {
+      if (!s.legalTargets || s.legalTargets.length === 0) return null;
+      if (isBloodRitualDuty(id, s, factionState)) return bloodRitualNightAction(s, factionState);
+      return null;
+    },
     dayVote(s) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
       if (!knownInterrogator) {
@@ -150,11 +237,13 @@ export function createH3Conspirator(id, factionState) {
 // ── H4 — Saboteur ──────────────────────────────────────────────────────────
 
 export function createH4Saboteur(id, factionState) {
+  registerHereticRole(factionState, id, 'saboteur');
   return {
     id,
     label: `h4-saboteur-${id}`,
     nightAction(s) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
+      if (isBloodRitualDuty(id, s, factionState)) return bloodRitualNightAction(s, factionState);
       // Trap the most voted player (likely Interrogator target)
       const counts = new Map();
       for (const v of (s.voteTally || [])) {
@@ -180,6 +269,8 @@ export function createH4Saboteur(id, factionState) {
 }
 
 // ── H5 — Recruiter ─────────────────────────────────────────────────────────
+// Deliberately never takes Blood Ritual duty (see BLOOD_RITUAL_PRIORITY
+// comment above) — keeps the conversion win path undiluted.
 
 export function createH5Recruiter(id, factionState) {
   return {

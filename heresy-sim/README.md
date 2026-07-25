@@ -255,11 +255,30 @@ Heretics share a `factionState` Map for coordination (approximates faction chat)
 
 | Role | ID | Key behavior |
 |------|-----|-------------|
-| Murderer | `murderer` | Kills Loyalists avoiding recent repeats. Sleeps instead of attacking once the drift-gate would block the kill (drift + 15 > maxDrift), to recover via passive sleep drift and stay able to kill again later. Buses Heretics in votes. |
-| Heretic Priest | `heretic-priest` | Targets lowest-drift Loyalist. Escalates sermon tier with target zone. |
-| Conspirator | `conspirator` | Forges messages from Loyalists once/day. Frames Interrogator if known. |
-| Saboteur | `saboteur` | Traps the player most likely scanned by Interrogator. |
-| Recruiter | `recruiter` | Catalyzes Black-zone targets. Sleeps if no target at drift 20. |
+| Murderer | `murderer` | Kills Loyalists avoiding recent repeats. Sleeps instead of attacking once the drift-gate would block the kill (drift + 15 > maxDrift), to recover via passive sleep drift and stay able to kill again later — unless no other living Heretic has Blood Ritual duty (see below), in which case it uses that instead of sleeping. Buses Heretics in votes. |
+| Heretic Priest | `heretic-priest` | Takes Blood Ritual duty if no higher-priority Heretic can. Otherwise targets lowest-drift Loyalist with a sermon, escalating tier with target zone. |
+| Conspirator | `conspirator` | Takes Blood Ritual duty whenever alive and uncrippled (its own kit, forge(), is day-only and not yet modeled here — see below). Votes track the suspected Interrogator. |
+| Saboteur | `saboteur` | Takes Blood Ritual duty if no higher-priority Heretic can. Otherwise traps the player most likely scanned by Interrogator. |
+| Recruiter | `recruiter` | Catalyzes Black-zone targets. Sleeps if no target at drift 20. Never takes Blood Ritual duty — keeps the conversion win path undiluted. |
+
+#### Blood Ritual coordination
+
+Blood Ritual (`blood-ritual.md` v1.0.0) is a faction-wide night action — any
+living, uncrippled Heretic can submit it, but only one claim per night wins,
+and the engine escalates to a kill by *target*, not by attacker, so a second
+Heretic rotating the attack onto the same target the following night
+correctly triggers the kill. Priority for who takes the duty each night:
+**Conspirator > Heretic Priest > Saboteur > Murderer** (Murderer only as a
+last resort, from its own gated branch — see above). Every Heretic computes
+this priority independently from a role registry each strategy publishes
+into `factionState` at creation time, so there's no explicit hand-off
+message and no collision risk. The chosen attacker locks onto the same
+target across nights (also via `factionState`) until it dies or becomes
+illegal, to drive the engine's escalation.
+
+Conspirator's real kit (`forge()`, day-only message forgery) is not yet
+modeled in the sim at all — right now it only ever contributes via Blood
+Ritual duty when alive.
 
 ## Engine integration
 
