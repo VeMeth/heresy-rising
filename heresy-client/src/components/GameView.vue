@@ -22,7 +22,8 @@
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',interrogate:lynchLeader===p.playerCode&&lynchLeaderOutcome==='interrogate'}" @click="voteFor(p)">
             <span class="portrait" :data-status="portraitStatus(p)"><svg class="portrait-glyph"><use :href="portraitGlyph(p)"/></svg></span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
-            <small v-if="p.crippleTier" class="tier-badge" :data-tier="p.crippleTier">T{{ p.crippleTier }}</small>
+            <small v-if="p.alive&&p.crippleTier" class="tier-badge" :data-tier="p.crippleTier">T{{ p.crippleTier }}</small>
+            <span v-else-if="!p.alive" class="death-badge" :class="{executed:p.crippleTier===3}" :title="p.crippleTier===3?'Lynched':'Slain'"><svg class="death-glyph" aria-hidden="true"><use :href="p.crippleTier===3?'#hr-execution':'#hr-deceased'"/></svg></span>
             <small v-if="p.possessed" class="possessed-badge">POSSESSED</small>
             <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)">{{ targetVoteCount(p.playerCode) }}</small>
             <i :class="{online:p.connected}"></i>
@@ -471,6 +472,30 @@ function classifyEntry(body){const b=String(body||'');
 @keyframes tier3-pulse {
   from { box-shadow: 0 0 4px rgba(255, 60, 60, 0.15); }
   to   { box-shadow: 0 0 12px rgba(255, 60, 60, 0.4); }
+}
+
+/* Death badge — same pill slot as the tier badge, but for a dead player:
+   the execution glyph (lynched, tier 3 + killed together) or the plain
+   deceased glyph (killed at night — Murderer, Blood Ritual, Psyker, etc.),
+   matching the glyphs classifyEntry() already uses for these exact events
+   in the chat log. */
+.death-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+  width: 20px;
+  height: 16px;
+  border: 1px solid rgba(139, 141, 132, 0.5);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #8b8d84;
+}
+.death-glyph { width: 11px; height: 11px; }
+.death-badge.executed {
+  color: #ff8a8a;
+  border-color: rgba(255, 138, 138, 0.5);
+  box-shadow: 0 0 8px rgba(255, 60, 60, 0.25);
 }
 
 /* Possessed badge (H6 Animus) — same pill shape as tier badges, distinct
