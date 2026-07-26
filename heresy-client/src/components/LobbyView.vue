@@ -703,6 +703,37 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   height: 34px;
   align-self: flex-end;
 }
+
+/* In the wide-screen sidebar the column is too narrow for the fields
+   to wrap side by side (as they do in the row layout below 1300px),
+   so each label/input pair drops onto its own line — align them into
+   a column instead of letting inputs land wherever their own label's
+   text width happens to end. */
+@media (min-width: 1301px) {
+  .params-cell .param-fields {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .params-cell .param-fields label {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .params-cell .param-fields input { width: 80px; }
+  .params-cell .param-fields button { width: 100%; align-self: stretch; }
+  .params-cell .param-readonly {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .params-cell .param-readonly > div {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .params-cell .param-readonly dd { min-width: 80px; }
+}
 .params-cell .param-readonly {
   display: flex;
   align-items: flex-end;
