@@ -622,17 +622,18 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 </script>
 
 <style scoped>
-/* Lobby layout:
-   ┌──────────────┬──────────┐
-   │  Chat (big)  │  Ops     │
-   ├──────────────┴──────────┤
-   │  Operation parameters    │
-   └─────────────────────────┘
-   Composition sits on its own row below. */
+/* Lobby layout (wide screens — uses the side gutter that was empty):
+   ┌─────────┬──────────────┬──────────┐
+   │ Params  │  Chat (big)  │  Ops     │
+   │ (rail)  │              │          │
+   └─────────┴──────────────┴──────────┘
+   Below 1300px there isn't room for a rail, so it drops back to a
+   row under chat/ops; below 900px everything stacks in one column. */
+.lobby.page { max-width: 1500px; }
 :deep(.lobby-grid) {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  grid-template-areas: "chat ops" "params params";
+  grid-template-columns: 260px minmax(0, 1fr) 320px;
+  grid-template-areas: "params chat ops";
   gap: 22px;
   align-items: start;
 }
@@ -647,6 +648,13 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 :deep(.ops-cell)  { grid-area: ops; }
 :deep(.params-cell){ grid-area: params; }
 
+@media (max-width: 1300px) {
+  :deep(.lobby-grid) {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-areas: "chat ops" "params params";
+  }
+}
+
 @media (max-width: 900px) {
   :deep(.lobby-grid) {
     grid-template-columns: 1fr;
@@ -655,11 +663,13 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   :deep(.chat-cell) { height: clamp(360px, 60vh, 520px); }
 }
 
+.params-cell > header { flex-wrap: wrap; row-gap: 6px; }
+.params-cell h2 { font-size: 15px; }
 .params-cell .params-row {
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 18px 25px 22px;
+  padding: 16px 20px 20px;
   flex-wrap: wrap;
 }
 .params-cell .preset { flex: 1 1 260px; min-width: 0; }
