@@ -249,7 +249,11 @@ const actionTargets=computed(()=>alive.value.filter(p=>{if(nightAction.value?.ta
 // living, non-Heretic target is legal (self is excluded automatically since
 // a Heretic viewer's own faction always reads 'heretic').
 const bloodRitualTargets=computed(()=>alive.value.filter(p=>p.faction!=='heretic'));
-const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(!props.spectator&&props.me?.faction==='heretic'?[{id:'faction',label:'Cabal',note:'heretics'}]:[]),...(!props.spectator&&!props.me?.alive?[{id:'graveyard',label:'Graveyard',note:'dead'}]:[])]),canChat=computed(()=>props.game.phase!=='ended'&&(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard')&&!props.me?.possessed);
+const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(!props.spectator&&props.me?.faction==='heretic'?[{id:'faction',label:'Cabal',note:'heretics'}]:[]),...(!props.spectator&&!props.me?.alive?[{id:'graveyard',label:'Graveyard',note:'dead'}]:[])]),
+// Post-game: public chat reopens for everyone (dead, possessed, whoever) so
+// the table can talk about the game afterward — mirrors authorizeChannel's
+// server-side gate exactly (see heresyGameManager.js).
+canChat=computed(()=>props.game.phase==='ended'?props.channel==='public':(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard')&&!props.me?.possessed);
 // H6 Animus: only the Animus's own client ever sees `possessed:true` on
 // another player's row before the reveal (server-gated, see state()'s
 // per-row comment in heresyGameManager.js) — so finding "the possessed row
