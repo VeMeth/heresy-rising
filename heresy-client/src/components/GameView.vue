@@ -72,7 +72,7 @@
                 <span class="avatar mini">{{ initial(m.author) }}</span>
                 <div>
                   <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
-                  <p v-html="renderMessageBody(m)"></p>
+                  <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><template v-else>{{ seg.text }}</template></template></p>
                 </div>
               </template>
             </article>
