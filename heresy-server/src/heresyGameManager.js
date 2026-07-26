@@ -15,12 +15,34 @@ import { saveGameLogSnapshot } from './gameLogs.js';
 // start()/configure() clamp host-supplied overrides into.
 const DAY_MS_SYNC_DEFAULT = 300_000;
 const NIGHT_MS_SYNC_DEFAULT = 120_000;
-const DAY_MS_ASYNC_DEFAULT = 86_400_000;
-const NIGHT_MS_ASYNC_DEFAULT = 43_200_000;
+// Async mode: day and night are locked at 12h each (not separately
+// configurable) — the host instead sets a wall-clock day-start time
+// (day_start_minute_utc), and start() aligns the first boundary to it (see
+// nextScheduleBoundary below).
+const ASYNC_PHASE_MS = 43_200_000;
+const DEFAULT_DAY_START_MINUTE_UTC = 540; // 09:00 UTC
 const PHASE_MS_FLOOR_START = 10_000;
 const PHASE_MS_FLOOR_CONFIGURE = 60_000;
 const PHASE_MS_CEILING = 86_400_000;
 const MAX_DRIFT_CEILING = 100;
+
+// Async mode's day/night are both exactly 12h, so once the very FIRST
+// phase boundary lands on the host's chosen day-start time, every later
+// boundary (setPhase() just adds the fixed 12h duration) automatically
+// keeps landing on the same wall-clock time forever — no per-transition
+// rescheduling needed. This only has to find that first boundary: the
+// soonest moment (day-start or day-start+12h, whichever is next) after `now`.
+function nextScheduleBoundary(now, dayStartMinuteUtc) {
+  const DAY_MS = 86_400_000;
+  const dayStartMs = ((Number(dayStartMinuteUtc) || 0) % 1440) * 60_000;
+  const todayMidnight = Math.floor(now / DAY_MS) * DAY_MS;
+  const candidates = [];
+  for (let offset = -1; offset <= 1; offset++) {
+    const base = todayMidnight + offset * DAY_MS;
+    candidates.push(base + dayStartMs, base + dayStartMs + ASYNC_PHASE_MS);
+  }
+  return candidates.filter(t => t > now).sort((a, b) => a - b)[0];
+}
 
 /**
  * @typedef {Object} GameRow
@@ -40,6 +62,7 @@ const MAX_DRIFT_CEILING = 100;
  * @property {number} last_interrogation_tier
  * @property {string|null} winner
  * @property {number} anonymized
+ * @property {number|null} day_start_minute_utc
  * @property {number} created_at
  * @property {number} updated_at
  */
@@ -132,6 +155,9 @@ export class HeresyGameManager {
     // whether narrative text/state payloads show it or the real `name`.
     this.ensureColumn('hr_games','anonymized',"INTEGER NOT NULL DEFAULT 0");
     this.ensureColumn('hr_players','codename',"TEXT");
+    // Async mode's host-chosen day-start time (minutes since midnight UTC,
+    // 0-1439); unused/null for live games. See nextScheduleBoundary above.
+    this.ensureColumn('hr_games','day_start_minute_utc',"INTEGER");
     this.now = now; this.random = random; this.config = loadGameConfig();
     this._announcementListeners = [];
     this._botPromptListeners = [];
@@ -170,12 +196,13 @@ export class HeresyGameManager {
    * @param {string} params.playerCode
    * @param {string} params.name
    * @param {string} [params.mode]
-   * @param {{dayMs?:number,nightMs?:number,maxDrift?:number,hintProfile?:string}} [params.options]
+   * @param {{dayMs?:number,nightMs?:number,maxDrift?:number,hintProfile?:string,dayStartMinuteUtc?:number}} [params.options]
    */
   create({playerCode,name,mode='live',options={}}){
     if(!playerCode)throw new Error('playerCode is required'); if(!['live','async'].includes(mode))throw new Error('Invalid game mode');
-    const code=generateRoomCode(this.codes(),6),now=this.now(),dayMs=Number(options.dayMs)||(mode==='async'?DAY_MS_ASYNC_DEFAULT:DAY_MS_SYNC_DEFAULT),nightMs=Number(options.nightMs)||(mode==='async'?NIGHT_MS_ASYNC_DEFAULT:NIGHT_MS_SYNC_DEFAULT),max=Math.max(1,Number(options.maxDrift)||this.config.drift.MAX_DRIFT),hintProfile=this.config.hintProfiles[options.hintProfile] ? options.hintProfile : 'default';
-    this.db.prepare('INSERT INTO hr_games(code,host_code,mode,day_ms,night_ms,max_drift,hint_profile,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').run(code,playerCode,mode,dayMs,nightMs,max,hintProfile,now,now);
+    const code=generateRoomCode(this.codes(),6),now=this.now(),dayMs=mode==='async'?ASYNC_PHASE_MS:(Number(options.dayMs)||DAY_MS_SYNC_DEFAULT),nightMs=mode==='async'?ASYNC_PHASE_MS:(Number(options.nightMs)||NIGHT_MS_SYNC_DEFAULT),max=Math.max(1,Number(options.maxDrift)||this.config.drift.MAX_DRIFT),hintProfile=this.config.hintProfiles[options.hintProfile] ? options.hintProfile : 'default';
+    const rawDayStart=Number(options.dayStartMinuteUtc),dayStartMinuteUtc=mode==='async'?Math.max(0,Math.min(1439,Number.isFinite(rawDayStart)?Math.round(rawDayStart):DEFAULT_DAY_START_MINUTE_UTC)):null;
+    this.db.prepare('INSERT INTO hr_games(code,host_code,mode,day_ms,night_ms,max_drift,hint_profile,day_start_minute_utc,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(code,playerCode,mode,dayMs,nightMs,max,hintProfile,dayStartMinuteUtc,now,now);
     this.db.prepare('INSERT INTO hr_players(game_code,player_code,name,seat,joined_at) VALUES(?,?,?,?,?)').run(code,playerCode,sanitizePlayerName(name),0,now); return {code,state:this.state(code,playerCode)};
   }
   join({code,playerCode,name}){const g=this.requireGame(code);let p=this.player(code,playerCode);if(!p){if(g.phase!=='lobby')throw new Error('Game already started');const count=this.players(code).length;if(count>=12)throw new Error('Game is full');this.db.prepare('INSERT INTO hr_players(game_code,player_code,name,seat,joined_at) VALUES(?,?,?,?,?)').run(code,playerCode,sanitizePlayerName(name),count,this.now());}else this.db.prepare('UPDATE hr_players SET connected=1 WHERE game_code=? AND player_code=?').run(code,playerCode);return this.state(code,playerCode);}
@@ -225,9 +252,15 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     if(!validation.ok)return{ok:false,phase:'lobby',composition:{submitted:ids,source:compositionSource},errors:validation.errors,warnings:validation.warnings};
 
     const assigned=shuffle(ids);
-    const fallbackDay=g.mode==='async'?86_400_000:300_000,fallbackNight=g.mode==='async'?43_200_000:120_000;
-    const resolvedDayMs=Math.max(PHASE_MS_FLOOR_START,Math.min(PHASE_MS_CEILING,Number(dayMs)||fallbackDay)),resolvedNightMs=Math.max(PHASE_MS_FLOOR_START,Math.min(PHASE_MS_CEILING,Number(nightMs)||fallbackNight));
-    const startDeadline=this.now()+resolvedDayMs;
+    // Async mode: day/night are locked at 12h regardless of what's passed
+    // in (defense in depth, same as configure()). Day 1's deadline is
+    // clipped to the next schedule boundary (day-start or day-start+12h,
+    // whichever comes first) instead of a full 12h from "now" — so Day 1
+    // may run short, but every phase after it lands exactly on the host's
+    // chosen wall-clock time, forever (see nextScheduleBoundary above).
+    const resolvedDayMs=g.mode==='async'?ASYNC_PHASE_MS:Math.max(PHASE_MS_FLOOR_START,Math.min(PHASE_MS_CEILING,Number(dayMs)||DAY_MS_SYNC_DEFAULT));
+    const resolvedNightMs=g.mode==='async'?ASYNC_PHASE_MS:Math.max(PHASE_MS_FLOOR_START,Math.min(PHASE_MS_CEILING,Number(nightMs)||NIGHT_MS_SYNC_DEFAULT));
+    const startDeadline=g.mode==='async'?nextScheduleBoundary(this.now(),g.day_start_minute_utc??DEFAULT_DAY_START_MINUTE_UTC):this.now()+resolvedDayMs;
     // Anonymized mode: assign one unique codename per seat (human or bot
     // alike, which also hides which players are bots) for the game's
     // duration. Real names are never touched — displayName() just prefers
@@ -243,7 +276,17 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     players.forEach((x,i)=>{const r=this.role(assigned[i]);this.privateSystem(c,x.player_code,`Your role is ${r.displayName}. ${r.objective}`);this.emitAnnouncement(c,{type:'role-reveal',title:'YOUR DOSSIER',message:`You are a ${r.displayName}. ${r.objective}`,role:r.displayName,objective:r.objective,faction:r.faction,round:1,phase:'day',targetCode:x.player_code});});
     return this.state(c,p);
   }
-  configure(c,p,options={}){const g=this.requireGame(c);if(g.phase!=='lobby')throw new Error('Game has already started');this.requireHost(c,p);const dayMs=Math.max(PHASE_MS_FLOOR_CONFIGURE,Math.min(PHASE_MS_CEILING,Number(options.dayMs)||g.day_ms)),nightMs=Math.max(PHASE_MS_FLOOR_CONFIGURE,Math.min(PHASE_MS_CEILING,Number(options.nightMs)||g.night_ms)),maxDrift=Math.max(1,Math.min(MAX_DRIFT_CEILING,Number(options.maxDrift)||g.max_drift)),anonymized=options.anonymized!==undefined?(options.anonymized?1:0):g.anonymized;this.db.prepare('UPDATE hr_games SET day_ms=?,night_ms=?,max_drift=?,anonymized=?,updated_at=? WHERE code=?').run(dayMs,nightMs,maxDrift,anonymized,this.now(),c);return this.state(c,p);}
+  configure(c,p,options={}){const g=this.requireGame(c);if(g.phase!=='lobby')throw new Error('Game has already started');this.requireHost(c,p);
+    // Async mode: day/night are locked at 12h — any client-supplied
+    // dayMs/nightMs is ignored (defense in depth; the lobby UI doesn't even
+    // offer those fields for async). Host instead tunes day_start_minute_utc.
+    const isAsync=g.mode==='async';
+    const dayMs=isAsync?ASYNC_PHASE_MS:Math.max(PHASE_MS_FLOOR_CONFIGURE,Math.min(PHASE_MS_CEILING,Number(options.dayMs)||g.day_ms));
+    const nightMs=isAsync?ASYNC_PHASE_MS:Math.max(PHASE_MS_FLOOR_CONFIGURE,Math.min(PHASE_MS_CEILING,Number(options.nightMs)||g.night_ms));
+    const maxDrift=Math.max(1,Math.min(MAX_DRIFT_CEILING,Number(options.maxDrift)||g.max_drift)),anonymized=options.anonymized!==undefined?(options.anonymized?1:0):g.anonymized;
+    const rawDayStart=Number(options.dayStartMinuteUtc);
+    const dayStartMinuteUtc=isAsync?(Number.isFinite(rawDayStart)?Math.max(0,Math.min(1439,Math.round(rawDayStart))):(g.day_start_minute_utc??DEFAULT_DAY_START_MINUTE_UTC)):g.day_start_minute_utc;
+    this.db.prepare('UPDATE hr_games SET day_ms=?,night_ms=?,max_drift=?,anonymized=?,day_start_minute_utc=?,updated_at=? WHERE code=?').run(dayMs,nightMs,maxDrift,anonymized,dayStartMinuteUtc,this.now(),c);return this.state(c,p);}
   advance(c,p){this.requireHost(c,p);return this.resolve(c,true);}
   resolve(c,force=false){const g=this.requireGame(c);if(g.status!=='active')throw new Error('Game is not active');if(!force&&g.deadline&&g.deadline>this.now())throw new Error('Phase is active');if(g.phase==='night')this.resolveNight(g);else if(g.phase==='day')this.resolveDay(g);return this.game(c);}
   setPhase(c,phase,round,dayStage=null){const g=this.game(c),duration=phase==='night'?g.night_ms:g.day_ms,deadline=this.now()+duration,stage=phase==='day'?(dayStage||'vote'):dayStage;this.db.prepare('UPDATE hr_games SET phase=?,round=?,day_stage=?,deadline=?,updated_at=? WHERE code=?').run(phase,round,stage,deadline,this.now(),c);if(phase==='night')this.db.prepare('UPDATE hr_players SET confession_token_round=NULL WHERE game_code=?').run(c);if(phase==='day'){this.db.prepare('UPDATE hr_players SET cripple_tier=0,tier1_until_round=NULL WHERE game_code=? AND cripple_tier=1 AND tier1_until_round<?').run(c,round);const votingEnabled=round!==1;this.system(c,votingEnabled?`Day ${round}: vote for a target or stand down.`:`Day ${round} begins — no vote today. Introduce yourself and observe.`);}
@@ -266,7 +309,14 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     for(const kill of actions.filter(x=>x.kind==='kill')){const killer=this.player(c,kill.actor_code);if(!killer?.alive)continue;const killRole=this.role(killer.role_id),killCost=killRole.driftWeight;
       if(killer.role_id==='murderer'&&killer.drift+killCost>g.max_drift){const zone=driftZone(this.config.drift,killer.drift).id;this.changeDrift(c,kill.target_code,this.config.drift.MURDERER_GATE_TARGET_DRIFT,'murderer-gate-witnessed');this.privateSystem(c,kill.actor_code,murdererGateCue(zone),{intelKind:'murderer_kill_gated',zone});this.event(c,'night-action',{round:g.round,kind:'murderer:kill-gated',actor:kill.actor_code,target:kill.target_code});continue;}
       this.changeDrift(c,kill.actor_code,killCost,'night-action');
-      if(traps.has(kill.actor_code)){this.changeDrift(c,kill.actor_code,this.config.drift.TRAP_DRIFT,'trap');continue;}if(traps.has(kill.target_code))this.changeDrift(c,kill.actor_code,this.config.drift.TRAP_DRIFT,'trap');let victim=kill.target_code,bodyguardRedirected=false;if(bodyguards.has(victim)){const guardCode=bodyguards.get(victim);this.privateSystem(c,guardCode,'You absorbed a strike meant for your proxy and died.');victim=guardCode;bodyguardRedirected=true;}if(!bodyguardRedirected&&protectedIds.has(kill.target_code))victim=null;if(victim){this.db.prepare('UPDATE hr_players SET alive=0 WHERE game_code=? AND player_code=?').run(c,victim);const victimName=this.displayName(g,this.player(c,victim)),killerName=this.displayName(g,killer);if(bodyguards.has(kill.target_code)){const targetName=this.displayName(g,this.player(c,kill.target_code));const redirectBody=this.flavor('bodyguardRedirect',{victim:victimName,target:targetName});this.system(c,redirectBody,{eventType:'night-kill'});this.emitAnnouncement(c,{type:'bodyguard',title:'BLADE DEFLECTED',message:redirectBody,victim:{name:victimName},perpetrator:{name:killerName},round:g.round,phase:'night'});}else{const slainBody=this.flavor('slain',{victim:victimName});this.system(c,slainBody,{eventType:'night-kill'});this.emitAnnouncement(c,{type:'kill',title:'SLAIN IN THE NIGHT',message:slainBody,victim:{name:victimName},perpetrator:{name:killerName},round:g.round,phase:'night'});}for(const witness of this.players(c).filter(x=>x.alive))this.changeDrift(c,witness.player_code,this.config.drift.WITNESSED_VIOLENCE,'witnessed-violence');}if(killRole.killLimit==='1_per_game')this.incrementUsage(c,kill.actor_code,'kill');}
+      if(traps.has(kill.actor_code)){this.changeDrift(c,kill.actor_code,this.config.drift.TRAP_DRIFT,'trap');continue;}if(traps.has(kill.target_code))this.changeDrift(c,kill.actor_code,this.config.drift.TRAP_DRIFT,'trap');let victim=kill.target_code,bodyguardRedirected=false;if(bodyguards.has(victim)){const guardCode=bodyguards.get(victim);this.privateSystem(c,guardCode,'You absorbed a strike meant for your proxy and died.');victim=guardCode;bodyguardRedirected=true;}if(!bodyguardRedirected&&protectedIds.has(kill.target_code))victim=null;if(victim){this.db.prepare('UPDATE hr_players SET alive=0 WHERE game_code=? AND player_code=?').run(c,victim);const victimName=this.displayName(g,this.player(c,victim)),killerName=this.displayName(g,killer);
+        // Arbitrator (roles/arbitrator.md): "both learn the proxy fired" means
+        // the guard (already privately told above) and the protected target —
+        // NOT the whole table. The public side sees an ordinary death, exactly
+        // like any other kill, with no tell that a redirect happened.
+        if(bodyguards.has(kill.target_code))this.privateSystem(c,kill.target_code,'Something struck at you in the dark. Someone else took the blow meant for you.');
+        const slainBody=this.flavor('slain',{victim:victimName});this.system(c,slainBody,{eventType:'night-kill'});this.emitAnnouncement(c,{type:'kill',title:'SLAIN IN THE NIGHT',message:slainBody,victim:{name:victimName},perpetrator:{name:killerName},round:g.round,phase:'night'});
+      for(const witness of this.players(c).filter(x=>x.alive))this.changeDrift(c,witness.player_code,this.config.drift.WITNESSED_VIOLENCE,'witnessed-violence');}if(killRole.killLimit==='1_per_game')this.incrementUsage(c,kill.actor_code,'kill');}
     // Blood Ritual (blood-ritual.md v1.0.0): faction-wide attack,
     // one per night (enforced at submission in submitFactionAction), two-step
     // escalation mirroring day-phase interrogate->lynch. Escalation is keyed
@@ -501,8 +551,8 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   // anything except death, so more than one living player can be marked at
   // once (hence a list, not a single target).
   atRiskTargets(c){return this.players(c).filter(p=>p.alive&&p.interrogated_before).map(p=>p.player_code);}
-  state(c,viewerCode){const g=this.requireGame(c),viewer=this.requirePlayer(c,viewerCode),ended=g.status==='ended',players=this.players(c).map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((p.player_code===viewerCode||ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...(viewer.faction==='heretic'&&p.faction==='heretic'?{faction:'heretic'}:{}),...((viewerCode===p.possessed_by||(viewerCode===p.player_code&&p.possessed_by)||(!p.alive&&p.possessed_by)||(ended&&p.possessed_by))?{possessed:true}:{})}));const privateMessages=/** @type {{id:number,author:string,body:string,kind:string,createdAt:number,meta:string|null}[]} */ (this.db.prepare("SELECT id,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id").all(c,viewerCode)).map(m=>({...m,meta:m.meta?JSON.parse(m.meta):null}));const votingEnabled=g.phase==='day'?g.round!==1:true;return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,isHost:g.host_code===viewerCode,players,me:players.find(x=>x.playerCode===viewerCode),votes:g.phase==='day'?this.voteState(c):[],myAction:this.db.prepare('SELECT kind,target_code AS targetCode,variant FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').get(c,g.round,viewerCode)||null,lastProtectTarget:getLastProtectTarget(this.db,g.code,viewerCode),privateMessages,pendingInterrogation:g.day_stage==='response'?{targetCode:g.last_interrogated_target,tier:g.last_interrogation_tier,canRespond:g.last_interrogated_target===viewerCode}:null,votingEnabled,atRiskTargets:this.atRiskTargets(c),...(g.phase==='lobby'?{compositionLabel:`${players.length}-operative doctrine`}:{})};}
-  spectate(c){const g=this.requireGame(c);if(g.phase==='lobby')throw new Error('Game has not started yet');const ended=g.status==='ended';const players=this.players(c).map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...((!p.alive&&p.possessed_by)||(ended&&p.possessed_by)?{possessed:true}:{})}));return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,isHost:false,players,me:null,votes:g.phase==='day'?this.voteState(c):[],myAction:null,lastProtectTarget:null,privateMessages:[],pendingInterrogation:null,votingEnabled:g.phase==='day'?g.round!==1:false,atRiskTargets:this.atRiskTargets(c),isSpectator:true};}
+  state(c,viewerCode){const g=this.requireGame(c),viewer=this.requirePlayer(c,viewerCode),ended=g.status==='ended',players=this.players(c).map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((p.player_code===viewerCode||ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...(viewer.faction==='heretic'&&p.faction==='heretic'?{faction:'heretic'}:{}),...((viewerCode===p.possessed_by||(viewerCode===p.player_code&&p.possessed_by)||(!p.alive&&p.possessed_by)||(ended&&p.possessed_by))?{possessed:true}:{})}));const privateMessages=/** @type {{id:number,author:string,body:string,kind:string,createdAt:number,meta:string|null}[]} */ (this.db.prepare("SELECT id,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id").all(c,viewerCode)).map(m=>({...m,meta:m.meta?JSON.parse(m.meta):null}));const votingEnabled=g.phase==='day'?g.round!==1:true;return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,dayStartMinuteUtc:g.day_start_minute_utc,isHost:g.host_code===viewerCode,players,me:players.find(x=>x.playerCode===viewerCode),votes:g.phase==='day'?this.voteState(c):[],myAction:this.db.prepare('SELECT kind,target_code AS targetCode,variant FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').get(c,g.round,viewerCode)||null,lastProtectTarget:getLastProtectTarget(this.db,g.code,viewerCode),privateMessages,pendingInterrogation:g.day_stage==='response'?{targetCode:g.last_interrogated_target,tier:g.last_interrogation_tier,canRespond:g.last_interrogated_target===viewerCode}:null,votingEnabled,atRiskTargets:this.atRiskTargets(c),...(g.phase==='lobby'?{compositionLabel:`${players.length}-operative doctrine`}:{})};}
+  spectate(c){const g=this.requireGame(c);if(g.phase==='lobby')throw new Error('Game has not started yet');const ended=g.status==='ended';const players=this.players(c).map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...((!p.alive&&p.possessed_by)||(ended&&p.possessed_by)?{possessed:true}:{})}));return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,dayStartMinuteUtc:g.day_start_minute_utc,isHost:false,players,me:null,votes:g.phase==='day'?this.voteState(c):[],myAction:null,lastProtectTarget:null,privateMessages:[],pendingInterrogation:null,votingEnabled:g.phase==='day'?g.round!==1:false,atRiskTargets:this.atRiskTargets(c),isSpectator:true};}
   adminRole(id){if(!id)return null;const r=this.config.roles.get(id);return r?{id:r.id,displayName:r.displayName,faction:r.faction,claim:r.claim,driftWeight:r.driftWeight,objective:r.objective,ability:r.ability}:null;}
   adminPlayer(p,g){return {playerCode:p.player_code,name:p.name,seat:p.seat,roleId:p.role_id,role:this.adminRole(p.role_id),faction:p.faction,drift:p.drift,alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,isBot:!!p.is_bot,crippleTier:p.cripple_tier,tier1UntilRound:p.tier1_until_round,confessed:!!p.confessed,confessionTokenRound:p.confession_token_round,skipNextNight:!!p.skip_next_night,joinedAt:p.joined_at};}
   adminGameSummary(g){const players=this.players(g.code),messages=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_messages WHERE game_code=?').get(g.code)).count,events=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_events WHERE game_code=?').get(g.code)).count,actions=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_actions WHERE game_code=?').get(g.code)).count,votes=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_votes WHERE game_code=?').get(g.code)).count;return {code:g.code,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,hintProfile:g.hint_profile,createdAt:g.created_at,updatedAt:g.updated_at,hostCode:g.host_code,playerCount:players.length,aliveCount:players.filter(p=>p.alive).length,connectedCount:players.filter(p=>p.connected).length,readyCount:players.filter(p=>p.ready).length,averageDrift:players.length?players.reduce((sum,p)=>sum+p.drift,0)/players.length:0,maxPlayerDrift:players.length?Math.max(...players.map(p=>p.drift)):0,hereticCount:players.filter(p=>p.faction==='heretic').length,loyalistCount:players.filter(p=>p.faction==='loyalist').length,messageCount:messages,eventCount:events,actionCount:actions,voteCount:votes};}

@@ -27,7 +27,6 @@ const persistent = computed(() => props.announcement?.type === 'neverborn-reveal
 
 const badgeLabels = {
   'kill': 'NIGHT SLAYING',
-  'bodyguard': 'BLADE DEFLECTED',
   'execution': 'SUMMARY EXECUTION',
   'lynch': 'SENTENCE CARRIED OUT',
   'protection': 'CHIRURGEON INTERVENTION',
@@ -207,9 +206,6 @@ const animationKey = computed(() => {
 /* Type-based theming */
 .type-kill .announcement-backdrop { background: rgba(80, 10, 10, 0.55); }
 .type-kill .announcement-card { border-color: #8b1a1a; color: #ff6b6b; }
-
-.type-bodyguard .announcement-backdrop { background: rgba(100, 40, 0, 0.55); }
-.type-bodyguard .announcement-card { border-color: #8b5a1a; color: #ffb347; }
 
 .type-execution .announcement-backdrop { background: rgba(60, 0, 0, 0.65); }
 .type-execution .announcement-card { border-color: #6b0000; color: #ff4444; }

@@ -64,14 +64,26 @@
             <label class="anon-toggle"><input type="checkbox" v-model="setup.anonymized" @change="scheduleSave"> Anonymized mode</label>
             <p class="anon-hint">Player names are replaced with notable Warhammer 40k characters once the game starts.</p>
             <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100" @input="scheduleSave"></label>
-            <label>Day min<input v-model.number="dayMinutes" type="number" min="1" max="1440" @input="scheduleSave"></label>
-            <label>Night min<input v-model.number="nightMinutes" type="number" min="1" max="1440" @input="scheduleSave"></label>
+            <template v-if="game.mode==='async'">
+              <label>Day starts (UTC)<input type="time" v-model="dayStartTimeUTC" @change="scheduleSave"></label>
+              <p class="day-start-hint">{{ dayStartLocalPreview }}. Day and night are locked at 12h each.</p>
+            </template>
+            <template v-else>
+              <label>Day min<input v-model.number="dayMinutes" type="number" min="1" max="1440" @input="scheduleSave"></label>
+              <label>Night min<input v-model.number="nightMinutes" type="number" min="1" max="1440" @input="scheduleSave"></label>
+            </template>
             <p class="save-indicator" :class="{visible: justSaved}">Saved</p>
           </div>
           <dl v-else class="param-readonly">
             <div><dt>Drift</dt><dd>{{ setup.maxDrift }}</dd></div>
-            <div><dt>Day</dt><dd>{{ dayMinutes }} min</dd></div>
-            <div><dt>Night</dt><dd>{{ nightMinutes }} min</dd></div>
+            <template v-if="game.mode==='async'">
+              <div><dt>Day starts</dt><dd>{{ dayStartTimeUTC }} UTC</dd></div>
+              <div><dt>Local</dt><dd>{{ dayStartLocalPreview }}</dd></div>
+            </template>
+            <template v-else>
+              <div><dt>Day</dt><dd>{{ dayMinutes }} min</dd></div>
+              <div><dt>Night</dt><dd>{{ nightMinutes }} min</dd></div>
+            </template>
             <div><dt>Anon</dt><dd>{{ setup.anonymized ? 'ON' : 'OFF' }}</dd></div>
           </dl>
         </div>
@@ -278,13 +290,33 @@ const playerCount = computed(() => players.value.length);
 const canStart = computed(() => playerCount.value >= 5 && players.value.every(p => p.ready));
 const presetCounts = [5, 6, 7, 8, 9, 10, 11, 12];
 
-const setup = reactive({ maxDrift: 20, dayMs: 300000, nightMs: 120000, anonymized: false });
+const setup = reactive({ maxDrift: 20, dayMs: 300000, nightMs: 120000, anonymized: false, dayStartMinuteUtc: 540 });
 watch(() => props.game.maxDrift, v => { if (v) setup.maxDrift = v; }, { immediate: true });
 watch(() => props.game.dayMs, v => { if (v) setup.dayMs = v; }, { immediate: true });
 watch(() => props.game.nightMs, v => { if (v) setup.nightMs = v; }, { immediate: true });
 watch(() => props.game.anonymized, v => { setup.anonymized = !!v; }, { immediate: true });
+watch(() => props.game.dayStartMinuteUtc, v => { if (v != null) setup.dayStartMinuteUtc = v; }, { immediate: true });
 const dayMinutes = computed({ get: () => Math.round(setup.dayMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.dayMs = n * 60000; } });
 const nightMinutes = computed({ get: () => Math.round(setup.nightMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.nightMs = n * 60000; } });
+// Async mode: day/night are locked at 12h, so the only thing the host
+// tunes is a wall-clock day-start time. <input type="time"> works in
+// "HH:MM" strings; setup.dayStartMinuteUtc stores minutes since UTC
+// midnight (what the server wants), so this wraps the conversion both ways.
+const dayStartTimeUTC = computed({
+  get: () => `${String(Math.floor(setup.dayStartMinuteUtc / 60)).padStart(2, '0')}:${String(setup.dayStartMinuteUtc % 60).padStart(2, '0')}`,
+  set: v => { const [h, m] = String(v || '00:00').split(':').map(Number); setup.dayStartMinuteUtc = Math.max(0, Math.min(1439, (h || 0) * 60 + (m || 0))); }
+});
+// Local-time preview: the browser already knows the viewer's own timezone
+// (Intl/Date default to it), so this needs no IP geolocation or "which
+// country" lookup — just render the same UTC moment through the local
+// clock. Today's date is a placeholder; only the time-of-day is shown.
+const dayStartLocalPreview = computed(() => {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), Math.floor(setup.dayStartMinuteUtc / 60), setup.dayStartMinuteUtc % 60));
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return `${time} your local time (${tz})`;
+});
 
 // Auto-save: debounce so a burst of edits (typing a number, or a checkbox
 // flip landing mid-keystroke) becomes one 'configure' emit, not one per
@@ -308,7 +340,7 @@ function scheduleSave() {
 // instead of only when these four values actually change.
 const justSaved = ref(false);
 let savedFlashTimer = null;
-watch([() => props.game.maxDrift, () => props.game.dayMs, () => props.game.nightMs, () => props.game.anonymized], () => {
+watch([() => props.game.maxDrift, () => props.game.dayMs, () => props.game.nightMs, () => props.game.anonymized, () => props.game.dayStartMinuteUtc], () => {
   justSaved.value = true;
   if (savedFlashTimer) clearTimeout(savedFlashTimer);
   savedFlashTimer = setTimeout(() => { justSaved.value = false; }, 2500);
@@ -731,6 +763,9 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   font-size: 13px;
   text-align: center;
 }
+.params-cell .param-fields input[type="time"] {
+  width: 100px;
+}
 .params-cell .save-indicator {
   margin: 0;
   padding: 9px 0;
@@ -775,6 +810,15 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   margin: 0 0 10px;
   padding-bottom: 10px;
   border-bottom: 1px dashed #2a2c25;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.params-cell .day-start-hint {
+  width: 100%;
+  margin: -4px 0 0;
   font-size: 10.5px;
   line-height: 1.5;
   color: var(--muted);
