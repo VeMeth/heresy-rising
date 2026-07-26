@@ -300,10 +300,15 @@ function scheduleSave() {
 // "Saved" flash: fires off the server's own confirmed values, not the
 // local edit, so it only lights up once the change has actually round-tripped.
 // Non-immediate (default) — skips the initial mount sync above and only
-// reacts to real subsequent changes.
+// reacts to real subsequent changes. Must be the multi-source array-of-
+// getters form, NOT a single getter returning `[a,b,c,d]` — the latter
+// builds a fresh array literal on every reactive rerun, which Vue then
+// compares by reference (always "changed"), so it would refire on every
+// unrelated game:state broadcast (someone readying up, joining, chatting)
+// instead of only when these four values actually change.
 const justSaved = ref(false);
 let savedFlashTimer = null;
-watch(() => [props.game.maxDrift, props.game.dayMs, props.game.nightMs, props.game.anonymized], () => {
+watch([() => props.game.maxDrift, () => props.game.dayMs, () => props.game.nightMs, () => props.game.anonymized], () => {
   justSaved.value = true;
   if (savedFlashTimer) clearTimeout(savedFlashTimer);
   savedFlashTimer = setTimeout(() => { justSaved.value = false; }, 2500);
