@@ -1,10 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import http from 'node:http';
 import express from 'express';
 import { config as baseConfig } from '../src/config.js';
 import { SessionStore } from '../src/sessionStore.js';
-import { EngineClient } from '../src/engineClient.js';
 import { healthHandler } from '../src/health.js';
 import { registerRestRoutes } from '../src/rest.js';
 
@@ -158,7 +156,7 @@ test('MAX_BOTS_PER_GAME enforced — fifth spawn is rejected and previous reserv
 });
 
 test('MAX_BOT_SESSIONS enforced at the global level', async () => {
-  const { server, sessionStore, config } = await boot({ adminKey: 'admin-secret' });
+  const { server, config } = await boot({ adminKey: 'admin-secret' });
   // Force global cap to 2 for the test by direct config mutation; rest.js referenced closure over the same `config` object.
   config.maxBotSessions = 2;
   try {

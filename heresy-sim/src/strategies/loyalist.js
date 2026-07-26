@@ -35,7 +35,6 @@ export function createL1Citizen(id) {
 // ── L2 — Interrogator ──────────────────────────────────────────────────────
 
 export function createL2Interrogator(id) {
-  let lastScanTarget = null;
   return {
     id,
     label: `l2-interrogator-${id}`,
@@ -43,7 +42,6 @@ export function createL2Interrogator(id) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
       // Target the player who received the most votes last day but wasn't killed
       const target = getMostVoted(s) || pickRandom(s.legalTargets);
-      lastScanTarget = target;
       // Choose intensity based on drift
       const myDrift = s.me?.drift || 0;
       let variant = 'T2';

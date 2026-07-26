@@ -6,6 +6,7 @@ import { ConversationDirector } from './director.js';
 // on the first bot registered for that conclave and torn down when the last
 // bot for that conclave is removed.
 export class SessionStore {
+  /** @param {{config?:object}} [params] */
   constructor({ config } = {}) {
     this.sessions = new Map();
     this._config = config || {};

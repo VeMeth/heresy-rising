@@ -2,6 +2,7 @@
   "name": "heresy-rising",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "client:dev": "npm --prefix heresy-client run dev",
     "server:start": "npm --prefix heresy-server run start",

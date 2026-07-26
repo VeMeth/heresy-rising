@@ -7,7 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
 import { config, isDefaultAdminPassword, isDefaultAdminApiKey } from './config.js';
 import { HeresyGameManager } from './heresyGameManager.js';
-import { normalizeRoomCode, requirePlayerCode } from './utils.js';
+import { normalizeRoomCode, requirePlayerCode, normalizePlayerCode } from './utils.js';
 import { SocketRateLimiter } from './socketRateLimiter.js';
 import { deleteGameLog, getGameLog, listGameLogs } from './gameLogs.js';
 import { validateComposition } from './validators/composition.js';
@@ -112,6 +112,7 @@ function constantTimeEquals(a, b) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
+/** @param {{databasePath?:string,now?:()=>number}} [params] */
 export function createHeresyServer({ databasePath, now } = {}) {
   const app=express(), server=http.createServer(app), allowed=config.cors.allowedOrigins;
   const corsOptions=(req,cb)=>cb(null,{origin:isRequestOriginAllowed(req,allowed),credentials:false});
@@ -142,7 +143,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
   app.patch('/api/admin/games/:code/players/:playerCode',requireAdmin,(req,res)=>{try{res.json({player:gameManager.adminUpdatePlayer(normalizeRoomCode(req.params.code),req.params.playerCode,req.body)});}catch(e){res.status(400).json({error:e.message});}});
   app.post('/api/admin/games/:code/end',requireAdmin,(req,res)=>{try{res.json(gameManager.adminEndGame(normalizeRoomCode(req.params.code),req.body?.winner));}catch(e){res.status(400).json({error:e.message});}});
   app.delete('/api/admin/games/:code',requireAdmin,async (req,res)=>{try{const gameCode=normalizeRoomCode(req.params.code);const result=gameManager.adminDeleteGame(gameCode);fetch(config.botManager.url+'/bots/by-conclave/'+encodeURIComponent(gameCode),{method:'DELETE',headers:{'Authorization':`Bearer ${config.botManager.adminApiKey}`,'Content-Type':'application/json'}}).catch(()=>{});res.json(result);}catch(e){res.status(400).json({error:e.message});}});
-  app.get('/api/admin/game-logs',requireAdmin,(req,res)=>{try{res.json({logs:listGameLogs({limit:req.query.limit})});}catch(e){res.status(500).json({error:e.message});}});
+  app.get('/api/admin/game-logs',requireAdmin,(req,res)=>{try{res.json({logs:listGameLogs({limit:String(req.query.limit||'')})});}catch(e){res.status(500).json({error:e.message});}});
   app.get('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{const log=getGameLog(req.params.id);if(!log)return res.status(404).json({error:'Game log not found'});res.json({log});}catch(e){res.status(500).json({error:e.message});}});
   app.delete('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{res.json({deleted:deleteGameLog(req.params.id)});}catch(e){res.status(400).json({error:e.message});}});
   function requestPlayerCode(req){return requirePlayerCode(req.get('X-Player-Code')||req.query.playerCode);}
@@ -202,7 +203,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
     simProxy(req,res,body);
   });
   app.get('/api/game/:code',(req,res)=>{try{res.set('Cache-Control','no-store').json({state:gameManager.state(normalizeRoomCode(req.params.code),requestPlayerCode(req))});}catch(e){res.status(400).json({error:e.message});}});
-  app.get('/api/game/:code/chat',(req,res)=>{try{res.set('Cache-Control','no-store').json(gameManager.historyMessages(normalizeRoomCode(req.params.code),requestPlayerCode(req),req.query.channel,req.query.before,req.query.limit));}catch(e){res.status(400).json({error:e.message});}});
+  app.get('/api/game/:code/chat',(req,res)=>{try{res.set('Cache-Control','no-store').json(gameManager.historyMessages(normalizeRoomCode(req.params.code),requestPlayerCode(req),String(req.query.channel||'public'),String(req.query.before||''),String(req.query.limit||'')));}catch(e){res.status(400).json({error:e.message});}});
   app.use((err,req,res,next)=>{if(err?.message==='Origin not allowed')return res.status(403).json({error:'Origin not allowed'});next(err);});
   // Per-lobby simulate cooldown, keyed by game code — NOT by socket.id like
   // socketLimiter below. socketLimiter's rate limiting is trivially bypassed
@@ -222,7 +223,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
     'game:kick': { points: 6, duration: 60_000 }
   });
   const io=new Server(server,{cors:{origin:allowed==='*'?'*':allowed,methods:['GET','POST'],credentials:false},allowRequest(req,cb){cb(null,isRequestOriginAllowed(req,allowed));},maxHttpBufferSize:32768,transports:['websocket'],pingTimeout:10000,pingInterval:20000});
-  function ackWrap(socket,event,fn){socket.on(event,async(payload={},ack=()=>{})=>{try{if(socketLimiter.isRateLimited(socket.id,event))throw new Error('Rate limit exceeded');const data=await fn(payload);ack({ok:true,...(data&&typeof data==='object'?data:{data})});}catch(error){ack({ok:false,error:error.message});}});}
+  function ackWrap(socket,event,fn){socket.on(event,async(payload={},ack=(/** @type {any} */ _response)=>{})=>{try{if(socketLimiter.isRateLimited(socket.id,event))throw new Error('Rate limit exceeded');const data=await fn(payload);ack({ok:true,...(data&&typeof data==='object'?data:{data})});}catch(error){ack({ok:false,error:error.message});}});}
   function auth(socket,payload){const playerCode=requirePlayerCode(payload.playerCode||socket.data.playerCode||socket.handshake.auth?.playerCode);socket.data.playerCode=playerCode;return playerCode;}
   function broadcast(code,event='game:state'){for(const socket of io.sockets.sockets.values()){if(!socket.rooms.has(code)||!socket.data.playerCode)continue;try{const state=socket.data.isSpectator?gameManager.spectate(code):gameManager.state(code,socket.data.playerCode);socket.emit(event,{state});if(state.status==='ended')socket.emit('game:ended',{state});}catch{}}}
   function broadcastMessage(code,message){for(const client of io.sockets.sockets.values()){try{if(!client.rooms.has(code)||!client.data.playerCode)continue;if(client.data.isSpectator){if(message.channel==='public')client.emit('chat:message',{message});continue;}const player=gameManager.player(code,client.data.playerCode);if(!player)continue;if(message.channel==='public'||(message.channel==='faction'&&player.faction==='heretic')||(message.channel==='graveyard'&&!player.alive)||(message.channel==='private'&&message.recipient_code===client.data.playerCode))client.emit('chat:message',{message});}catch{}}}
@@ -248,13 +249,13 @@ export function createHeresyServer({ databasePath, now } = {}) {
   io.on('connection',socket=>{
     ackWrap(socket,'game:create',p=>{const playerCode=auth(socket,p);const result=gameManager.create({playerCode,name:p.name,mode:p.mode,options:p.options});socket.join(result.code);return result;});
     ackWrap(socket,'game:join',p=>{const playerCode=auth(socket,p),code=normalizeRoomCode(p.code);const state=gameManager.join({code,playerCode,name:p.name});socket.join(code);broadcast(code);return {state};});
-    ackWrap(socket,'game:spectate',p=>{const code=normalizeRoomCode(p.code);if(!p.playerCode||typeof p.playerCode!=='string'||p.playerCode.length<4){socket.data.playerCode='spec_'+Math.random().toString(36).slice(2,10);socket.data.playerCode+='_'+Date.now().toString(36).slice(-4);}else socket.data.playerCode=p.playerCode;socket.data.isSpectator=true;socket.join(code);const state=gameManager.spectate(code);return {state,playerCode:socket.data.playerCode};});
+    ackWrap(socket,'game:spectate',p=>{const code=normalizeRoomCode(p.code);const normalized=typeof p.playerCode==='string'?normalizePlayerCode(p.playerCode):'';if(normalized.length<4){socket.data.playerCode='spec_'+Math.random().toString(36).slice(2,10);socket.data.playerCode+='_'+Date.now().toString(36).slice(-4);}else socket.data.playerCode=normalized;socket.data.isSpectator=true;socket.join(code);const state=gameManager.spectate(code);return {state,playerCode:socket.data.playerCode};});
     ackWrap(socket,'game:state',p=>{const code=normalizeRoomCode(p.code),playerCode=auth(socket,p);socket.join(code);if(socket.data.isSpectator){const state=gameManager.spectate(code);return {state};}const state=gameManager.reconnect(code,playerCode);broadcast(code);return {state};});
     ackWrap(socket,'game:ready',p=>{const code=normalizeRoomCode(p.code),state=gameManager.ready(code,auth(socket,p),p.ready);broadcast(code);return {state};});
-    ackWrap(socket,'game:start',p=>{const code=normalizeRoomCode(p.code);const result=gameManager.start(code,auth(socket,p),p.setup);if(result&&result.ok===false)return result;broadcast(code,'phase:updated');// After role seal, push a per-bot session_init so the bot-manager can wire its role/faction/claim block.
+    ackWrap(socket,'game:start',p=>{const code=normalizeRoomCode(p.code);const result=gameManager.start(code,auth(socket,p),p.setup);if(result&&'ok' in result&&result.ok===false)return result;broadcast(code,'phase:updated');// After role seal, push a per-bot session_init so the bot-manager can wire its role/faction/claim block.
       broadcastBots(code,'bot:session_init',(bot)=>gameManager.botSessionInit(code,bot.player_code));return{state:result};});
     ackWrap(socket,'game:configure',p=>{const code=normalizeRoomCode(p.code);gameManager.configure(code,auth(socket,p),p.setup);broadcast(code);return{state:gameManager.state(code,socket.data.playerCode)};});
-    ackWrap(socket,'game:advance-phase',p=>{const code=normalizeRoomCode(p.code);gameManager.advance(code,auth(socket,p),true);broadcast(code,'phase:updated');return {state:gameManager.state(code,socket.data.playerCode)};});
+    ackWrap(socket,'game:advance-phase',p=>{const code=normalizeRoomCode(p.code);gameManager.advance(code,auth(socket,p));broadcast(code,'phase:updated');return {state:gameManager.state(code,socket.data.playerCode)};});
     ackWrap(socket,'chat:history',p=>(gameManager.historyMessages(normalizeRoomCode(p.code),auth(socket,p),p.channel,p.before,p.limit)));
     ackWrap(socket,'chat:send',p=>{const code=normalizeRoomCode(p.code),message=gameManager.sendMessage(code,auth(socket,p),p.channel||'public',p.body);broadcastMessage(code,message);return {message};});
     // H6 Animus's possession-day chat — no once-per-day limit (unlike
@@ -318,6 +319,6 @@ export function createHeresyServer({ databasePath, now } = {}) {
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
-  const instance=createHeresyServer(); instance.server.listen(config.port,()=>console.log(`Heresy Rising server listening on ${config.port}`));
+  const instance=createHeresyServer(); instance.server.listen(config.port,()=>console.info(`Heresy Rising server listening on ${config.port}`));
   const shutdown=()=>instance.close().then(()=>process.exit(0)); process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
 }

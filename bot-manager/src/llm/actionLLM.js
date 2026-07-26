@@ -20,7 +20,14 @@ function estimateTokens(str) { return Math.ceil((str || '').length / 4); }
 //      the full prior exchange — keeps the retry cheap on an 8k context).
 //   4. On second failure, the bot passes the turn.
 export class ActionLLM {
-  constructor({ chatModel, promptBuilder = assembleMessages, maxRetries = 1 } = {}) {
+  /**
+   * @param {object} params
+   * @param {{chat:(messages:any[])=>Promise<{content:string,usage?:object}>}} params.chatModel
+   * @param {typeof assembleMessages} [params.promptBuilder]
+   * @param {number} [params.maxRetries]
+   */
+  constructor(params) {
+    const { chatModel, promptBuilder = assembleMessages, maxRetries = 1 } = params;
     if (!chatModel) throw new Error('ActionLLM requires chatModel');
     this._chat = chatModel;
     this._promptBuilder = promptBuilder;
@@ -28,7 +35,9 @@ export class ActionLLM {
     this._label = 'actionLLM';
   }
 
-  async generate({ session, prompt } = {}) {
+  /** @param {{session:object,prompt:object}} params */
+  async generate(params) {
+    const { session, prompt } = params;
     const { system, user } = this._promptBuilder({ session, prompt });
     const messages = [
       { role: 'system', content: system },

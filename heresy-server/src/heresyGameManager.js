@@ -10,6 +10,84 @@ import { canProtectSelf, validateRotation, getLastProtectTarget } from './mechan
 import { validateComposition } from './validators/composition.js';
 import { saveGameLogSnapshot } from './gameLogs.js';
 
+// Phase-length defaults (ms) for the two lobby modes, and the bounds
+// start()/configure() clamp host-supplied overrides into.
+const DAY_MS_SYNC_DEFAULT = 300_000;
+const NIGHT_MS_SYNC_DEFAULT = 120_000;
+const DAY_MS_ASYNC_DEFAULT = 86_400_000;
+const NIGHT_MS_ASYNC_DEFAULT = 43_200_000;
+const PHASE_MS_FLOOR_START = 10_000;
+const PHASE_MS_FLOOR_CONFIGURE = 60_000;
+const PHASE_MS_CEILING = 86_400_000;
+const MAX_DRIFT_CEILING = 100;
+
+/**
+ * @typedef {Object} GameRow
+ * @property {string} code
+ * @property {string} host_code
+ * @property {string} mode
+ * @property {string} phase
+ * @property {string|null} day_stage
+ * @property {string} status
+ * @property {number} round
+ * @property {number|null} deadline
+ * @property {number} day_ms
+ * @property {number} night_ms
+ * @property {number} max_drift
+ * @property {string} hint_profile
+ * @property {string|null} last_interrogated_target
+ * @property {number} last_interrogation_tier
+ * @property {string|null} winner
+ * @property {number} created_at
+ * @property {number} updated_at
+ */
+
+/**
+ * @typedef {Object} PlayerRow
+ * @property {string} game_code
+ * @property {string} player_code
+ * @property {string} name
+ * @property {number} seat
+ * @property {string|null} role_id
+ * @property {string|null} faction
+ * @property {number} drift
+ * @property {number} alive
+ * @property {number} ready
+ * @property {number} connected
+ * @property {number} cripple_tier
+ * @property {number|null} tier1_until_round
+ * @property {number} confessed
+ * @property {number|null} confession_token_round
+ * @property {number} skip_next_night
+ * @property {number} joined_at
+ * @property {number} is_bot
+ * @property {string|null} possessed_by
+ * @property {number} possession_revealed
+ * @property {number} interrogated_before
+ */
+
+/**
+ * @typedef {Object} ActionRow
+ * @property {string} game_code
+ * @property {number} round
+ * @property {string} actor_code
+ * @property {string} kind
+ * @property {string|null} target_code
+ * @property {string|null} variant
+ * @property {string|null} data
+ * @property {number} created_at
+ */
+
+/**
+ * @typedef {Object} VoteRow
+ * @property {string} game_code
+ * @property {number} round
+ * @property {string} stage
+ * @property {string} voter_code
+ * @property {string} choice
+ * @property {number} created_at
+ */
+
 const schema = `
 CREATE TABLE IF NOT EXISTS hr_games(code TEXT PRIMARY KEY,host_code TEXT NOT NULL,mode TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'lobby',day_stage TEXT,status TEXT NOT NULL DEFAULT 'lobby',round INTEGER NOT NULL DEFAULT 0,deadline INTEGER,day_ms INTEGER NOT NULL,night_ms INTEGER NOT NULL,max_drift INTEGER NOT NULL,hint_profile TEXT NOT NULL DEFAULT 'default',last_interrogated_target TEXT,last_interrogation_tier INTEGER NOT NULL DEFAULT 0,winner TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS hr_players(game_code TEXT NOT NULL,player_code TEXT NOT NULL,name TEXT NOT NULL,seat INTEGER NOT NULL,role_id TEXT,faction TEXT,drift INTEGER NOT NULL DEFAULT 0,alive INTEGER NOT NULL DEFAULT 1,ready INTEGER NOT NULL DEFAULT 0,connected INTEGER NOT NULL DEFAULT 1,cripple_tier INTEGER NOT NULL DEFAULT 0,tier1_until_round INTEGER,confessed INTEGER NOT NULL DEFAULT 0,confession_token_round INTEGER,skip_next_night INTEGER NOT NULL DEFAULT 0,joined_at INTEGER NOT NULL,PRIMARY KEY(game_code,player_code));
@@ -57,12 +135,15 @@ export class HeresyGameManager {
   onChatMessage(fn){this._chatMessageListeners.push(fn);}
   emitChatMessage(c,message){for(const fn of this._chatMessageListeners)try{fn(c,message);}catch{}}
   close(){this.db.close();}
-  ensureColumn(table,column,definition){if(!this.db.prepare(`PRAGMA table_info(${table})`).all().some(x=>x.name===column))this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);}
-  game(c){return this.db.prepare('SELECT * FROM hr_games WHERE code=?').get(c);}
-  players(c){return this.db.prepare('SELECT * FROM hr_players WHERE game_code=? ORDER BY seat').all(c);}
-  player(c,p){return this.db.prepare('SELECT * FROM hr_players WHERE game_code=? AND player_code=?').get(c,p);}
+  ensureColumn(table,column,definition){if(!/** @type {{name:string}[]} */ (this.db.prepare(`PRAGMA table_info(${table})`).all()).some(x=>x.name===column))this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);}
+  /** @returns {GameRow|undefined} */
+  game(c){return /** @type {GameRow|undefined} */ (this.db.prepare('SELECT * FROM hr_games WHERE code=?').get(c));}
+  /** @returns {PlayerRow[]} */
+  players(c){return /** @type {PlayerRow[]} */ (this.db.prepare('SELECT * FROM hr_players WHERE game_code=? ORDER BY seat').all(c));}
+  /** @returns {PlayerRow|undefined} */
+  player(c,p){return /** @type {PlayerRow|undefined} */ (this.db.prepare('SELECT * FROM hr_players WHERE game_code=? AND player_code=?').get(c,p));}
   role(id){const role=this.config.roles.get(id);if(!role)throw new Error('Unknown role data');return role;}
-  codes(){return new Set(this.db.prepare('SELECT code FROM hr_games').all().map(x=>x.code));}
+  codes(){return new Set(/** @type {{code:string}[]} */ (this.db.prepare('SELECT code FROM hr_games').all()).map(x=>x.code));}
   presetFor(count){
     // TODO(heresy-spec): Entire 5–12 composition table and priority fallback are non-canonical, unplaytested defaults.
     const exact=this.config.composition[String(count)]; if(exact)return [...exact];
@@ -70,9 +151,16 @@ export class HeresyGameManager {
     while(roles.length<count)roles.push('imperial-citizen'); return roles.slice(0,count);
   }
   roleDefinitions(){return this.config.roleList.map(({ability,objective,...role})=>({...role,ability,objective}));}
+  /**
+   * @param {object} params
+   * @param {string} params.playerCode
+   * @param {string} params.name
+   * @param {string} [params.mode]
+   * @param {{dayMs?:number,nightMs?:number,maxDrift?:number,hintProfile?:string}} [params.options]
+   */
   create({playerCode,name,mode='live',options={}}){
     if(!playerCode)throw new Error('playerCode is required'); if(!['live','async'].includes(mode))throw new Error('Invalid game mode');
-    const code=generateRoomCode(this.codes(),6),now=this.now(),dayMs=Number(options.dayMs)||(mode==='async'?86400000:300000),nightMs=Number(options.nightMs)||(mode==='async'?43200000:120000),max=Math.max(1,Number(options.maxDrift)||this.config.drift.MAX_DRIFT),hintProfile=this.config.hintProfiles[options.hintProfile] ? options.hintProfile : 'default';
+    const code=generateRoomCode(this.codes(),6),now=this.now(),dayMs=Number(options.dayMs)||(mode==='async'?DAY_MS_ASYNC_DEFAULT:DAY_MS_SYNC_DEFAULT),nightMs=Number(options.nightMs)||(mode==='async'?NIGHT_MS_ASYNC_DEFAULT:NIGHT_MS_SYNC_DEFAULT),max=Math.max(1,Number(options.maxDrift)||this.config.drift.MAX_DRIFT),hintProfile=this.config.hintProfiles[options.hintProfile] ? options.hintProfile : 'default';
     this.db.prepare('INSERT INTO hr_games(code,host_code,mode,day_ms,night_ms,max_drift,hint_profile,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').run(code,playerCode,mode,dayMs,nightMs,max,hintProfile,now,now);
     this.db.prepare('INSERT INTO hr_players(game_code,player_code,name,seat,joined_at) VALUES(?,?,?,?,?)').run(code,playerCode,sanitizePlayerName(name),0,now); return {code,state:this.state(code,playerCode)};
   }
@@ -81,13 +169,23 @@ export class HeresyGameManager {
 reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET connected=1 WHERE game_code=? AND player_code=?').run(c,p);return this.state(c,p);}
   kick(c,hostCode,targetCode){const g=this.requireHost(c,hostCode);const target=this.requirePlayer(c,targetCode);if(target.player_code===hostCode)throw new Error('Host cannot kick themselves');if(g.phase!=='lobby')throw new Error('Kick is only allowed in the lobby');this.db.prepare('DELETE FROM hr_players WHERE game_code=? AND player_code=?').run(c,targetCode);return this.state(c,hostCode);}
   ready(c,p,value){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET ready=? WHERE game_code=? AND player_code=?').run(value===undefined?1:+!!value,c,p);return this.state(c,p);}
-  start(c,p,{maxDrift,dayMs,nightMs,composition}={}){
+  /**
+   * @param {object} [params]
+   * @param {number} [params.maxDrift]
+   * @param {number} [params.dayMs]
+   * @param {number} [params.nightMs]
+   * @param {{source:'preset'|'custom',presetId?:string,roster?:string[],confirmedWarnings?:string[]}} [params.composition]
+   */
+  start(c,p,params={}){const{maxDrift,dayMs,nightMs,composition}=params;
     const g=this.requireHost(c,p),players=this.players(c);
     if(g.phase!=='lobby')throw new Error('Already started');
     if(players.length<5||players.length>12)throw new Error('Games require 5–12 players');
     if(players.some(x=>x.player_code!==p&&!x.ready))throw new Error('All players must be ready');
 
-    let ids, compositionSource;
+    /** @type {string[]} */
+    let ids;
+    /** @type {'preset'|'custom'} */
+    let compositionSource;
     if(!composition){
       ids=this.presetFor(players.length);
       compositionSource='preset';
@@ -114,11 +212,11 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
 
     const assigned=shuffle(ids);
     const fallbackDay=g.mode==='async'?86_400_000:300_000,fallbackNight=g.mode==='async'?43_200_000:120_000;
-    const resolvedDayMs=Math.max(10_000,Number(dayMs)||fallbackDay),resolvedNightMs=Math.max(10_000,Number(nightMs)||fallbackNight);
+    const resolvedDayMs=Math.max(PHASE_MS_FLOOR_START,Math.min(PHASE_MS_CEILING,Number(dayMs)||fallbackDay)),resolvedNightMs=Math.max(PHASE_MS_FLOOR_START,Math.min(PHASE_MS_CEILING,Number(nightMs)||fallbackNight));
     const startDeadline=this.now()+resolvedDayMs;
     this.db.transaction(()=>{
       players.forEach((x,i)=>{const r=this.role(assigned[i]);this.db.prepare('UPDATE hr_players SET role_id=?,faction=?,drift=0,alive=1,cripple_tier=0,confessed=0 WHERE game_code=? AND player_code=?').run(r.id,r.faction,c,x.player_code);});
-      this.db.prepare("UPDATE hr_games SET phase='day',day_stage='vote',status='active',round=1,max_drift=?,day_ms=?,night_ms=?,deadline=?,updated_at=? WHERE code=?").run(Math.max(1,Number(maxDrift)||g.max_drift),resolvedDayMs,resolvedNightMs,startDeadline,this.now(),c);
+      this.db.prepare("UPDATE hr_games SET phase='day',day_stage='vote',status='active',round=1,max_drift=?,day_ms=?,night_ms=?,deadline=?,updated_at=? WHERE code=?").run(Math.max(1,Math.min(MAX_DRIFT_CEILING,Number(maxDrift)||g.max_drift)),resolvedDayMs,resolvedNightMs,startDeadline,this.now(),c);
       // Wipe lobby chatter so the live game starts with a clean transcript.
       this.db.prepare("DELETE FROM hr_messages WHERE game_code=?").run(c);
       this.system(c,'Roles sealed. Day 1 begins — review your dossier and discuss.');
@@ -126,10 +224,9 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     players.forEach((x,i)=>{const r=this.role(assigned[i]);this.privateSystem(c,x.player_code,`Your role is ${r.displayName}. ${r.objective}`);this.emitAnnouncement(c,{type:'role-reveal',title:'YOUR DOSSIER',message:`You are a ${r.displayName}. ${r.objective}`,role:r.displayName,objective:r.objective,faction:r.faction,round:1,phase:'day',targetCode:x.player_code});});
     return this.state(c,p);
   }
-  configure(c,p,options={}){const g=this.requireGame(c);if(g.phase!=='lobby')throw new Error('Game has already started');this.requireHost(c,p);const dayMs=Math.max(60000,Math.min(86400000,Number(options.dayMs)||g.day_ms)),nightMs=Math.max(60000,Math.min(86400000,Number(options.nightMs)||g.night_ms)),maxDrift=Math.max(1,Math.min(100,Number(options.maxDrift)||g.max_drift));this.db.prepare('UPDATE hr_games SET day_ms=?,night_ms=?,max_drift=?,updated_at=? WHERE code=?').run(dayMs,nightMs,maxDrift,this.now(),c);return this.state(c,p);}
+  configure(c,p,options={}){const g=this.requireGame(c);if(g.phase!=='lobby')throw new Error('Game has already started');this.requireHost(c,p);const dayMs=Math.max(PHASE_MS_FLOOR_CONFIGURE,Math.min(PHASE_MS_CEILING,Number(options.dayMs)||g.day_ms)),nightMs=Math.max(PHASE_MS_FLOOR_CONFIGURE,Math.min(PHASE_MS_CEILING,Number(options.nightMs)||g.night_ms)),maxDrift=Math.max(1,Math.min(MAX_DRIFT_CEILING,Number(options.maxDrift)||g.max_drift));this.db.prepare('UPDATE hr_games SET day_ms=?,night_ms=?,max_drift=?,updated_at=? WHERE code=?').run(dayMs,nightMs,maxDrift,this.now(),c);return this.state(c,p);}
   advance(c,p){this.requireHost(c,p);return this.resolve(c,true);}
   resolve(c,force=false){const g=this.requireGame(c);if(g.status!=='active')throw new Error('Game is not active');if(!force&&g.deadline&&g.deadline>this.now())throw new Error('Phase is active');if(g.phase==='night')this.resolveNight(g);else if(g.phase==='day')this.resolveDay(g);return this.game(c);}
-  // TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
   setPhase(c,phase,round,dayStage=null){const g=this.game(c),duration=phase==='night'?g.night_ms:g.day_ms,deadline=this.now()+duration,stage=phase==='day'?(dayStage||'vote'):dayStage;this.db.prepare('UPDATE hr_games SET phase=?,round=?,day_stage=?,deadline=?,updated_at=? WHERE code=?').run(phase,round,stage,deadline,this.now(),c);if(phase==='night')this.db.prepare('UPDATE hr_players SET confession_token_round=NULL WHERE game_code=?').run(c);if(phase==='day'){this.db.prepare('UPDATE hr_players SET cripple_tier=0,tier1_until_round=NULL WHERE game_code=? AND cripple_tier=1 AND tier1_until_round<?').run(c,round);const votingEnabled=round!==1;this.system(c,votingEnabled?`Day ${round}: vote for a target or stand down.`:`Day ${round} begins — no vote today. Introduce yourself and observe.`);}
   // Bot prompts: nudge bot sockets to act. Night → night_action_prompt; voting-enabled day → day_vote_prompt. Day 1 has no vote (Q28) → no prompt.
   const aliveBots=this.players(c).filter(p=>p.alive&&p.is_bot);
@@ -204,7 +301,6 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       if(targetZone.id==='green'&&target.interrogated_before){this.db.prepare('UPDATE hr_players SET interrogated_before=0 WHERE game_code=? AND player_code=?').run(c,a.target_code);markNote=' Your read is clean enough to absolve them — their interrogation mark is lifted.';}
       else if(targetZone.id==='red'){if(!target.interrogated_before)this.db.prepare('UPDATE hr_players SET interrogated_before=1 WHERE game_code=? AND player_code=?').run(c,a.target_code);markNote=' Your read comes back guilty — their next interrogation will be an execution.';}
       this.privateSystem(c,a.actor_code,`${target.name} is ${display.toLowerCase()}.${markNote}`,{intelKind:'interrogate',tier:1,target:a.target_code,zone:targetZone.id,result:display.toLowerCase()});return{};}const effectiveTier=getEffectiveScanTier(intensity,targetZone.id);const rate=intelNoiseRate(this.config.drift,actor.drift,role.driftWeight);if(effectiveTier>=3){const text=target.faction==='loyalist'?'Confirmed: they are a Loyalist. The Emperor\'s light is unbroken in them.':'Confirmed: they are a Heretic. The warp taint is undeniable.';this.privateSystem(c,a.actor_code,text,{intelKind:'interrogate',tier:intensity,effectiveTier,target:a.target_code,zone:targetZone.id,faction:target.faction});return{};}const truth=target.faction==='loyalist';const result=noisyResult(truth,rate,this.random);let text=result==='unclear'?'You learned nothing.':result?'Their story holds together.':'Something does not add up.';if(effectiveTier>=2)text+=` You sense their drift zone: ${targetZone.id}.`;this.privateSystem(c,a.actor_code,text,{intelKind:'interrogate',tier:intensity,effectiveTier,target:a.target_code,zone:effectiveTier>=2?targetZone.id:null,factionHint:result==='unclear'?null:(result?'loyalist':'heretic')});return{};}
-    // TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
   resolveDay(g){if(g.day_stage==='response')throw new Error('Awaiting interrogation response or direct ask');const votingEnabled=g.round!==1;if(!votingEnabled){const payload={round:g.round,outcome:'skip',target:null,reason:'day1-no-vote',voterResults:[],witnessedDrift:0,alignmentRevealed:null,crippleTier:null};this.event(g.code,'day-resolution',payload);this.system(g.code,`Day ${g.round} concludes with no vote. The conclave disperses.`);this.applyHereticCap(g.code,g.round);this.resolvePossessionDetonation(g.code);if(!this.finishIfWon(g.code))this.setPhase(g.code,'night',g.round);return payload;}const payload=this.resolveDayVote(g);this.resolvePossessionDetonation(g.code);return payload;}
   // H6 Animus: fires unconditionally after the day's vote tally is announced
   // (E4), regardless of that day's outcome (interrogate/lynch/skip/tie) —
@@ -220,7 +316,8 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
   // (those are night-resolution-local), so there is nothing for them to
   // block — the detonation is a Warp-claim, not a kill-by-role.
   resolvePossessionDetonation(c){const target=this.players(c).find(p=>p.possessed_by&&!p.possession_revealed);if(!target)return;const animusCode=target.possessed_by;this.db.prepare('UPDATE hr_players SET alive=0,drift=0,possession_revealed=1 WHERE game_code=? AND player_code=?').run(c,target.player_code);const roleName=target.role_id?this.role(target.role_id).displayName:'Unknown';const revealBody=`${target.name}'s body ruptures. Smoke and warp-light spill from the torn armor. A Neverborn finds its mark. The heretic is exposed.`;this.system(c,revealBody);this.system(c,`${target.name} was ${roleName} (${target.faction}).`);this.emitAnnouncement(c,{type:'neverborn-reveal',title:'THE BODY RUPTURES',message:revealBody,victim:{name:target.name,role:roleName,faction:target.faction,drift:target.drift},round:this.game(c).round,phase:'day'});for(const p of this.players(c).filter(x=>x.alive&&x.player_code!==animusCode))this.changeDrift(c,p.player_code,this.config.drift.WITNESSED_VIOLENCE,'witnessed-violence');}
-  dayVotes(c,r){return this.db.prepare("SELECT * FROM hr_votes WHERE game_code=? AND round=? AND stage='target'").all(c,r);}
+  /** @returns {VoteRow[]} */
+  dayVotes(c,r){return /** @type {VoteRow[]} */ (this.db.prepare("SELECT * FROM hr_votes WHERE game_code=? AND round=? AND stage='target'").all(c,r));}
   resolveDayVote(g){
     // H6 Animus: a possessed player's vote is silently suppressed — cast
     // normally client-side (no visible tell, per spec), dropped here before
@@ -246,8 +343,8 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     this.system(c,`Vote tally — ${targetName} received ${targetVotes.length} vote(s). Voters: ${voterNames.join(', ')}.`);
     return outcome==='lynch'?this.applyLynch(g,targetCode):this.applyInterrogation(g,targetCode);
   }
-  previousDayResolution(c,round){const row=this.db.prepare("SELECT payload FROM hr_events WHERE game_code=? AND type='day-resolution' ORDER BY id DESC LIMIT 1").get(c);if(!row)return null;try{const payload=JSON.parse(row.payload);return payload.round===round-1?payload:null;}catch{return null;}}
-  previousBloodRitual(c,round){const row=this.db.prepare("SELECT payload FROM hr_events WHERE game_code=? AND type='blood-ritual' ORDER BY id DESC LIMIT 1").get(c);if(!row)return null;try{const payload=JSON.parse(row.payload);return payload.round===round-1?payload:null;}catch{return null;}}
+  previousDayResolution(c,round){const row=/** @type {{payload:string}|undefined} */ (this.db.prepare("SELECT payload FROM hr_events WHERE game_code=? AND type='day-resolution' ORDER BY id DESC LIMIT 1").get(c));if(!row)return null;try{const payload=JSON.parse(row.payload);return payload.round===round-1?payload:null;}catch{return null;}}
+  previousBloodRitual(c,round){const row=/** @type {{payload:string}|undefined} */ (this.db.prepare("SELECT payload FROM hr_events WHERE game_code=? AND type='blood-ritual' ORDER BY id DESC LIMIT 1").get(c));if(!row)return null;try{const payload=JSON.parse(row.payload);return payload.round===round-1?payload:null;}catch{return null;}}
   skipDay(g,reason='skip'){const c=g.code,payload={round:g.round,outcome:'skip',target:null,reason,voterResults:this.dayVotes(c,g.round).map(v=>({voter:v.voter_code,votedFor:v.choice,driftDelta:0})),witnessedDrift:0,alignmentRevealed:null,crippleTier:null};this.event(c,'day-resolution',payload);this.system(c,'The conclave stands down. No sentence is passed.');this.applyHereticCap(c,g.round);if(!this.finishIfWon(c))this.setPhase(c,'night',g.round);return payload;}
   // Tiered Lynch E5 (locked): a target already at T3 is STILL interrogated
   // — they just lose a night action again; the cripple-tier benefit is
@@ -278,11 +375,18 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     // TODO(heresy-spec): Tier 3 confession occurs only on a direct ask and is required for Loyalist victory.
     this.db.prepare('UPDATE hr_players SET confessed=1 WHERE game_code=? AND player_code=?').run(c,targetCode);this.system(c,`${target.name} is forced to confess: ${this.role(target.role_id).displayName}.`);this.emitAnnouncement(c,{type:'confession',title:'FORCED CONFESSION',message:`${target.name} is forced to confess: ${this.role(target.role_id).displayName}.`,victim:{name:target.name},round:g.round,phase:'day'});this.applyHereticCap(c,g.round);if(!this.finishIfWon(c))this.setPhase(c,'night',g.round);return this.state(c,asker);}
   applyHereticCap(c,day){if(day!==this.config.drift.HERETIC_CAP_DAY)return;for(const p of this.players(c).filter(x=>x.alive&&x.faction==='heretic'&&x.drift<this.config.drift.HERETIC_DRIFT_CAP))this.changeDrift(c,p.player_code,this.config.drift.HERETIC_CAP_SPIKE,'heretic-cap');}
-  // TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
   vote(c,p,choice,justification=''){const g=this.requireGame(c),v=this.requireAlive(c,p),cleanChoice=String(choice||'');if(g.phase!=='day'||g.day_stage==='response'||g.round===1)throw new Error('Voting is closed');if(cleanChoice!=='skip')this.requireAlive(c,cleanChoice);if(effectiveCrippleTier(v,g.round)>=2&&!String(justification).trim())throw new Error('Broken players must justify every vote');const targetName=cleanChoice==='skip'?null:this.player(c,cleanChoice)?.name||'Unknown';const voteMsg=targetName?`${v.name} accused ${targetName}.`:`${v.name} stood down.`;this.system(c,voteMsg);const message=justification?this.insertMessage(c,'public',null,p,v.name,`Vote justification: ${String(justification).trim().slice(0,300)}`,'vote'):null;this.db.prepare('INSERT INTO hr_votes VALUES(?,?,?,?,?,?) ON CONFLICT(game_code,round,stage,voter_code) DO UPDATE SET choice=excluded.choice,created_at=excluded.created_at').run(c,g.round,'target',v.player_code,cleanChoice,this.now());return{votes:this.voteState(c),message};}
   retractVote(c,p){const g=this.requireGame(c),v=this.player(c,p);this.db.prepare("DELETE FROM hr_votes WHERE game_code=? AND round=? AND stage='target' AND voter_code=?").run(c,g.round,p);if(v?.alive)this.system(c,`${v.name} retracted their accusation.`);return this.voteState(c);}
-  voteState(c){const g=this.game(c);if(!g)return[];return this.db.prepare("SELECT stage,voter_code AS voterCode,choice,created_at AS createdAt FROM hr_votes WHERE game_code=? AND round=? AND stage='target'").all(c,g.round);}
-  submitAction(c,p,{targetCode,variant,data,body,asPlayerCode}={}){const g=this.requireGame(c),actor=this.requireAlive(c,p),role=this.role(actor.role_id),action=g.phase==='night'?role.actions.night:role.actions.day;if(!action||action.kind==='sleep')throw new Error('Your role has no active action now');if(action.kind==='protect'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'protect',targetCode,silent:true};if(action.kind==='bodyguard'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'bodyguard',targetCode,silent:true};if(action.kind==='drift-hint'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'drift-hint',targetCode,silent:true};if(effectiveCrippleTier(actor,g.round)>0)throw new Error('Interrogation damage blocks this action');if(action.kind==='kill'&&role.killLimit){const killUses=this.usage(c,p,'kill');if(killUses>=1)throw new Error('You can only use your kill once per game');}if(action.kind==='possess'&&role.possessLimit&&this.usage(c,p,'possess')>=1)throw new Error('The Animus is spent — one possession per game');
+  voteState(c){const g=this.game(c);if(!g)return[];return /** @type {{stage:string,voterCode:string,choice:string,createdAt:number}[]} */ (this.db.prepare("SELECT stage,voter_code AS voterCode,choice,created_at AS createdAt FROM hr_votes WHERE game_code=? AND round=? AND stage='target'").all(c,g.round));}
+  /**
+   * @param {object} [params]
+   * @param {string} [params.targetCode]
+   * @param {string} [params.variant]
+   * @param {any} [params.data]
+   * @param {string} [params.body]
+   * @param {string} [params.asPlayerCode]
+   */
+  submitAction(c,p,params={}){const{targetCode,variant,data,body,asPlayerCode}=params;const g=this.requireGame(c),actor=this.requireAlive(c,p),role=this.role(actor.role_id),action=g.phase==='night'?role.actions.night:role.actions.day;if(!action||action.kind==='sleep')throw new Error('Your role has no active action now');if(action.kind==='protect'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'protect',targetCode,silent:true};if(action.kind==='bodyguard'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'bodyguard',targetCode,silent:true};if(action.kind==='drift-hint'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'drift-hint',targetCode,silent:true};if(effectiveCrippleTier(actor,g.round)>0)throw new Error('Interrogation damage blocks this action');if(action.kind==='kill'&&role.killLimit){const killUses=this.usage(c,p,'kill');if(killUses>=1)throw new Error('You can only use your kill once per game');}if(action.kind==='possess'&&role.possessLimit&&this.usage(c,p,'possess')>=1)throw new Error('The Animus is spent — one possession per game');
 if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target=this.requireAlive(c,targetCode);if(action.target==='other'&&!canProtectSelf(role.id)&&targetCode===p)throw new Error('Choose another player');if(action.kind==='protect'&&!validateRotation(this.db,c,p,targetCode,g.round))throw new Error('Cannot protect the same target on consecutive nights');if(action.kind==='bodyguard'&&!validateRotation(this.db,c,p,targetCode,g.round))throw new Error('Cannot proxy the same target on consecutive nights');if(action.target==='hostile'&&!isHostileTo(actor,target))throw new Error('Target is not hostile');if(action.kind==='possess'&&target.possessed_by)throw new Error('That player is already possessed');if(action.variants&&!action.variants.includes(variant))throw new Error('Invalid action variant');if(['sermon','corrupt-sermon'].includes(action.kind)){const s=this.config.drift.sermons[variant],uses=this.usage(c,p,variant);if(s.limit!==null&&uses>=s.limit)throw new Error('Sermon limit reached');
       if(action.kind==='corrupt-sermon'&&variant==='warp-litany'&&target.drift<(s.target_zone_min_drift??10))return{ok:false,silent:true};
     }
@@ -304,20 +408,24 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   // faction per night overall: the first submission each round locks it in,
   // later submitters are rejected outright (not silently overwritten) so the
   // cabal gets clear feedback rather than a vanished action.
-  submitFactionAction(c,p,{targetCode}={}){const g=this.requireGame(c),actor=this.requireAlive(c,p);if(g.phase!=='night')throw new Error('Blood Ritual is night-only');if(actor.faction!=='heretic')throw new Error('Only Heretics may take Blood Ritual');if(effectiveCrippleTier(actor,g.round)>0)throw new Error('Interrogation damage blocks this action');const target=this.requireAlive(c,targetCode);if(target.faction==='heretic')throw new Error('Target is not hostile');if(targetCode===p)throw new Error('Choose another player');if(this.actions(c,g.round).some(a=>a.kind==='blood-ritual'&&a.actor_code!==p))throw new Error('Blood Ritual has already been claimed tonight');this.db.prepare('INSERT INTO hr_actions VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(game_code,round,actor_code) DO UPDATE SET kind=excluded.kind,target_code=excluded.target_code,variant=excluded.variant,data=excluded.data,created_at=excluded.created_at').run(c,g.round,p,'blood-ritual',targetCode,null,null,this.now());this.factionSystem(c,`Cabalite ${actor.name} moves against ${target.name}.`);return {kind:'blood-ritual',targetCode};}
+  /**
+   * @param {object} [params]
+   * @param {string} [params.targetCode]
+   */
+  submitFactionAction(c,p,params={}){const{targetCode}=params;const g=this.requireGame(c),actor=this.requireAlive(c,p);if(g.phase!=='night')throw new Error('Blood Ritual is night-only');if(actor.faction!=='heretic')throw new Error('Only Heretics may take Blood Ritual');if(effectiveCrippleTier(actor,g.round)>0)throw new Error('Interrogation damage blocks this action');const target=this.requireAlive(c,targetCode);if(target.faction==='heretic')throw new Error('Target is not hostile');if(targetCode===p)throw new Error('Choose another player');if(this.actions(c,g.round).some(a=>a.kind==='blood-ritual'&&a.actor_code!==p))throw new Error('Blood Ritual has already been claimed tonight');this.db.prepare('INSERT INTO hr_actions VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(game_code,round,actor_code) DO UPDATE SET kind=excluded.kind,target_code=excluded.target_code,variant=excluded.variant,data=excluded.data,created_at=excluded.created_at').run(c,g.round,p,'blood-ritual',targetCode,null,null,this.now());this.factionSystem(c,`Cabalite ${actor.name} moves against ${target.name}.`);return {kind:'blood-ritual',targetCode};}
   // TODO(heresy-spec): Saboteur trap frequency is once per night; the action table enforces one submission per actor and round.
-  // TODO(heresy-spec): Recruiter receives no success/failure detail; failed catalyst attempts are silent.
-  actions(c,r){return this.db.prepare('SELECT * FROM hr_actions WHERE game_code=? AND round=?').all(c,r);}
+  /** @returns {ActionRow[]} */
+  actions(c,r){return /** @type {ActionRow[]} */ (this.db.prepare('SELECT * FROM hr_actions WHERE game_code=? AND round=?').all(c,r));}
   retractAction(c,p){const g=this.game(c);this.db.prepare('DELETE FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').run(c,g.round,p);}
-  forge(c,p,asPlayerCode,body){const g=this.game(c),actor=this.requireAlive(c,p),as=this.requireAlive(c,asPlayerCode);if(g.phase!=='day')throw new Error('Forgery is day-only');if(this.usage(c,p,`forgery-${g.round}`))throw new Error('Forgery already used today');
-    // TODO(heresy-spec): Conspirator default attributes one daily message to another player.
+  forge(c,p,asPlayerCode,body){const g=this.game(c),as=this.requireAlive(c,asPlayerCode);this.requireAlive(c,p);if(g.phase!=='day')throw new Error('Forgery is day-only');if(this.usage(c,p,`forgery-${g.round}`))throw new Error('Forgery already used today');
+    // TODO(heresy-spec): Q31 — Conspirator default attributes one daily message to another player.
     const message=this.insertMessage(c,'public',null,p,as.name,String(body||'').slice(0,500),'player');this.incrementUsage(c,p,`forgery-${g.round}`);this.changeDrift(c,p,1,'forgery');return {message};}
-  usage(c,p,a){return this.db.prepare('SELECT uses FROM hr_usage WHERE game_code=? AND player_code=? AND ability=?').get(c,p,a)?.uses||0;}
+  usage(c,p,a){return /** @type {{uses:number}|undefined} */ (this.db.prepare('SELECT uses FROM hr_usage WHERE game_code=? AND player_code=? AND ability=?').get(c,p,a))?.uses||0;}
   incrementUsage(c,p,a){this.db.prepare('INSERT INTO hr_usage VALUES(?,?,?,1) ON CONFLICT(game_code,player_code,ability) DO UPDATE SET uses=uses+1').run(c,p,a);}
   hints(c){const g=this.game(c);return this.config.hintProfiles[g.hint_profile]||this.config.hintProfiles.default;}
   changeDrift(c,p,delta,reason){const g=this.game(c),player=this.player(c,p);if(!player)return;const before=player.drift,after=Math.max(0,Math.min(g.max_drift,before+delta));this.db.prepare('UPDATE hr_players SET drift=? WHERE game_code=? AND player_code=?').run(after,c,p);const from=driftZone(this.config.drift,before).id,to=driftZone(this.config.drift,after).id;if(from!==to)this.privateSystem(c,p,this.hints(c)[to],{intelKind:'drift_hint',ownZone:to});this.event(c,'drift',{playerCode:p,delta,before,after,reason,zone:to,round:g.round,phase:g.phase});}
   finishIfWon(c){const players=this.players(c),living=players.filter(x=>x.alive),h=living.filter(x=>x.faction==='heretic').length,l=living.filter(x=>x.faction==='loyalist').length;let winner=h>=l?'heretic':null;if(!winner&&players.filter(x=>x.faction==='heretic').every(x=>!x.alive||(x.cripple_tier>=3&&x.confessed)))winner='loyalist';if(!winner)return false;
-    // TODO(heresy-spec): Pyrrhic/no-clean-win is explicitly deferred from v1.
+    // TODO(heresy-spec): Q32 — Pyrrhic/no-clean-win is explicitly deferred from v1.
     this.db.prepare("UPDATE hr_games SET phase='ended',status='ended',winner=?,deadline=NULL WHERE code=?").run(winner,c);this.system(c,`Game over. ${winner} victory.`);const gEnd=this.game(c);this.emitAnnouncement(c,{type:'gameover',title:'GAME OVER',message:`${winner} victory. The conclave is dissolved.`,winner,round:gEnd.round});saveGameLogSnapshot({gameLogId:c,code:c,phase:gEnd.phase,winner:gEnd.winner,round:gEnd.round,maxDrift:gEnd.max_drift,mode:gEnd.mode,status:gEnd.status,players:this.players(c).map(p=>({id:p.player_code,name:p.name,hero:p.role_id||null,playerCode:p.player_code,seat:p.seat,roleId:p.role_id||null,faction:p.faction,drift:p.drift,alive:!!p.alive,crippleTier:p.cripple_tier,isBot:!!p.is_bot})),debugLog:this.db.prepare('SELECT * FROM hr_events WHERE game_code=? ORDER BY id').all(c),history:this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? ORDER BY id').all(c),createdAt:gEnd.created_at});return true;}
   sendMessage(c,p,channel,body){const g=this.game(c),player=this.requirePlayer(c,p);this.authorizeChannel(g,player,channel,true);return this.insertMessage(c,channel,null,p,player.name,String(body||'').trim().slice(0,1000),'player');}
   // H6 Animus: unlike Conspirator's forge() (day action, once/day, caller
@@ -329,13 +437,17 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   insertMessage(c,ch,recipient,p,author,body,kind,meta=null){if(!body)throw new Error('Message is empty');const x=this.db.prepare('INSERT INTO hr_messages(game_code,channel,recipient_code,player_code,author,body,kind,created_at,meta) VALUES(?,?,?,?,?,?,?,?,?)').run(c,ch,recipient,p,author,body,kind,this.now(),meta?JSON.stringify(meta):null);return this.db.prepare('SELECT id,channel,player_code,recipient_code,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE id=?').get(x.lastInsertRowid);}
   system(c,b,meta=null){const m=this.insertMessage(c,'public',null,null,'The Vox',b,'system',meta);this.emitChatMessage(c,m);return m;} privateSystem(c,p,b,meta=null){const m=this.insertMessage(c,'private',p,null,'The Vox',b,'system',meta);this.emitChatMessage(c,m);return m;} factionSystem(c,b){const m=this.insertMessage(c,'faction',null,null,'The Vox',b,'system');this.emitChatMessage(c,m);return m;}
   flavor(category,vars={}){const list=this.config?.deathFlavor?.[category];if(!list||!list.length)return '';let t=list[Math.floor(this.random()*list.length)];for(const[k,v]of Object.entries(vars))t=t.split(`{${k}}`).join(String(v));return t;}
+  /**
+   * @param {string} [ch]
+   * @param {number|string} [before]
+   * @param {number|string} [limit]
+   */
   historyMessages(c,p,ch='public',before=Number.MAX_SAFE_INTEGER,limit=50){const g=this.game(c);const player=this.player(c,p);if(!player){if(g.phase==='lobby'||ch!=='public')throw new Error('Access denied');}else{this.authorizeChannel(g,player,ch,false);}const cap=Math.min(100,Number(limit)||50);const rows=this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel=? AND id<? ORDER BY id DESC LIMIT ?').all(c,ch,Number(before)||Number.MAX_SAFE_INTEGER,cap+1).reverse();const hasMore=rows.length>cap;return {messages:hasMore?rows.slice(0,cap):rows,hasMore};}
   // Post-game: once the conclave is 'ended', public chat opens up for
   // everyone — dead, possessed, whatever — so the table can talk about the
   // game afterward. The alive/night/possession gates below only ever apply
   // while the game is still running.
   authorizeChannel(g,p,ch,write){if(!['public','faction','graveyard'].includes(ch))throw new Error('Unknown channel');if(ch==='faction'&&p.faction!=='heretic')throw new Error('Faction channel denied');if(ch==='graveyard'&&p.alive)throw new Error('Graveyard denied');if(write&&ch==='public'&&g.phase!=='ended'){if(!p.alive||g.phase==='night')throw new Error('Public chat is closed');if(p.possessed_by)throw new Error('You are possessed and cannot speak today');}if(write&&ch==='faction'&&g.phase!=='night')throw new Error('Faction chat is night-only');}
-    // TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
   // H6 Animus visibility, per-row on `players[]` (spec: no tell to anyone but
   // the Animus before the reveal): `possessed:true` is included only when
   // (a) viewer IS the Animus who owns this possession, (b) viewer IS the
@@ -354,23 +466,23 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   // anything except death, so more than one living player can be marked at
   // once (hence a list, not a single target).
   atRiskTargets(c){return this.players(c).filter(p=>p.alive&&p.interrogated_before).map(p=>p.player_code);}
-  state(c,viewerCode){const g=this.requireGame(c),viewer=this.requirePlayer(c,viewerCode),ended=g.status==='ended',players=this.players(c).map(p=>({playerCode:p.player_code,name:p.name,alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((p.player_code===viewerCode||ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...(viewer.faction==='heretic'&&p.faction==='heretic'?{faction:'heretic'}:{}),...((viewerCode===p.possessed_by||(viewerCode===p.player_code&&p.possessed_by)||(!p.alive&&p.possessed_by)||(ended&&p.possessed_by))?{possessed:true}:{})}));const privateMessages=this.db.prepare("SELECT id,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id").all(c,viewerCode).map(m=>({...m,meta:m.meta?JSON.parse(m.meta):null}));const votingEnabled=g.phase==='day'?g.round!==1:true;return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,isHost:g.host_code===viewerCode,players,me:players.find(x=>x.playerCode===viewerCode),votes:g.phase==='day'?this.voteState(c):[],myAction:this.db.prepare('SELECT kind,target_code AS targetCode,variant FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').get(c,g.round,viewerCode)||null,lastProtectTarget:getLastProtectTarget(this.db,g.code,viewerCode),privateMessages,pendingInterrogation:g.day_stage==='response'?{targetCode:g.last_interrogated_target,tier:g.last_interrogation_tier,canRespond:g.last_interrogated_target===viewerCode}:null,votingEnabled,atRiskTargets:this.atRiskTargets(c),...(g.phase==='lobby'?{compositionLabel:`${players.length}-operative doctrine`}:{})};}
+  state(c,viewerCode){const g=this.requireGame(c),viewer=this.requirePlayer(c,viewerCode),ended=g.status==='ended',players=this.players(c).map(p=>({playerCode:p.player_code,name:p.name,alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((p.player_code===viewerCode||ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...(viewer.faction==='heretic'&&p.faction==='heretic'?{faction:'heretic'}:{}),...((viewerCode===p.possessed_by||(viewerCode===p.player_code&&p.possessed_by)||(!p.alive&&p.possessed_by)||(ended&&p.possessed_by))?{possessed:true}:{})}));const privateMessages=/** @type {{id:number,author:string,body:string,kind:string,createdAt:number,meta:string|null}[]} */ (this.db.prepare("SELECT id,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id").all(c,viewerCode)).map(m=>({...m,meta:m.meta?JSON.parse(m.meta):null}));const votingEnabled=g.phase==='day'?g.round!==1:true;return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,isHost:g.host_code===viewerCode,players,me:players.find(x=>x.playerCode===viewerCode),votes:g.phase==='day'?this.voteState(c):[],myAction:this.db.prepare('SELECT kind,target_code AS targetCode,variant FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').get(c,g.round,viewerCode)||null,lastProtectTarget:getLastProtectTarget(this.db,g.code,viewerCode),privateMessages,pendingInterrogation:g.day_stage==='response'?{targetCode:g.last_interrogated_target,tier:g.last_interrogation_tier,canRespond:g.last_interrogated_target===viewerCode}:null,votingEnabled,atRiskTargets:this.atRiskTargets(c),...(g.phase==='lobby'?{compositionLabel:`${players.length}-operative doctrine`}:{})};}
   spectate(c){const g=this.requireGame(c);if(g.phase==='lobby')throw new Error('Game has not started yet');const ended=g.status==='ended';const players=this.players(c).map(p=>({playerCode:p.player_code,name:p.name,alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...((!p.alive&&p.possessed_by)||(ended&&p.possessed_by)?{possessed:true}:{})}));return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,isHost:false,players,me:null,votes:g.phase==='day'?this.voteState(c):[],myAction:null,lastProtectTarget:null,privateMessages:[],pendingInterrogation:null,votingEnabled:g.phase==='day'?g.round!==1:false,atRiskTargets:this.atRiskTargets(c),isSpectator:true};}
   adminRole(id){if(!id)return null;const r=this.config.roles.get(id);return r?{id:r.id,displayName:r.displayName,faction:r.faction,claim:r.claim,driftWeight:r.driftWeight,objective:r.objective,ability:r.ability}:null;}
   adminPlayer(p,g){return {playerCode:p.player_code,name:p.name,seat:p.seat,roleId:p.role_id,role:this.adminRole(p.role_id),faction:p.faction,drift:p.drift,alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,isBot:!!p.is_bot,crippleTier:p.cripple_tier,tier1UntilRound:p.tier1_until_round,confessed:!!p.confessed,confessionTokenRound:p.confession_token_round,skipNextNight:!!p.skip_next_night,joinedAt:p.joined_at};}
-  adminGameSummary(g){const players=this.players(g.code),messages=this.db.prepare('SELECT COUNT(*) AS count FROM hr_messages WHERE game_code=?').get(g.code).count,events=this.db.prepare('SELECT COUNT(*) AS count FROM hr_events WHERE game_code=?').get(g.code).count,actions=this.db.prepare('SELECT COUNT(*) AS count FROM hr_actions WHERE game_code=?').get(g.code).count,votes=this.db.prepare('SELECT COUNT(*) AS count FROM hr_votes WHERE game_code=?').get(g.code).count;return {code:g.code,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,hintProfile:g.hint_profile,createdAt:g.created_at,updatedAt:g.updated_at,hostCode:g.host_code,playerCount:players.length,aliveCount:players.filter(p=>p.alive).length,connectedCount:players.filter(p=>p.connected).length,readyCount:players.filter(p=>p.ready).length,averageDrift:players.length?players.reduce((sum,p)=>sum+p.drift,0)/players.length:0,maxPlayerDrift:players.length?Math.max(...players.map(p=>p.drift)):0,hereticCount:players.filter(p=>p.faction==='heretic').length,loyalistCount:players.filter(p=>p.faction==='loyalist').length,messageCount:messages,eventCount:events,actionCount:actions,voteCount:votes};}
+  adminGameSummary(g){const players=this.players(g.code),messages=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_messages WHERE game_code=?').get(g.code)).count,events=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_events WHERE game_code=?').get(g.code)).count,actions=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_actions WHERE game_code=?').get(g.code)).count,votes=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_votes WHERE game_code=?').get(g.code)).count;return {code:g.code,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,hintProfile:g.hint_profile,createdAt:g.created_at,updatedAt:g.updated_at,hostCode:g.host_code,playerCount:players.length,aliveCount:players.filter(p=>p.alive).length,connectedCount:players.filter(p=>p.connected).length,readyCount:players.filter(p=>p.ready).length,averageDrift:players.length?players.reduce((sum,p)=>sum+p.drift,0)/players.length:0,maxPlayerDrift:players.length?Math.max(...players.map(p=>p.drift)):0,hereticCount:players.filter(p=>p.faction==='heretic').length,loyalistCount:players.filter(p=>p.faction==='loyalist').length,messageCount:messages,eventCount:events,actionCount:actions,voteCount:votes};}
   adminOverview(){const games=this.db.prepare('SELECT * FROM hr_games ORDER BY updated_at DESC').all().map(g=>this.adminGameSummary(g));return {games,roles:this.roleDefinitions().map(r=>({id:r.id,displayName:r.displayName,faction:r.faction,claim:r.claim,driftWeight:r.driftWeight,objective:r.objective,ability:r.ability})),totals:{games:games.length,active:games.filter(g=>g.status==='active').length,lobby:games.filter(g=>g.status==='lobby').length,ended:games.filter(g=>g.status==='ended').length,players:games.reduce((sum,g)=>sum+g.playerCount,0),messages:games.reduce((sum,g)=>sum+g.messageCount,0)}};}
-  adminGame(c){const g=this.requireGame(c),players=this.players(c).map(p=>this.adminPlayer(p,g)),actions=this.db.prepare('SELECT round,actor_code AS actorCode,kind,target_code AS targetCode,variant,data,created_at AS createdAt FROM hr_actions WHERE game_code=? ORDER BY round DESC,created_at DESC').all(c).map(a=>({...a,data:a.data?JSON.parse(a.data):null})),votes=this.db.prepare('SELECT round,stage,voter_code AS voterCode,choice,created_at AS createdAt FROM hr_votes WHERE game_code=? ORDER BY round DESC,created_at DESC').all(c),messages=this.db.prepare('SELECT id,channel,recipient_code AS recipientCode,player_code AS playerCode,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? ORDER BY id DESC LIMIT 200').all(c).reverse(),events=this.db.prepare('SELECT id,type,payload,created_at AS createdAt FROM hr_events WHERE game_code=? ORDER BY id DESC LIMIT 200').all(c).reverse().map(e=>({...e,payload:e.payload?JSON.parse(e.payload):null}));return {game:this.adminGameSummary(g),players,actions,votes,messages,events};}
+  adminGame(c){const g=this.requireGame(c),players=this.players(c).map(p=>this.adminPlayer(p,g)),actions=/** @type {{round:number,actorCode:string,kind:string,targetCode:string|null,variant:string|null,data:string|null,createdAt:number}[]} */ (this.db.prepare('SELECT round,actor_code AS actorCode,kind,target_code AS targetCode,variant,data,created_at AS createdAt FROM hr_actions WHERE game_code=? ORDER BY round DESC,created_at DESC').all(c)).map(a=>({...a,data:a.data?JSON.parse(a.data):null})),votes=this.db.prepare('SELECT round,stage,voter_code AS voterCode,choice,created_at AS createdAt FROM hr_votes WHERE game_code=? ORDER BY round DESC,created_at DESC').all(c),messages=this.db.prepare('SELECT id,channel,recipient_code AS recipientCode,player_code AS playerCode,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? ORDER BY id DESC LIMIT 200').all(c).reverse(),events=/** @type {{id:number,type:string,payload:string|null,createdAt:number}[]} */ (this.db.prepare('SELECT id,type,payload,created_at AS createdAt FROM hr_events WHERE game_code=? ORDER BY id DESC LIMIT 200').all(c)).reverse().map(e=>({...e,payload:e.payload?JSON.parse(e.payload):null}));return {game:this.adminGameSummary(g),players,actions,votes,messages,events};}
   adminUpdatePlayer(c,p,updates={}){const existing=this.requirePlayer(c,p),g=this.requireGame(c),fields=[],values=[];const bools={alive:'alive',ready:'ready',connected:'connected',confessed:'confessed',skipNextNight:'skip_next_night'};for(const [input,column] of Object.entries(bools))if(updates[input]!==undefined){fields.push(`${column}=?`);values.push(updates[input]?1:0);}if(updates.drift!==undefined){fields.push('drift=?');values.push(Math.max(0,Math.min(g.max_drift,Number(updates.drift)||0)));}if(updates.crippleTier!==undefined){fields.push('cripple_tier=?');values.push(Math.max(0,Math.min(3,Number(updates.crippleTier)||0)));}if(updates.faction!==undefined&&['loyalist','heretic'].includes(updates.faction)){fields.push('faction=?');values.push(updates.faction);}if(updates.roleId!==undefined){if(updates.roleId&& !this.config.roles.has(updates.roleId))throw new Error('Unknown role');fields.push('role_id=?');values.push(updates.roleId||null);}if(!fields.length)return this.adminPlayer(existing,g);this.db.prepare(`UPDATE hr_players SET ${fields.join(', ')} WHERE game_code=? AND player_code=?`).run(...values,c,p);return this.adminPlayer(this.player(c,p),g);}
-  adminEndGame(c,winner='admin'){const g=this.requireGame(c);this.db.prepare("UPDATE hr_games SET phase='ended',status='ended',winner=?,deadline=NULL,updated_at=? WHERE code=?").run(String(winner||'admin').slice(0,30),this.now(),c);this.system(c,`Game ended by admin: ${winner}.`);const gEnd=this.game(c);saveGameLogSnapshot({gameLogId:c,code:c,phase:gEnd.phase,winner:gEnd.winner,round:gEnd.round,maxDrift:gEnd.max_drift,mode:gEnd.mode,status:gEnd.status,players:this.players(c).map(p=>({id:p.player_code,name:p.name,hero:p.role_id||null,playerCode:p.player_code,seat:p.seat,roleId:p.role_id||null,faction:p.faction,drift:p.drift,alive:!!p.alive,crippleTier:p.cripple_tier,isBot:!!p.is_bot})),debugLog:this.db.prepare('SELECT * FROM hr_events WHERE game_code=? ORDER BY id').all(c),history:this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? ORDER BY id').all(c),createdAt:gEnd.created_at});return this.adminGame(c);}
+  adminEndGame(c,winner='admin'){this.requireGame(c);this.db.prepare("UPDATE hr_games SET phase='ended',status='ended',winner=?,deadline=NULL,updated_at=? WHERE code=?").run(String(winner||'admin').slice(0,30),this.now(),c);this.system(c,`Game ended by admin: ${winner}.`);const gEnd=this.game(c);saveGameLogSnapshot({gameLogId:c,code:c,phase:gEnd.phase,winner:gEnd.winner,round:gEnd.round,maxDrift:gEnd.max_drift,mode:gEnd.mode,status:gEnd.status,players:this.players(c).map(p=>({id:p.player_code,name:p.name,hero:p.role_id||null,playerCode:p.player_code,seat:p.seat,roleId:p.role_id||null,faction:p.faction,drift:p.drift,alive:!!p.alive,crippleTier:p.cripple_tier,isBot:!!p.is_bot})),debugLog:this.db.prepare('SELECT * FROM hr_events WHERE game_code=? ORDER BY id').all(c),history:this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? ORDER BY id').all(c),createdAt:gEnd.created_at});return this.adminGame(c);}
   adminDeleteGame(c){this.requireGame(c);this.db.transaction(()=>{for(const table of ['hr_actions','hr_votes','hr_messages','hr_usage','hr_events','hr_players'])this.db.prepare(`DELETE FROM ${table} WHERE game_code=?`).run(c);this.db.prepare('DELETE FROM hr_games WHERE code=?').run(c);})();return {deleted:true};}
-  due(){return this.db.prepare("SELECT code FROM hr_games WHERE status='active' AND deadline IS NOT NULL AND deadline<=?").all(this.now()).map(x=>x.code);}
+  due(){return /** @type {{code:string}[]} */ (this.db.prepare("SELECT code FROM hr_games WHERE status='active' AND deadline IS NOT NULL AND deadline<=?").all(this.now())).map(x=>x.code);}
   // ── Bots ───────────────────────────────────────────────────────────────────
   // Spawn authorisation: only callers holding the bot-manager's BOT_API_KEY reach
   // adminSpawnBot/adminDespawnBot (the engine treats those as privileged internal
   // calls; /api/bots/* validates the bearer token before reaching these).
   // Lobby-only gate per locked Q-BOT spawn rule.
-  generateBotPlayerCode(){const existing=new Set(this.db.prepare('SELECT player_code FROM hr_players').all().map(x=>x.player_code));let code;do{code='HR-BOT-'+crypto.randomBytes(8).toString('hex');}while(existing.has(code));return code;}
+  generateBotPlayerCode(){const existing=new Set(/** @type {{player_code:string}[]} */ (this.db.prepare('SELECT player_code FROM hr_players').all()).map(x=>x.player_code));let code;do{code='HR-BOT-'+crypto.randomBytes(8).toString('hex');}while(existing.has(code));return code;}
   adminSpawnBot(code,{name='Heretic Bot',seatHint=null}={}){
     const g=this.requireGame(code);
     if(g.phase!=='lobby')throw new Error('Bots can only be added while the Conclave is in the lobby');
@@ -403,5 +515,12 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
     return {kind:'session_init',botId:playerCode,playerCode,role:role?.id||null,faction:p.faction,claim:role?.claim||null,round:g.round,phase:g.phase,votingEnabled:g.phase==='day'?g.round!==1:false,alivePlayers:this.players(c).filter(x=>x.alive).map(x=>x.player_code),deadPlayers:this.players(c).filter(x=>!x.alive).map(x=>x.player_code),publicAnnouncements:[],botIds:this.botIds(c)};
   }
   event(c,t,p){this.db.prepare('INSERT INTO hr_events(game_code,type,payload,created_at) VALUES(?,?,?,?)').run(c,t,JSON.stringify(p),this.now());}
-  requireGame(c){const g=this.game(c);if(!g)throw new Error('Game not found');return g;}requirePlayer(c,p){const x=this.player(c,p);if(!x)throw new Error('Not a member');return x;}requireAlive(c,p){const x=this.requirePlayer(c,p);if(!x.alive)throw new Error('Dead players cannot do that');return x;}requireHost(c,p){const g=this.requireGame(c);if(g.host_code!==p)throw new Error('Host permission required');return g;}
+  /** @returns {GameRow} */
+  requireGame(c){const g=this.game(c);if(!g)throw new Error('Game not found');return g;}
+  /** @returns {PlayerRow} */
+  requirePlayer(c,p){const x=this.player(c,p);if(!x)throw new Error('Not a member');return x;}
+  /** @returns {PlayerRow} */
+  requireAlive(c,p){const x=this.requirePlayer(c,p);if(!x.alive)throw new Error('Dead players cannot do that');return x;}
+  /** @returns {GameRow} */
+  requireHost(c,p){const g=this.requireGame(c);if(g.host_code!==p)throw new Error('Host permission required');return g;}
 }

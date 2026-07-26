@@ -9,7 +9,6 @@ import { Worker } from 'node:worker_threads';
 import { HeresyGameManager } from '../../heresy-server/src/heresyGameManager.js';
 import { seedableRNG } from './util.js';
 import {
-  buildAgentState,
   createHeuristicAgent,
   collectNightActions,
   collectDayVotes,
@@ -134,7 +133,7 @@ export function runSingleGame(options = {}) {
 
     // Start game
     const startResult = manager.start(code, hostCode, { composition });
-    if (startResult && startResult.ok === false) {
+    if (startResult && 'ok' in startResult && startResult.ok === false) {
       const detail = (startResult.errors || []).map(e => e.message).join('; ') || 'composition validation failed';
       throw new Error(`Game start rejected: ${detail}`);
     }
@@ -248,7 +247,7 @@ export function runSingleGame(options = {}) {
 /**
  * Run N games sequentially and collect results.
  * @param {Object} options
- * @param {number} options.games - Number of games
+ * @param {number} [options.games=100] - Number of games
  * @param {number} [options.playerCount] - Players per game (derived from
  *   `composition` if given; defaults to 8 otherwise)
  * @param {Object} [options.composition] - Optional composition override
@@ -332,7 +331,7 @@ export function runBatch(options = {}) {
  * Run N games across multiple worker threads.
  * Falls back to sequential if workers === 1.
  * @param {Object} options
- * @param {number} options.games - Number of games
+ * @param {number} [options.games=100] - Number of games
  * @param {number} [options.playerCount] - Players per game (derived from
  *   `composition` if given; defaults to 8 otherwise)
  * @param {Object} [options.composition] - Optional composition override

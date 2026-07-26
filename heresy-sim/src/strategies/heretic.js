@@ -5,8 +5,6 @@
  * All decisions are deterministic from state (no Math.random()).
  */
 
-import { pickRandom } from '../util.js';
-
 // ── Blood Ritual coordination ────────────────────────────────────────────
 // Blood Ritual (blood-ritual.md v1.0.0) is a faction-wide night action: any
 // living, uncrippled Heretic can submit it, but only one claim per night

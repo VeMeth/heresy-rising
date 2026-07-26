@@ -17,6 +17,7 @@ import { getHereticHeuristic } from './strategies/heretic.js';
  * @property {Array} dead - Dead players
  * @property {number} round - Current round number
  * @property {string} phase - 'day' | 'night'
+ * @property {string|null} dayStage - Day sub-stage ('vote' | 'response'), null at night
  * @property {string[]} legalTargets - Available night targets (alive players except self)
  * @property {string[]} voteOptions - Legal vote targets + 'skip'
  * @property {Array} voteTally - Current vote tally
@@ -24,6 +25,7 @@ import { getHereticHeuristic } from './strategies/heretic.js';
  * @property {Object|null} pendingInterrogation - Pending interrogation info
  * @property {number} maxDrift - Maximum drift for this game
  * @property {string|null} lastInterrogatedTarget - Last day's interrogated target
+ * @property {string[]} availableVariants - Legal night-action variants for the viewer's role (e.g. T1/T2/T3)
  */
 
 // ── Loyalist role-to-heuristic map ─────────────────────────────────────────
@@ -77,7 +79,6 @@ export function buildAgentState(manager, code, playerCode) {
 
   // Get the player's own full info (includes role, faction)
   const me = rawPlayers.find(p => p.player_code === playerCode);
-  const meSummary = state.me || { playerCode, name: me?.name || '?' };
 
   const alive = rawPlayers.filter(p => p.alive);
   const dead = rawPlayers.filter(p => !p.alive);

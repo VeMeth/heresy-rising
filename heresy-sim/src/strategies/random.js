@@ -6,6 +6,15 @@
 import { pickRandom } from '../util.js';
 
 /**
+ * @typedef {Object} Agent
+ * @property {string} id
+ * @property {string} label
+ * @property {(state: import('../agent.js').AgentState) => ({targetCode: string, variant?: string, factionAction?: boolean}|null)} nightAction
+ * @property {(state: import('../agent.js').AgentState) => string} dayVote
+ * @property {(state: import('../agent.js').AgentState) => ('confess'|'resist'|'refuse-break')} respondInterrogation
+ */
+
+/**
  * Create a random agent.
  * @param {string} id - Unique agent identifier
  */

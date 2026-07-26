@@ -164,7 +164,7 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
   const port = readEnvInt('SIM_PORT', 7879);
   const app = createSimServer();
   const server = app.listen(port, () => {
-    console.log(`[heresy-sim] listening on ${port}`);
+    console.info(`[heresy-sim] listening on ${port}`);
     if (!process.env.SIM_BYPASS_TOKEN) {
       console.warn('[heresy-sim] WARN: SIM_BYPASS_TOKEN is not set — POST /simulate will reject all requests with 503.');
     }

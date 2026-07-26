@@ -44,7 +44,7 @@ export function buildEnginePayload(action, session) {
     return { type: 'vote', payload: {
       code: session.conclaveCode,
       targetCode: clean.target || 'skip',
-      justification: String(clean.justification || '')
+      justification: String(clean.justification || '').slice(0, 1000)
     } };
   }
 
@@ -64,7 +64,7 @@ export function buildEnginePayload(action, session) {
   };
   if (intent.forge) {
     payload.asPlayerCode = clean.asPlayerCode || null;
-    payload.body = clean.text || clean.body || null;
+    payload.body = String(clean.text || clean.body || '').slice(0, 1000) || null;
   }
   return { type: 'action', payload };
 }

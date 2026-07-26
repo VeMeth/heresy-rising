@@ -17,7 +17,9 @@ import { roleBlock } from './roleBlocks.js';
 import { gameStateBlock, factionChatBlock, personaBlock } from './gameState.js';
 import { BUDGETS, MIN_CHAT_LINES, estimateTokens, fitLines, fitToBudget } from './budget.js';
 
-export function assembleMessages({ session, prompt } = {}) {
+/** @param {{session:object,prompt:object}} params */
+export function assembleMessages(params) {
+  const { session, prompt } = params;
   return {
     system: getOrBuildSystemPrompt(session),
     user: buildUserMessage({ session, prompt })
@@ -54,7 +56,9 @@ export function buildSystemPrompt(session) {
   return out;
 }
 
-function buildUserMessage({ session, prompt } = {}) {
+/** @param {{session:object,prompt:object}} params */
+function buildUserMessage(params) {
+  const { session, prompt } = params;
   const parts = [];
 
   // 1. State digest (~150 tok).
@@ -97,7 +101,9 @@ function renderRecentChat(session) {
 
 const ALWAYS = 'If you have nothing new to add, emit {"kind":"pass"}.';
 
-function turnInstruction({ session, prompt } = {}) {
+/** @param {{session:object,prompt:object}} params */
+function turnInstruction(params) {
+  const { session, prompt } = params;
   const kind = prompt?.kind;
   if (kind === 'chat_turn') {
     const reason = prompt.reason ? ` (${prompt.reason})` : '';

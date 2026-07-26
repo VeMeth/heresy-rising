@@ -3,7 +3,6 @@ import { BufferWindow, StructuredNotes, RollingSummary } from './memory.js';
 import { buildEnginePayload } from './actionDispatch.js';
 import { actionValidator } from './validator.js';
 import { isNearDuplicate } from './textDedup.js';
-import { BotPersistence } from './persistence.js';
 import { enqueueLLMCall } from './llm/queue.js';
 
 // Phase 3 wires the engine Socket.IO client + the decision loop against a
@@ -15,7 +14,22 @@ import { enqueueLLMCall } from './llm/queue.js';
 // bot speaks and calls session.takeChatTurn(). Engine-driven night/vote
 // prompts still flow through _scheduleAct -> _act as before.
 export class BotSession {
-  constructor({ id, conclaveCode, playerCode, name, personaOverrides, costCeiling, config, llm, engineBaseUrl, persistence, snapshot: snap } = {}) {
+  /**
+   * @param {object} params
+   * @param {string} params.id
+   * @param {string} [params.conclaveCode]
+   * @param {string} [params.playerCode]
+   * @param {string} [params.name]
+   * @param {object} [params.personaOverrides]
+   * @param {number} [params.costCeiling]
+   * @param {object} [params.config]
+   * @param {object} [params.llm]
+   * @param {string} [params.engineBaseUrl]
+   * @param {object} [params.persistence]
+   * @param {object} [params.snapshot]
+   */
+  constructor(params) {
+    const { id, conclaveCode, playerCode, name, personaOverrides, costCeiling, config, llm, engineBaseUrl, persistence, snapshot: snap } = params;
     this.id = id;
     this.playerCode = playerCode || id;
     this.conclaveCode = conclaveCode;
@@ -484,8 +498,11 @@ export class BotSession {
       alivePlayers: this.alivePlayers,
       usage: me.usage || {},
       lastProtectTarget: me.lastProtectTarget || null,
-      targetZones: this._targetZones || {},
-      targetsByFaction: this._targetsByFaction
+      // No signal today: the bot-manager doesn't track per-target drift
+      // zones or faction rosters client-side, so the validator is
+      // drift-blind here (see validator.js's H1/H6 gate comments).
+      targetZones: {},
+      targetsByFaction: undefined
     };
   }
 

@@ -48,7 +48,7 @@ export class HeresySocketClient {
       this.socket.timeout(5_000).emit(event, { playerCode: this.playerCode, ...payload }, (error, acknowledgement) => {
         if (error) return reject(new Error(`${event}: acknowledgement timeout`));
         if (!acknowledgement?.ok) return reject(new Error(`${event}: ${acknowledgement?.error || 'failed'}`));
-        const { ok, ...data } = acknowledgement;
+        const { ok: _ok, ...data } = acknowledgement;
         resolve(acknowledgement.data ?? data);
       });
     });

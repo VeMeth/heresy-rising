@@ -8,17 +8,30 @@
 import { ACTION_SCHEMA } from './parseAction.js';
 
 export class OpenAIChat {
-  constructor({
-    baseUrl,
-    apiKey = '',
-    model = 'qwen/qwen3-14b',
-    temperature = 0.7,
-    maxTokens = 350,
-    topP = 0.9,
-    timeoutMs = 120000,
-    maxRetries = 2,
-    structuredOutput = true
-  } = {}) {
+  /**
+   * @param {object} params
+   * @param {string} params.baseUrl
+   * @param {string} [params.apiKey]
+   * @param {string} [params.model]
+   * @param {number} [params.temperature]
+   * @param {number} [params.maxTokens]
+   * @param {number} [params.topP]
+   * @param {number} [params.timeoutMs]
+   * @param {number} [params.maxRetries]
+   * @param {boolean} [params.structuredOutput]
+   */
+  constructor(params) {
+    const {
+      baseUrl,
+      apiKey = '',
+      model = 'qwen/qwen3-14b',
+      temperature = 0.7,
+      maxTokens = 350,
+      topP = 0.9,
+      timeoutMs = 120000,
+      maxRetries = 2,
+      structuredOutput = true
+    } = params;
     if (!baseUrl) throw new Error('OpenAIChat requires baseUrl');
     this.baseUrl = String(baseUrl).replace(/\/$/, '');
     // Bare host:port (no path) is a common .env mistake for OpenAI-compatible

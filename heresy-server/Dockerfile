@@ -15,7 +15,7 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 -G nodejs
 
 COPY heresy-server/package.json heresy-server/package-lock.json* ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 COPY heresy-server/src ./src
 COPY data ./config

@@ -18,7 +18,9 @@ function hashTalkativeness(playerCode) {
 }
 
 export class ConversationDirector {
-  constructor({ conclaveCode, config, now = Date.now, autoTick = true } = {}) {
+  /** @param {{conclaveCode?:string,config?:object,now?:()=>number,autoTick?:boolean}} [params] */
+  constructor(params = {}) {
+    const { conclaveCode, config, now = Date.now, autoTick = true } = params;
     this.conclaveCode = conclaveCode;
     this._config = config || {};
     this._now = now;

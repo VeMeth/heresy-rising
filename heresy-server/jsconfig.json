@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "module": "esnext",
+    "target": "es2022",
+    "moduleResolution": "bundler",
+    "strict": false,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "exclude": ["node_modules", "test", "dist", "../node_modules"]
+}

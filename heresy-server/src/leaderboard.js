@@ -148,7 +148,7 @@ function sanitizeCounterMap(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return Object.fromEntries(
     Object.entries(value)
-      .map(([key, count]) => [String(key).slice(0, 80), Math.max(0, Number(count) || 0)])
+      .map(([key, count]) => /** @type {[string, number]} */ ([String(key).slice(0, 80), Math.max(0, Number(count) || 0)]))
       .filter(([, count]) => count > 0)
   );
 }
@@ -221,7 +221,9 @@ function getRecentRuns(db, playerId) {
   }));
 }
 
-export function claimPlayer({ username, playerCode } = {}) {
+/** @param {{username?:string,playerCode?:string}} [params] */
+export function claimPlayer(params = {}) {
+  const { username, playerCode } = params;
   const db = getDb();
   const cleanUsername = sanitizeUsername(username);
   const normalizedCode = normalizePlayerCode(playerCode);
@@ -253,7 +255,9 @@ export function getPlayerByCode(playerCode) {
   return serializePlayer(player, player ? getRecentRuns(db, player.id) : []);
 }
 
-export function updatePlayerPreferences({ playerCode, preferredRuleset, preferredGameOptions, preferredAchievement } = {}) {
+/** @param {{playerCode?:string,preferredRuleset?:string,preferredGameOptions?:object,preferredAchievement?:string}} [params] */
+export function updatePlayerPreferences(params = {}) {
+  const { playerCode, preferredRuleset, preferredGameOptions, preferredAchievement } = params;
   const db = getDb();
   const normalizedCode = normalizePlayerCode(playerCode);
   validateNormalizedPlayerCode(normalizedCode);

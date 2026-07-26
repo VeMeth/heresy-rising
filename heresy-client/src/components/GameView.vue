@@ -59,7 +59,7 @@
                       <span class="avatar mini">{{ initial(m.author) }}</span>
                       <div>
                         <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
-                        <p v-html="renderMessageBody(m)"></p>
+                        <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><template v-else>{{ seg.text }}</template></template></p>
                       </div>
                     </template>
                   </article>
@@ -219,7 +219,6 @@
 </template>
 <script setup>
 import { computed,nextTick,ref,watch } from 'vue';
-// TODO(heresy-spec): Q28 — Day 1 votingEnabled = false. Remove when gate is wired.
 const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
@@ -302,12 +301,14 @@ function targetName(code){return players.value.find(p=>p.playerCode===code)?.nam
 // but only the mentioned viewer's own client adds the 'mentions-me' glow
 // class, so the highlight is local to them without any server support.
 // Names are matched longest-first so "Player 10" isn't shadowed by "Player 1".
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+// Rendered as real template elements (v-for over segments), never v-html —
+// Vue's own text interpolation escapes each segment, so there's no HTML-
+// injection sink here even though message bodies are fully player-controlled.
 function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
-const mentionNames=computed(()=>[...new Set(players.value.map(p=>p.name).filter(Boolean))].sort((a,b)=>b.length-a.length).map(escapeHtml));
+const mentionNames=computed(()=>[...new Set(players.value.map(p=>p.name).filter(Boolean))].sort((a,b)=>b.length-a.length));
 function mentionPattern(){return mentionNames.value.length?new RegExp('@('+mentionNames.value.map(escapeRegExp).join('|')+')','gi'):null;}
-function renderMessageBody(m){const body=escapeHtml(m.body||'');const pattern=mentionPattern();return pattern?body.replace(pattern,(match,name)=>`<span class="mention">@${name}</span>`):body;}
-function messageMentionsMe(m){if(m.kind==='system'||!props.me?.name)return false;const name=escapeHtml(props.me.name);return new RegExp('@'+escapeRegExp(name)+'(?![\\w])','i').test(escapeHtml(m.body||''));}
+function messageSegments(m){const body=m.body||'';const pattern=mentionPattern();if(!pattern)return[{text:body,mention:false}];const segments=[];let lastIndex=0,match;while((match=pattern.exec(body))){if(match.index>lastIndex)segments.push({text:body.slice(lastIndex,match.index),mention:false});segments.push({text:match[1],mention:true});lastIndex=match.index+match[0].length;}if(lastIndex<body.length)segments.push({text:body.slice(lastIndex),mention:false});return segments;}
+function messageMentionsMe(m){if(m.kind==='system'||!props.me?.name)return false;return new RegExp('@'+escapeRegExp(props.me.name)+'(?![\\w])','i').test(m.body||'');}
 // ── Generated sigil assets (heresy-sigils.svg, inlined in index.html) ─────
 const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen'};
 function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
@@ -627,14 +628,12 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   color: #6fd1e0;
 }
 
-/* @mentions: the "@Name" token is injected via v-html (escaped body +
-   wrapped mention spans), so it never gets this component's scoped
-   data-v-* attribute — :deep() is required for the selector to match it.
-   The glowing border, by contrast, is a real template element (the
-   message's own <p>) and needs no :deep(). Only the mentioned viewer's
-   own client ever has 'mentions-me' set (see messageMentionsMe in
-   script), so the glow never appears on anyone else's screen. */
-.message :deep(.mention) {
+/* @mentions: the "@Name" token is a real template <span> (v-for over
+   messageSegments), not v-html, so it picks up this component's scoped
+   data-v-* attribute normally — no :deep() needed. Only the mentioned
+   viewer's own client ever has 'mentions-me' set (see messageMentionsMe
+   in script), so the glow never appears on anyone else's screen. */
+.message .mention {
   color: #6fd1e0;
   font-weight: 700;
   text-shadow: 0 0 6px rgba(111, 209, 224, .45);

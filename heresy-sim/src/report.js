@@ -61,7 +61,7 @@ export function aggregateResults(games) {
   }
 
   // Calculate derived per-role stats
-  for (const [roleId, stats] of Object.entries(roleStats)) {
+  for (const [, stats] of Object.entries(roleStats)) {
     stats.avgDriftAtEnd = stats.games > 0
       ? Math.round((stats.totalDrift / stats.games) * 10) / 10
       : 0;

@@ -3,3 +3,6 @@ npm-debug.log
 .npmrc
 .git
 .gitignore
+.env
+.env.*
+test

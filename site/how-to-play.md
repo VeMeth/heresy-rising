@@ -45,7 +45,7 @@ The day is a vote. You pick someone to accuse. The outcome depends on how many l
 
 > **60% of living players**, not max players. If 5 are alive, 3 votes = 60%.
 
-The orange border is your probe. Interrogation doesn't kill — it *cripples*. The target loses their next night action. **Two interrogations on the same suspect = execution** — no matter how many days apart, no matter who got interrogated in between. Once a suspect picks up a mark, the second orange border on them is the kill. The cabal has no defense: pivoting doesn't reset the mark.
+The orange border is your probe. Interrogation doesn't kill — it *cripples*. The target loses their next night action. **Two interrogations on the same suspect = execution** — no matter how many days apart, no matter who got interrogated in between. The interrogation mark *persists forever* (until the marked player dies). Once a suspect picks up a mark from their first interrogation, the second orange border on them is the kill. The cabal has no defense: pivoting (interrogating different targets) doesn't reset the mark, and the marked suspect cannot clear it through any faction mechanic.
 
 ## Drift — what the Warp leaves on a soul
 
@@ -83,7 +83,7 @@ The clearing is **public**: the cabal sees the Interrogator reach for that playe
 
 ## The Roles
 
-There are **12 roles** in v1: seven Loyalist, five Heretic, plus *Imperial Citizen* (a fill role that exists to balance parity).
+There are **13 roles** in v1: seven Loyalist, six Heretic. *Imperial Citizen* is a fill role that repeats to balance parity across player counts. Additionally, **Blood Ritual** is a shared faction-wide action available to any living Heretic (not a unique role slot).
 
 Browse the **[full role roster](/roles/)** for blurb and quick-reference on each. The list below is for orientation:
 
@@ -98,10 +98,12 @@ Browse the **[full role roster](/roles/)** for blurb and quick-reference on each
 
 ### Heretics
 - **[Murderer](/roles/murderer)** — kills a player each night. **Drift-gated** — +15 self-drift per kill, capped at MAX. After your first kill, you sit at Red zone and the next kill fails unless the Priest heals you back down.
+- **[Blood Ritual](/roles/blood-ritual)** — a shared faction-wide attack. Any living Heretic can carry it each night (first submission wins). Cripples on the first hit (+3 drift), kills on the next night if same target (+3 drift). Escalation resets if target changes or night skips.
 - **[Saboteur](/roles/saboteur)** — sets a trap; the next action targeting that player fizzles and burns the actor's drift.
 - **[Heretic Priest](/roles/heretic-priest)** — counterfeits sermons; buff their target or herd the faithful.
 - **[Recruiter](/roles/recruiter)** — performs the *catalyst*: converts a max-drift player into a Heretic.
 - **[Conspirator](/roles/conspirator)** — forges messages attributed to other players.
+- **[Animus](/roles/animus)** — one-shot possession. Speculate a target is in Red drift (15-19). If correct, you possess them at night: control their day chat, suppress their vote, skip their action. At day-end, they detonate (die, full role/faction/drift revealed). *Custom roster only (doesn't appear in deterministic compositions).*
 
 ## Winning
 

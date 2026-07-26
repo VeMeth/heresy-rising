@@ -244,7 +244,7 @@ test('bot prompts: Day 1 emits NO day_vote_prompt (Q28)', () => {
   const f = fixture(5); try {
     const events = [];
     f.manager.onBotPrompt((code, payload) => events.push(payload));
-    const bot = f.manager.adminSpawnBot(f.code);
+    f.manager.adminSpawnBot(f.code);
     f.manager.start(f.code, 'host-human-1');
     f.manager.advance(f.code, 'host-human-1');
     const dayVote = events.find(e => e.kind === 'day_vote_prompt');

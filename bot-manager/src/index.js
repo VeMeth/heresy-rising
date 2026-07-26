@@ -26,6 +26,7 @@ app.set('config', config);
 // OPENAI_BASE_URL is set (e.g. LM Studio at http://host.docker.internal:1234/v1),
 // otherwise the PassThroughLLM (bots spawn but pass every turn). Tests can
 // inject a mock at any time via `app.set('llm', ...)`.
+/** @type {PassThroughLLM|ActionLLM} */
 let llm = new PassThroughLLM();
 if (hasLLMConfig(config)) {
   try {
@@ -41,7 +42,7 @@ if (hasLLMConfig(config)) {
       structuredOutput: config.llmStructuredOutput
     });
     llm = new ActionLLM({ chatModel: chat, maxRetries: config.maxRetries });
-    console.log(`[bot-manager] LLM ready: ${chat.model} via ${config.openaiBaseUrl}`);
+    console.info(`[bot-manager] LLM ready: ${chat.model} via ${config.openaiBaseUrl}`);
   } catch (e) {
     console.warn(`[bot-manager] OpenAIChat init failed; falling back to PassThroughLLM:`, e.message);
     llm = new PassThroughLLM();
@@ -72,7 +73,7 @@ for (const snap of savedSessions) {
     console.warn(`[bot-manager] failed to restore session ${snap.id}:`, e.message);
   }
 }
-console.log(`[bot-manager] restored ${restored}/${savedSessions.length} persisted sessions`);
+console.info(`[bot-manager] restored ${restored}/${savedSessions.length} persisted sessions`);
 
 app.get('/health', healthHandler);
 registerRestRoutes(app, sessionStore, engineClient, config);
@@ -92,11 +93,11 @@ if (!hasLLMConfig(config)) {
 
 const port = config.heresyBotPort;
 const server = app.listen(port, () => {
-  console.log(`[bot-manager] listening on ${port}; engine=${config.heresyGameHost}; sessions=${sessionStore.count()}`);
+  console.info(`[bot-manager] listening on ${port}; engine=${config.heresyGameHost}; sessions=${sessionStore.count()}`);
 });
 
 async function shutdown() {
-  console.log('[bot-manager] shutting down…');
+  console.info('[bot-manager] shutting down…');
   try { await sessionStore.closeAll(); } catch {}
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 5000).unref();

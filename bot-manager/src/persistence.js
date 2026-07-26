@@ -3,7 +3,17 @@
 // Each session is one JSON file named by playerCode.
 
 import { mkdirSync, readdirSync, readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
+
+// Session ids/playerCodes originate from the engine service (a different
+// trust boundary) and are used directly as filenames — sanitize to a safe
+// basename before ever touching the filesystem so a malicious/misbehaving
+// engine response can't write or delete outside this.dir via `..` segments.
+function safeFileId(id) {
+  const cleaned = basename(String(id ?? '')).replace(/[^A-Za-z0-9_-]/g, '');
+  if (!cleaned) throw new Error(`invalid session id: ${JSON.stringify(id)}`);
+  return cleaned;
+}
 
 export class BotPersistence {
   constructor({ dir = './data/bot-sessions' } = {}) {
@@ -15,7 +25,7 @@ export class BotPersistence {
   save(session) {
     try {
       const data = session.snapshot();
-      const path = join(this.dir, `${data.id}.json`);
+      const path = join(this.dir, `${safeFileId(data.id)}.json`);
       writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
     } catch (e) {
       console.warn(`[persist] save failed for ${session.id}:`, e.message);
@@ -25,7 +35,7 @@ export class BotPersistence {
   /** Remove a session file (called on despawn). */
   remove(playerCode) {
     try {
-      const path = join(this.dir, `${playerCode}.json`);
+      const path = join(this.dir, `${safeFileId(playerCode)}.json`);
       if (existsSync(path)) unlinkSync(path);
     } catch (e) {
       console.warn(`[persist] remove failed for ${playerCode}:`, e.message);

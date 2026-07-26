@@ -128,6 +128,7 @@ export function saveGameLogSnapshot(room) {
   writeJsonFile(filePath, log);
 }
 
+/** @param {{limit?:number|string}} [params] */
 export function listGameLogs({ limit = 100 } = {}) {
   migrateLegacyLogFile();
   const max = Math.max(1, Math.min(Number(limit) || 100, 500));

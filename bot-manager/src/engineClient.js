@@ -4,7 +4,9 @@ import crypto from 'node:crypto';
 // /api/bots/despawn). The bot manager is the caller; we authenticate to the
 // engine with BOT_API_KEY (engine-side bearer).
 export class EngineClient {
-  constructor({ baseUrl, botApiKey } = {}) {
+  /** @param {{baseUrl?:string,botApiKey?:string}} [params] */
+  constructor(params = {}) {
+    const { baseUrl, botApiKey } = params;
     this.baseUrl = String(baseUrl || '').replace(/\/$/, '');
     this.botApiKey = botApiKey || '';
   }
@@ -45,7 +47,7 @@ export class EngineClient {
   }
 
   _error(op, res, body) {
-    const err = new Error(body?.error || `${op} failed (${res.status})`);
+    const err = /** @type {Error & {status?:number, body?:any}} */ (new Error(body?.error || `${op} failed (${res.status})`));
     err.status = res.status;
     err.body = body;
     return err;
