@@ -61,12 +61,12 @@
         <div class="params-row">
           <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>Sealed at launch; revealed privately per dossier.</p></div>
           <div v-if="isHost" class="param-fields">
-            <label class="anon-toggle"><input type="checkbox" v-model="setup.anonymized"> Anonymized mode</label>
+            <label class="anon-toggle"><input type="checkbox" v-model="setup.anonymized" @change="scheduleSave"> Anonymized mode</label>
             <p class="anon-hint">Player names are replaced with notable Warhammer 40k characters once the game starts.</p>
-            <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100"></label>
-            <label>Day min<input v-model.number="dayMinutes" type="number" min="1" max="1440"></label>
-            <label>Night min<input v-model.number="nightMinutes" type="number" min="1" max="1440"></label>
-            <button class="secondary" @click="$emit('configure',{...setup})">Use parameters</button>
+            <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100" @input="scheduleSave"></label>
+            <label>Day min<input v-model.number="dayMinutes" type="number" min="1" max="1440" @input="scheduleSave"></label>
+            <label>Night min<input v-model.number="nightMinutes" type="number" min="1" max="1440" @input="scheduleSave"></label>
+            <p class="save-indicator" :class="{visible: justSaved}">Saved</p>
           </div>
           <dl v-else class="param-readonly">
             <div><dt>Drift</dt><dd>{{ setup.maxDrift }}</dd></div>
@@ -285,6 +285,29 @@ watch(() => props.game.nightMs, v => { if (v) setup.nightMs = v; }, { immediate:
 watch(() => props.game.anonymized, v => { setup.anonymized = !!v; }, { immediate: true });
 const dayMinutes = computed({ get: () => Math.round(setup.dayMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.dayMs = n * 60000; } });
 const nightMinutes = computed({ get: () => Math.round(setup.nightMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.nightMs = n * 60000; } });
+
+// Auto-save: debounce so a burst of edits (typing a number, or a checkbox
+// flip landing mid-keystroke) becomes one 'configure' emit, not one per
+// change. Bound to @input/@change on the fields themselves rather than a
+// watch(setup, ...) — that would also fire from the sync watches above
+// writing server state back into `setup`, looping a save right back out.
+let saveTimer = null;
+function scheduleSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { emit('configure', { ...setup }); }, 600);
+}
+
+// "Saved" flash: fires off the server's own confirmed values, not the
+// local edit, so it only lights up once the change has actually round-tripped.
+// Non-immediate (default) — skips the initial mount sync above and only
+// reacts to real subsequent changes.
+const justSaved = ref(false);
+let savedFlashTimer = null;
+watch(() => [props.game.maxDrift, props.game.dayMs, props.game.nightMs, props.game.anonymized], () => {
+  justSaved.value = true;
+  if (savedFlashTimer) clearTimeout(savedFlashTimer);
+  savedFlashTimer = setTimeout(() => { justSaved.value = false; }, 2500);
+});
 
 const compositionMode = ref('preset');
 const presetCount = ref(5);
@@ -570,6 +593,8 @@ async function runSimulation() {
 
 onUnmounted(() => {
   if (simCooldownTimer) clearInterval(simCooldownTimer);
+  if (saveTimer) clearTimeout(saveTimer);
+  if (savedFlashTimer) clearTimeout(savedFlashTimer);
 });
 
 function initial(name) { return (name || '?').charAt(0).toUpperCase(); }
@@ -701,12 +726,24 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   font-size: 13px;
   text-align: center;
 }
-.params-cell .param-fields button {
-  padding: 9px 14px;
-  font-size: 9.5px;
+.params-cell .save-indicator {
+  margin: 0;
+  padding: 9px 0;
   height: 34px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   align-self: flex-end;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #9fbf8a;
+  opacity: 0;
+  transition: opacity .3s ease;
+  pointer-events: none;
 }
+.params-cell .save-indicator.visible { opacity: 1; }
 .params-cell .anon-toggle {
   flex-direction: row;
   align-items: center;
@@ -756,7 +793,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
     width: 100%;
   }
   .params-cell .param-fields input { width: 80px; }
-  .params-cell .param-fields button { width: 100%; align-self: stretch; }
+  .params-cell .save-indicator { width: 100%; justify-content: flex-end; align-self: stretch; }
   .params-cell .param-fields .anon-toggle { justify-content: flex-start; }
   .params-cell .param-readonly {
     flex-direction: column;
