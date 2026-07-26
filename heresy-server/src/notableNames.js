@@ -1,5 +1,7 @@
-// Mirrors heresy-server/src/notableNames.js — keep the two lists in sync.
-const BOT_NAMES = [
+// Mirrors heresy-client/src/botNames.js — keep the two lists in sync. Used
+// server-side to assign per-game codenames when a lobby's "Anonymized mode"
+// operational parameter is on (see HeresyGameManager#start / #displayName).
+export const NOTABLE_NAMES = [
   // Loyalist Primarchs
   'Guilliman',
   'Dorn',
@@ -101,9 +103,3 @@ const BOT_NAMES = [
   'Magos',
   'Secutor',
 ];
-
-function pickBotName() {
-  return BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
-}
-
-export { BOT_NAMES, pickBotName };

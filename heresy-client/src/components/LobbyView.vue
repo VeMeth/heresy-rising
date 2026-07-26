@@ -61,6 +61,8 @@
         <div class="params-row">
           <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>Sealed at launch; revealed privately per dossier.</p></div>
           <div v-if="isHost" class="param-fields">
+            <label class="anon-toggle"><input type="checkbox" v-model="setup.anonymized"> Anonymized mode</label>
+            <p class="anon-hint">Player names are replaced with notable Warhammer 40k characters once the game starts.</p>
             <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100"></label>
             <label>Day min<input v-model.number="dayMinutes" type="number" min="1" max="1440"></label>
             <label>Night min<input v-model.number="nightMinutes" type="number" min="1" max="1440"></label>
@@ -70,6 +72,7 @@
             <div><dt>Drift</dt><dd>{{ setup.maxDrift }}</dd></div>
             <div><dt>Day</dt><dd>{{ dayMinutes }} min</dd></div>
             <div><dt>Night</dt><dd>{{ nightMinutes }} min</dd></div>
+            <div><dt>Anon</dt><dd>{{ setup.anonymized ? 'ON' : 'OFF' }}</dd></div>
           </dl>
         </div>
       </article>
@@ -275,10 +278,11 @@ const playerCount = computed(() => players.value.length);
 const canStart = computed(() => playerCount.value >= 5 && players.value.every(p => p.ready));
 const presetCounts = [5, 6, 7, 8, 9, 10, 11, 12];
 
-const setup = reactive({ maxDrift: 20, dayMs: 300000, nightMs: 120000 });
+const setup = reactive({ maxDrift: 20, dayMs: 300000, nightMs: 120000, anonymized: false });
 watch(() => props.game.maxDrift, v => { if (v) setup.maxDrift = v; }, { immediate: true });
 watch(() => props.game.dayMs, v => { if (v) setup.dayMs = v; }, { immediate: true });
 watch(() => props.game.nightMs, v => { if (v) setup.nightMs = v; }, { immediate: true });
+watch(() => props.game.anonymized, v => { setup.anonymized = !!v; }, { immediate: true });
 const dayMinutes = computed({ get: () => Math.round(setup.dayMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.dayMs = n * 60000; } });
 const nightMinutes = computed({ get: () => Math.round(setup.nightMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.nightMs = n * 60000; } });
 
@@ -703,6 +707,30 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   height: 34px;
   align-self: flex-end;
 }
+.params-cell .anon-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  font-size: 12px;
+  letter-spacing: normal;
+  color: var(--pale);
+  white-space: normal;
+  width: 100%;
+}
+.params-cell .anon-toggle input {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0;
+  accent-color: var(--gold);
+}
+.params-cell .anon-hint {
+  width: 100%;
+  margin: -4px 0 2px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
 
 /* In the wide-screen sidebar the column is too narrow for the fields
    to wrap side by side (as they do in the row layout below 1300px),
@@ -721,6 +749,8 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   }
   .params-cell .param-fields input { width: 80px; }
   .params-cell .param-fields button { width: 100%; align-self: stretch; }
+  .params-cell .param-fields .anon-toggle { justify-content: flex-start; }
+  .params-cell .param-fields .anon-toggle input { width: auto; }
   .params-cell .param-readonly {
     flex-direction: column;
     align-items: stretch;
