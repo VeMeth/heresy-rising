@@ -130,8 +130,8 @@
             <span class="role-sigil" aria-hidden="true"><svg class="dossier-glyph"><use :href="sigilFor(role, me?.faction)"/></svg></span>
             <button class="role-name" @click="$emit('open-manual', '/docs/roles/' + (role.id || '').toLowerCase())">{{ role.displayName }}</button>
             <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
-            <dl class="role-meta">
-              <div class="zone-row"><dt>Warp taint</dt><dd><span class="zone-gauge" role="img" :aria-label="'Last sensed drift zone: ' + knownZone"><i v-for="z in DRIFT_ZONES" :key="z" :class="[z, { lit: z === knownZone }]"></i></span><span class="zone-word" :class="knownZone">{{ knownZone }}</span></dd></div>
+            <dl v-if="game.warpTaintVisible || me?.crippleTier" class="role-meta">
+              <div v-if="game.warpTaintVisible" class="zone-row"><dt>Warp taint</dt><dd><span class="zone-gauge" role="img" :aria-label="'Last sensed drift zone: ' + knownZone"><i v-for="z in DRIFT_ZONES" :key="z" :class="[z, { lit: z === knownZone }]"></i></span><span class="zone-word" :class="knownZone">{{ knownZone }}</span></dd></div>
               <div v-if="me?.crippleTier"><dt>Torture</dt><dd>Tier {{ me.crippleTier }}</dd></div>
             </dl>
           </div>

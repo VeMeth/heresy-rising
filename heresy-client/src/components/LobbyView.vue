@@ -63,6 +63,8 @@
           <div v-if="isHost" class="param-fields">
             <label class="anon-toggle"><input type="checkbox" v-model="setup.anonymized" @change="scheduleSave"> Anonymized mode</label>
             <p class="anon-hint">Player names are replaced with notable Warhammer 40k characters once the game starts.</p>
+            <label class="anon-toggle"><input type="checkbox" v-model="setup.warpTaintVisible" @change="scheduleSave"> Warp taint display</label>
+            <p class="anon-hint">Shows each operative their own last-sensed drift zone gauge in the dossier. Off hides the gauge entirely — the hint is still sent, just not rendered.</p>
             <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100" @input="scheduleSave"></label>
             <template v-if="game.mode==='async'">
               <label>Day starts (UTC)<input type="time" v-model="dayStartTimeUTC" @change="scheduleSave"></label>
@@ -85,6 +87,7 @@
               <div><dt>Night</dt><dd>{{ nightMinutes }} min</dd></div>
             </template>
             <div><dt>Anon</dt><dd>{{ setup.anonymized ? 'ON' : 'OFF' }}</dd></div>
+            <div><dt>Warp taint</dt><dd>{{ setup.warpTaintVisible ? 'ON' : 'OFF' }}</dd></div>
           </dl>
         </div>
       </article>
@@ -290,11 +293,12 @@ const playerCount = computed(() => players.value.length);
 const canStart = computed(() => playerCount.value >= 5 && players.value.every(p => p.ready));
 const presetCounts = [5, 6, 7, 8, 9, 10, 11, 12];
 
-const setup = reactive({ maxDrift: 20, dayMs: 300000, nightMs: 120000, anonymized: false, dayStartMinuteUtc: 540 });
+const setup = reactive({ maxDrift: 20, dayMs: 300000, nightMs: 120000, anonymized: false, warpTaintVisible: true, dayStartMinuteUtc: 540 });
 watch(() => props.game.maxDrift, v => { if (v) setup.maxDrift = v; }, { immediate: true });
 watch(() => props.game.dayMs, v => { if (v) setup.dayMs = v; }, { immediate: true });
 watch(() => props.game.nightMs, v => { if (v) setup.nightMs = v; }, { immediate: true });
 watch(() => props.game.anonymized, v => { setup.anonymized = !!v; }, { immediate: true });
+watch(() => props.game.warpTaintVisible, v => { setup.warpTaintVisible = v == null ? true : !!v; }, { immediate: true });
 watch(() => props.game.dayStartMinuteUtc, v => { if (v != null) setup.dayStartMinuteUtc = v; }, { immediate: true });
 const dayMinutes = computed({ get: () => Math.round(setup.dayMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.dayMs = n * 60000; } });
 const nightMinutes = computed({ get: () => Math.round(setup.nightMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.nightMs = n * 60000; } });
@@ -340,7 +344,7 @@ function scheduleSave() {
 // instead of only when these four values actually change.
 const justSaved = ref(false);
 let savedFlashTimer = null;
-watch([() => props.game.maxDrift, () => props.game.dayMs, () => props.game.nightMs, () => props.game.anonymized, () => props.game.dayStartMinuteUtc], () => {
+watch([() => props.game.maxDrift, () => props.game.dayMs, () => props.game.nightMs, () => props.game.anonymized, () => props.game.warpTaintVisible, () => props.game.dayStartMinuteUtc], () => {
   justSaved.value = true;
   if (savedFlashTimer) clearTimeout(savedFlashTimer);
   savedFlashTimer = setTimeout(() => { justSaved.value = false; }, 2500);
