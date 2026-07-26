@@ -711,25 +711,33 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  text-transform: none;
-  font-size: 12px;
-  letter-spacing: normal;
-  color: var(--pale);
-  white-space: normal;
   width: 100%;
+  cursor: pointer;
 }
-.params-cell .anon-toggle input {
-  width: auto;
+.params-cell .anon-toggle input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: 14px;
+  height: 14px;
   flex: 0 0 auto;
+  margin: 0;
   padding: 0;
+  border: none;
+  background: none;
+  border-radius: 0;
   accent-color: var(--gold);
+  cursor: pointer;
 }
 .params-cell .anon-hint {
   width: 100%;
-  margin: -4px 0 2px;
+  margin: 0 0 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #2a2c25;
   font-size: 10.5px;
   line-height: 1.5;
   color: var(--muted);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 /* In the wide-screen sidebar the column is too narrow for the fields
@@ -750,7 +758,6 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   .params-cell .param-fields input { width: 80px; }
   .params-cell .param-fields button { width: 100%; align-self: stretch; }
   .params-cell .param-fields .anon-toggle { justify-content: flex-start; }
-  .params-cell .param-fields .anon-toggle input { width: auto; }
   .params-cell .param-readonly {
     flex-direction: column;
     align-items: stretch;
