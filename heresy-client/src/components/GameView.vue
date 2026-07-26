@@ -54,7 +54,7 @@
                 </header>
                 <div class="day-messages" v-show="day.expanded">
                   <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
-                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m.body).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m.body).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
+                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
                     <template v-else>
                       <span class="avatar mini">{{ initial(m.author) }}</span>
                       <div>
@@ -67,7 +67,7 @@
               </section>
             </div>
             <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
-              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m.body).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m.body).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
+              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
               <template v-else>
                 <span class="avatar mini">{{ initial(m.author) }}</span>
                 <div>
@@ -313,8 +313,20 @@ const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.
 // (game.atRiskTarget), independent of the live vote-in-progress border.
 function portraitStatus(p){if(!p.alive)return'deceased';if(props.game.atRiskTarget===p.playerCode)return'at-risk';return'alive';}
 function portraitGlyph(p){return !p.alive?'#hr-deceased':'#hr-alive';}
-// Classify a system-log line by its text so the transcript is scannable — glyph + tint per event type.
-function classifyEntry(body){const b=String(body||'');
+// Classify a system-log line so the transcript is scannable — glyph + tint
+// per event type. Night kills are tagged server-side (meta.eventType —
+// see heresyGameManager.js's system() calls) rather than sniffed from the
+// message text, because the actual kill/bodyguard-redirect flavor lines
+// (data/deathFlavor.json) are randomized narrative prose ("was found cut
+// in two by a chainsword", "was melted from the inside by a melta gun",
+// etc.) that never contained a stable common keyword — a body-regex here
+// silently matched nothing for the real production text, which is why
+// night kills were falling through to the generic grey 'system' bucket.
+// meta may arrive as a JSON string (live socket messages / chat history)
+// or an already-parsed object, so this tolerates either.
+function messageEventType(m){if(!m?.meta)return null;try{const meta=typeof m.meta==='string'?JSON.parse(m.meta):m.meta;return meta?.eventType||null;}catch{return null;}}
+function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||'');
+  if(eventType==='night-kill')return{type:'death',glyph:'#hr-deceased'};
   if(/victory|conclave is (ended|dissolved)|game over|ended by admin/i.test(b))return{type:'verdict',glyph:'#hr-verdict'};
   if(/lynched|executed|summary execution|revealed (as )?(loyalist|heretic)|left at tier \d|forced to confess|confessed:/i.test(b))return{type:'execution',glyph:'#hr-execution'};
   if(/slain|was killed|found dead|absorbed a strike|deflected/i.test(b))return{type:'death',glyph:'#hr-deceased'};
@@ -1172,7 +1184,7 @@ button.ghost.wide.stand-down-leading {
 .log-entry--accusation { --tint: #b69a5c; }
 .log-entry--vote       { --tint: #8f9c6a; }
 .log-entry--execution  { --tint: #c14545; }
-.log-entry--death      { --tint: #a86b5c; }
+.log-entry--death      { --tint: #ff5c4d; }
 .log-entry--phase      { --tint: #7f8ca6; }
 .log-entry--verdict    { --tint: var(--gold2); }
 .log-entry--system     { --tint: var(--muted); }
