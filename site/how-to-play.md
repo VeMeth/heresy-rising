@@ -45,7 +45,7 @@ The day is a vote. You pick someone to accuse. The outcome depends on how many l
 
 > **60% of living players**, not max players. If 5 are alive, 3 votes = 60%.
 
-The orange border is your probe. Interrogation doesn't kill — it *cripples*. The target loses their next night action. Same suspect can be interrogated multiple rounds; each time they lose one more night. **But be careful: two consecutive interrogations on the same suspect = execution.** Day 1 you probe, day 2 you kill. The cabal has one day to pivot suspicion before the trigger fires.
+The orange border is your probe. Interrogation doesn't kill — it *cripples*. The target loses their next night action. **Two interrogations on the same suspect = execution** — no matter how many days apart, no matter who got interrogated in between. Once a suspect picks up a mark, the second orange border on them is the kill. The cabal has no defense: pivoting doesn't reset the mark.
 
 ## Drift — what the Warp leaves on a soul
 
@@ -73,7 +73,7 @@ Interrogation is what you do *instead* of killing. It cripples a target one tier
 | Tier 2 | Severe. They permanently lose a night-action slot. |
 | Tier 3 | Critically crippled. They must publicly confess their role on a direct ask. |
 
-A target who clears **60% of living votes** in a single day is **lynched** (killed, alignment revealed, Tier 3 cripple). A target below that threshold but still the lynch leader is **interrogated** (one cripple tier, skips next night action). The Loyalist's day weapon is a *tiered probe* — investigate without killing, or escalate when you're sure. **Two interrogations on the same suspect = execution** (killed, alignment revealed). The cabal has one day to save them.
+A target who clears **60% of living votes** in a single day is **lynched** (killed, alignment revealed, Tier 3 cripple). A target below that threshold but still the lynch leader is **interrogated** (one cripple tier, skips next night action). **Two interrogations on the same suspect = execution** — once a suspect carries the mark, the second orange border on them kills them. The cabal has no pivot to clear it. The Loyalist's day weapon is a *tiered probe* — investigate without killing, or escalate when you're sure.
 
 ## The Roles
 

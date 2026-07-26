@@ -308,10 +308,13 @@ function messageMentionsMe(m){if(m.kind==='system'||!props.me?.name)return false
 const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen'};
 function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
 const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.phase==='ended'?'#hr-verdict':'#hr-day');
-// Tiered Lynch v1.1.0: whoever was interrogated yesterday is one more
-// interrogation away from a free execution today — public knowledge
-// (game.atRiskTarget), independent of the live vote-in-progress border.
-function portraitStatus(p){if(!p.alive)return'deceased';if(props.game.atRiskTarget===p.playerCode)return'at-risk';return'alive';}
+// Tiered Lynch v1.2.0: any living player who has ever survived an
+// interrogation is one more interrogation away from a free execution —
+// public knowledge (game.atRiskTargets), independent of the live
+// vote-in-progress border. Persistent (not just "yesterday"): the mark
+// isn't cleared by a skip day or by someone else being interrogated in
+// between, so more than one player can carry it at once.
+function portraitStatus(p){if(!p.alive)return'deceased';if(props.game.atRiskTargets?.includes(p.playerCode))return'at-risk';return'alive';}
 function portraitGlyph(p){return !p.alive?'#hr-deceased':'#hr-alive';}
 // Classify a system-log line so the transcript is scannable — glyph + tint
 // per event type. Night kills are tagged server-side (meta.eventType —
