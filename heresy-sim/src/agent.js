@@ -22,9 +22,9 @@ import { getHereticHeuristic } from './strategies/heretic.js';
  * @property {string[]} voteOptions - Legal vote targets + 'skip'
  * @property {Array} voteTally - Current vote tally
  * @property {Object|null} myAction - Already-submitted action this phase
- * @property {Object|null} pendingInterrogation - Pending interrogation info
+ * @property {Object|null} pendingTorture - Pending torture-response info
  * @property {number} maxDrift - Maximum drift for this game
- * @property {string|null} lastInterrogatedTarget - Last day's interrogated target
+ * @property {string|null} lastTorturedTarget - Last day's tortured target
  * @property {string[]} availableVariants - Legal night-action variants for the viewer's role (e.g. T1/T2/T3)
  */
 
@@ -131,9 +131,9 @@ export function buildAgentState(manager, code, playerCode) {
     voteOptions,
     voteTally,
     myAction: state.myAction,
-    pendingInterrogation: state.pendingInterrogation || null,
+    pendingTorture: state.pendingTorture || null,
     maxDrift: game.max_drift,
-    lastInterrogatedTarget: game.last_interrogated_target || null,
+    lastTorturedTarget: game.last_tortured_target || null,
     availableVariants,
   };
 }
@@ -234,17 +234,17 @@ export function collectDayVotes(manager, code, agents, verbose = false) {
 }
 
 /**
- * Handle interrogation response flow.
+ * Handle torture response flow.
  * @param {import('../../heresy-server/src/heresyGameManager.js').HeresyGameManager} manager
  * @param {string} code
  * @param {Map<string, Agent>} agents
  * @param {boolean} [verbose=false]
  */
-export function collectInterrogationResponses(manager, code, agents, verbose = false) {
+export function collectTortureResponses(manager, code, agents, verbose = false) {
   const game = manager.game(code);
   if (game.day_stage !== 'response') return;
 
-  const targetCode = game.last_interrogated_target;
+  const targetCode = game.last_tortured_target;
   if (!targetCode) return;
 
   const agent = agents.get(targetCode);
@@ -253,15 +253,15 @@ export function collectInterrogationResponses(manager, code, agents, verbose = f
   const agentState = buildAgentState(manager, code, targetCode);
 
   try {
-    const response = agent.respondInterrogation(agentState);
-    manager.respondInterrogation(code, targetCode, response);
+    const response = agent.respondTorture(agentState);
+    manager.respondTorture(code, targetCode, response);
     if (verbose) {
       const player = manager.player(code, targetCode);
-      console.log(`  Interrogation: ${player?.name} responds: ${response}`);
+      console.log(`  Torture: ${player?.name} responds: ${response}`);
     }
   } catch (err) {
     if (verbose) {
-      console.log(`  Interrogation response failed: ${err.message}`);
+      console.log(`  Torture response failed: ${err.message}`);
     }
   }
 }

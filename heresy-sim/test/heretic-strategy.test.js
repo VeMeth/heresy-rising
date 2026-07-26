@@ -6,7 +6,7 @@ import path from 'node:path';
 import { createH1Murderer, createH2HereticPriest, createH3Conspirator, createH4Saboteur } from '../src/strategies/heretic.js';
 import { HeresyGameManager } from '../../heresy-server/src/heresyGameManager.js';
 import { seedableRNG } from '../src/util.js';
-import { createHeuristicAgent, collectNightActions, collectDayVotes, collectInterrogationResponses } from '../src/agent.js';
+import { createHeuristicAgent, collectNightActions, collectDayVotes, collectTortureResponses } from '../src/agent.js';
 
 // ── H1 Murderer: drift-gate awareness ───────────────────────────────────────
 // Regression guard for the bug where the Murderer heuristic always attempted
@@ -292,7 +292,7 @@ function runSeededGame(playerCount, seed, maxRounds = 50) {
         if (game.round === 1) {
           manager.advance(code, hostCode);
         } else if (game.day_stage === 'response') {
-          collectInterrogationResponses(manager, code, agents, false);
+          collectTortureResponses(manager, code, agents, false);
           manager.advance(code, hostCode);
         } else {
           collectDayVotes(manager, code, agents, false);

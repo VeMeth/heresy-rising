@@ -12,7 +12,7 @@ import {
   createHeuristicAgent,
   collectNightActions,
   collectDayVotes,
-  collectInterrogationResponses,
+  collectTortureResponses,
 } from './agent.js';
 import { createRandomAgent } from './strategies/random.js';
 
@@ -182,8 +182,8 @@ export function runSingleGame(options = {}) {
         } else {
           // Check if we're in the response stage
           if (game.day_stage === 'response') {
-            if (verbose) console.log('  Interrogation response stage');
-            collectInterrogationResponses(manager, code, agents, verbose);
+            if (verbose) console.log('  Torture response stage');
+            collectTortureResponses(manager, code, agents, verbose);
             // After response, advance to next phase
             manager.advance(code, hostCode);
           } else {

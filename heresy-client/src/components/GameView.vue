@@ -19,7 +19,7 @@
           <span class="roster-count"><strong>{{ alive.length }}</strong><small>Alive</small></span>
         </header>
         <ul class="player-list">
-          <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',interrogate:lynchLeader===p.playerCode&&lynchLeaderOutcome==='interrogate'}" @click="voteFor(p)">
+          <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)">
             <span class="portrait" :data-status="portraitStatus(p)"><svg class="portrait-glyph"><use :href="portraitGlyph(p)"/></svg></span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small></div>
             <small v-if="p.alive&&p.crippleTier" class="tier-badge" :data-tier="p.crippleTier">T{{ p.crippleTier }}</small>
@@ -132,7 +132,7 @@
             <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
             <dl v-if="me?.drift != null || me?.crippleTier" class="role-meta">
               <div v-if="me?.drift != null"><dt>Drift</dt><dd>{{ me.drift }} / {{ game.maxDrift }}<span class="drift-gauge" aria-hidden="true"><i :style="{ width: driftPct + '%' }"></i></span></dd></div>
-              <div v-if="me?.crippleTier"><dt>Interrogation</dt><dd>Tier {{ me.crippleTier }}</dd></div>
+              <div v-if="me?.crippleTier"><dt>Torture</dt><dd>Tier {{ me.crippleTier }}</dd></div>
             </dl>
           </div>
           <section class="dossier-section">
@@ -160,7 +160,7 @@
             </label>
             <template v-if="pending?.canRespond&&pending.tier<3">
               <div class="response-card">
-                <span class="eyebrow">Interrogation response · Tier {{ pending.tier }}</span>
+                <span class="eyebrow">Torture response · Tier {{ pending.tier }}</span>
                 <p class="dossier-text">Choose your answer. The conclave is listening.</p>
                 <button class="secondary wide" @click="$emit('respond','confess')">Confess</button>
                 <button class="ghost wide" @click="$emit('respond','resist')">Resist</button>
@@ -224,9 +224,9 @@ const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs
 const dayExpanded = ref({});
 const showEarlierDays = ref(false);
 function isDayStart(m){return m.kind==='system'&&/Day\s+\d+(\s*:|\s+begins)/i.test(m.body);}
-function isDayEnd(m){return m.kind==='system'&&/(concludes with no vote|conclave stands down|was interrogated and left|was lynched and revealed)/i.test(m.body);}
+function isDayEnd(m){return m.kind==='system'&&/(concludes with no vote|conclave stands down|was tortured and left|was lynched and revealed)/i.test(m.body);}
 function nightStart(msgs,markerIdx,lowerBound){let start=markerIdx;for(let j=markerIdx-1;j>lowerBound;j--){const m=msgs[j];if(m.kind==='player'){start=j+1;break;}if(isDayStart(m)){start=j+1;break;}if(isDayEnd(m)){start=j+1;break;}start=j;}return start;}
-const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),pending=computed(()=>props.game.pendingInterrogation),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===effectiveVoterCode.value)),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),maxVoteCount=computed(()=>Math.max(0,...Object.values(voteCounts.value))),votingOpen=computed(()=>props.votingEnabled&&props.game.phase==='day'&&!pending.value&&!props.me?.possessed),pastDays=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];const markers=[];for(let i=0;i<msgs.length;i++){if(isDayStart(msgs[i]))markers.push(i);}if(markers.length<2)return[];const sections=[];for(let d=0;d<markers.length-1;d++){const start=d===0?markers[0]:nightStart(msgs,markers[d],d>0?markers[d-1]:-1);const end=nightStart(msgs,markers[d+1],markers[d]);const dayNum=msgs[markers[d]].body.match(/Day\s+(\d+)/i)?.[1]||(d+1);const label=`Day ${dayNum}`;sections.push({label,messages:msgs.slice(start,end),expanded:dayExpanded.value[label]??false});}return sections;}),recentPastDay=computed(()=>pastDays.value.length?pastDays.value[pastDays.value.length-1]:null),earlierPastDays=computed(()=>pastDays.value.slice(0,-1)),visibleDays=computed(()=>[...(showEarlierDays.value?earlierPastDays.value:[]),...(recentPastDay.value?[recentPastDay.value]:[])]),currentMessages=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];let lastMarker=-1;for(let i=msgs.length-1;i>=0;i--){if(isDayStart(msgs[i])){lastMarker=i;break;}}if(lastMarker===-1)return msgs;let prevMarker=-1;for(let i=lastMarker-1;i>=0;i--){if(isDayStart(msgs[i])){prevMarker=i;break;}}const start=nightStart(msgs,lastMarker,prevMarker);return msgs.slice(start);});
+const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),pending=computed(()=>props.game.pendingTorture),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===effectiveVoterCode.value)),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),maxVoteCount=computed(()=>Math.max(0,...Object.values(voteCounts.value))),votingOpen=computed(()=>props.votingEnabled&&props.game.phase==='day'&&!pending.value&&!props.me?.possessed),pastDays=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];const markers=[];for(let i=0;i<msgs.length;i++){if(isDayStart(msgs[i]))markers.push(i);}if(markers.length<2)return[];const sections=[];for(let d=0;d<markers.length-1;d++){const start=d===0?markers[0]:nightStart(msgs,markers[d],d>0?markers[d-1]:-1);const end=nightStart(msgs,markers[d+1],markers[d]);const dayNum=msgs[markers[d]].body.match(/Day\s+(\d+)/i)?.[1]||(d+1);const label=`Day ${dayNum}`;sections.push({label,messages:msgs.slice(start,end),expanded:dayExpanded.value[label]??false});}return sections;}),recentPastDay=computed(()=>pastDays.value.length?pastDays.value[pastDays.value.length-1]:null),earlierPastDays=computed(()=>pastDays.value.slice(0,-1)),visibleDays=computed(()=>[...(showEarlierDays.value?earlierPastDays.value:[]),...(recentPastDay.value?[recentPastDay.value]:[])]),currentMessages=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];let lastMarker=-1;for(let i=msgs.length-1;i>=0;i--){if(isDayStart(msgs[i])){lastMarker=i;break;}}if(lastMarker===-1)return msgs;let prevMarker=-1;for(let i=lastMarker-1;i>=0;i--){if(isDayStart(msgs[i])){prevMarker=i;break;}}const start=nightStart(msgs,lastMarker,prevMarker);return msgs.slice(start);});
 function toggleDay(label){dayExpanded.value[label]=!dayExpanded.value[label];}
 watch(variants,v=>variant.value=v[0]||'',{immediate:true});
 let preChangeHeight=0,preChangeScrollTop=0;
@@ -266,10 +266,10 @@ const effectiveVoterCode=computed(()=>(speakAsTarget.value&&possessedTarget.valu
 const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeader=computed(()=>{if(!votingOpen.value)return null;const counts=voteCounts.value;let leader=null,max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max){max=count;leader=code;}}return leader}),
 // Tiered Lynch (tiered-lynch.md v1.0.0): outcome is same-day, decided by
 // what fraction of LIVING votes the leader cleared — >=60% executes,
-// otherwise (any positive count) interrogates. Border color previews this
+// otherwise (any positive count) tortures. Border color previews this
 // live during the vote so players can coordinate before it resolves.
 lynchThreshold=computed(()=>Math.ceil(alive.value.length*0.6)),
-lynchLeaderOutcome=computed(()=>{if(!lynchLeader.value)return null;return targetVoteCount(lynchLeader.value)>=lynchThreshold.value?'kill':'interrogate'}),
+lynchLeaderOutcome=computed(()=>{if(!lynchLeader.value)return null;return targetVoteCount(lynchLeader.value)>=lynchThreshold.value?'kill':'torture'}),
 standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 const secondsLeft=computed(()=>{if(!deadline.value)return null;return Math.max(0,Math.floor((deadline.value-props.now)/1000));});
 const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.game.nightMs:props.game.dayMs)||0;if(!total||secondsLeft.value==null)return 0;return Math.min(1,Math.max(0,1-(secondsLeft.value*1000)/total));});
@@ -277,7 +277,7 @@ const driftPct=computed(()=>{const max=props.game.maxDrift||20;const d=props.me?
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
 function castVote(choice){if(speakAsTarget.value&&possessedTarget.value)emit('vote-as',{choice,justification:voteJustification.value});else emit('vote',{choice,justification:voteJustification.value})}
 function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}
-function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(p.crippleTier)return`Torture Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 // @mention autocomplete: player names can contain spaces ("Player 1",
 // "Priestess Vale"), so the token can't just stop at the first whitespace —
 // findMentionQuery instead scans left from the caret for the nearest '@'
@@ -318,11 +318,11 @@ function messageMentionsMe(m){if(m.kind==='system'||!props.me?.name)return false
 const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen'};
 function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
 const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.phase==='ended'?'#hr-verdict':'#hr-day');
-// Tiered Lynch v1.2.0: any living player who has ever survived an
-// interrogation is one more interrogation away from a free execution —
+// Tiered Lynch v1.2.0: any living player who has ever survived a
+// torture is one more torture away from a free execution —
 // public knowledge (game.atRiskTargets), independent of the live
 // vote-in-progress border. Persistent (not just "yesterday"): the mark
-// isn't cleared by a skip day or by someone else being interrogated in
+// isn't cleared by a skip day or by someone else being tortured in
 // between, so more than one player can carry it at once.
 function portraitStatus(p){if(!p.alive)return'deceased';if(props.game.atRiskTargets?.includes(p.playerCode))return'at-risk';return'alive';}
 function portraitGlyph(p){return !p.alive?'#hr-deceased':'#hr-alive';}
@@ -466,7 +466,7 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   letter-spacing: 0.04em;
 }
 /* Tiered Lynch (tiered-lynch.md v1.0.0): red = will execute (>=60% of
-   living votes), orange = will be interrogated (leading, but under 60%). */
+   living votes), orange = will be tortured (leading, but under 60%). */
 .player-list li.lynch-leader.kill {
   border-color: #ff3333;
   /* background-color only — the fx layer adds a red corner reticle via
@@ -477,7 +477,7 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
     0 0 20px rgba(255, 51, 51, 0.35);
   animation: lynchPulse 1s ease-in-out infinite alternate;
 }
-.player-list li.lynch-leader.interrogate {
+.player-list li.lynch-leader.torture {
   border-color: #ff9333;
   background-color: rgba(255, 147, 51, 0.16);
   box-shadow:
@@ -494,7 +494,7 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
 }
 .player-list li.voted:hover { background: rgba(182, 154, 92, 0.08); }
 
-/* Interrogated player row — gold left-border accent + amber tint */
+/* Tortured player row — gold left-border accent + amber tint */
 .player-list li.crippled {
   border-left-color: #d4a84a;
   background: linear-gradient(160deg, rgba(48, 40, 16, 0.5), rgba(22, 18, 8, 0.55));
@@ -565,7 +565,7 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
 }
 
 /* Possessed badge (H6 Animus) — same pill shape as tier badges, distinct
-   violet tone so it never gets confused with an interrogation tier. Server
+   violet tone so it never gets confused with a torture tier. Server
    only ever sends p.possessed to a client entitled to see it (the Animus's
    own view of their target, the possessed player's own view of themself,
    or everyone once the reveal has fired) — no extra gating needed here. */
@@ -1130,7 +1130,7 @@ button.ghost.wide.stand-down-leading {
 }
 .player-list .portrait[data-status="alive"]    { --ring: #b69a5c; }
 .player-list .portrait[data-status="deceased"] { --ring: #3a2f22; color: #4a4034; filter: grayscale(1) brightness(.75); }
-/* Tiered Lynch v1.1.0: interrogated yesterday — one more interrogation
+/* Tiered Lynch v1.1.0: tortured yesterday — one more torture
    (as today's lynch leader) away from a free execution. Persistent, unlike
    the live vote-in-progress .lynch-leader border below. */
 .player-list .portrait[data-status="at-risk"] {

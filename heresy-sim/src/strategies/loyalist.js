@@ -28,7 +28,7 @@ export function createL1Citizen(id) {
       // Fallback: vote skip
       return 'skip';
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -56,7 +56,7 @@ export function createL2Interrogator(id) {
       if (target && s.voteOptions.includes(target)) return target;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -88,7 +88,7 @@ export function createL3Chirurgeon(id) {
       if (target && s.voteOptions.includes(target)) return target;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -100,9 +100,9 @@ export function createL4NovicePsychic(id) {
     label: `l4-novice-psychic-${id}`,
     nightAction(s) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
-      // Scan the player who was most recently interrogated
-      if (s.lastInterrogatedTarget && s.legalTargets.includes(s.lastInterrogatedTarget)) {
-        return { targetCode: s.lastInterrogatedTarget };
+      // Scan the player who was most recently tortured
+      if (s.lastTorturedTarget && s.legalTargets.includes(s.lastTorturedTarget)) {
+        return { targetCode: s.lastTorturedTarget };
       }
       // Scan the first player who voted differently from majority
       const votes = s.voteTally || [];
@@ -120,7 +120,7 @@ export function createL4NovicePsychic(id) {
       if (target && s.voteOptions.includes(target)) return target;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -143,7 +143,7 @@ export function createL5Arbitrator(id) {
       if (target && s.voteOptions.includes(target)) return target;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -170,7 +170,7 @@ export function createL6Priest(id) {
       if (target && s.voteOptions.includes(target)) return target;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -202,7 +202,7 @@ export function createL7SanctionedPsyker(id) {
       if (target && s.voteOptions.includes(target)) return target;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 

@@ -58,8 +58,8 @@ function nextScheduleBoundary(now, dayStartMinuteUtc) {
  * @property {number} night_ms
  * @property {number} max_drift
  * @property {string} hint_profile
- * @property {string|null} last_interrogated_target
- * @property {number} last_interrogation_tier
+ * @property {string|null} last_tortured_target
+ * @property {number} last_torture_tier
  * @property {string|null} winner
  * @property {number} anonymized
  * @property {number|null} day_start_minute_utc
@@ -89,7 +89,7 @@ function nextScheduleBoundary(now, dayStartMinuteUtc) {
  * @property {number} is_bot
  * @property {string|null} possessed_by
  * @property {number} possession_revealed
- * @property {number} interrogated_before
+ * @property {number} tortured_before
  */
 
 /**
@@ -115,7 +115,7 @@ function nextScheduleBoundary(now, dayStartMinuteUtc) {
  */
 
 const schema = `
-CREATE TABLE IF NOT EXISTS hr_games(code TEXT PRIMARY KEY,host_code TEXT NOT NULL,mode TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'lobby',day_stage TEXT,status TEXT NOT NULL DEFAULT 'lobby',round INTEGER NOT NULL DEFAULT 0,deadline INTEGER,day_ms INTEGER NOT NULL,night_ms INTEGER NOT NULL,max_drift INTEGER NOT NULL,hint_profile TEXT NOT NULL DEFAULT 'default',last_interrogated_target TEXT,last_interrogation_tier INTEGER NOT NULL DEFAULT 0,winner TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS hr_games(code TEXT PRIMARY KEY,host_code TEXT NOT NULL,mode TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'lobby',day_stage TEXT,status TEXT NOT NULL DEFAULT 'lobby',round INTEGER NOT NULL DEFAULT 0,deadline INTEGER,day_ms INTEGER NOT NULL,night_ms INTEGER NOT NULL,max_drift INTEGER NOT NULL,hint_profile TEXT NOT NULL DEFAULT 'default',last_tortured_target TEXT,last_torture_tier INTEGER NOT NULL DEFAULT 0,winner TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS hr_players(game_code TEXT NOT NULL,player_code TEXT NOT NULL,name TEXT NOT NULL,seat INTEGER NOT NULL,role_id TEXT,faction TEXT,drift INTEGER NOT NULL DEFAULT 0,alive INTEGER NOT NULL DEFAULT 1,ready INTEGER NOT NULL DEFAULT 0,connected INTEGER NOT NULL DEFAULT 1,cripple_tier INTEGER NOT NULL DEFAULT 0,tier1_until_round INTEGER,confessed INTEGER NOT NULL DEFAULT 0,confession_token_round INTEGER,skip_next_night INTEGER NOT NULL DEFAULT 0,joined_at INTEGER NOT NULL,PRIMARY KEY(game_code,player_code));
 CREATE TABLE IF NOT EXISTS hr_actions(game_code TEXT NOT NULL,round INTEGER NOT NULL,actor_code TEXT NOT NULL,kind TEXT NOT NULL,target_code TEXT,variant TEXT,data TEXT,created_at INTEGER NOT NULL,PRIMARY KEY(game_code,round,actor_code));
 CREATE TABLE IF NOT EXISTS hr_votes(game_code TEXT NOT NULL,round INTEGER NOT NULL,stage TEXT NOT NULL,voter_code TEXT NOT NULL,choice TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(game_code,round,stage,voter_code));
@@ -143,12 +143,18 @@ export class HeresyGameManager {
     this.ensureColumn('hr_players','possessed_by',"TEXT");
     this.ensureColumn('hr_players','possession_revealed',"INTEGER NOT NULL DEFAULT 0");
     // Tiered Lynch v1.2.0 (tiered-lynch.md): set the first time this player is
-    // interrogated (<60%, survives) and never cleared except by death — the
-    // mark persists across skip days, other targets being interrogated in
+    // tortured (<60%, survives) and never cleared except by death — the
+    // mark persists across skip days, other targets being tortured in
     // between, anything, per spec ("no cabal defense, no pivot reset"). A
-    // second interrogation on a marked player escalates to execution
+    // second torture on a marked player escalates to execution
     // regardless of how many days or which other targets came between.
-    this.ensureColumn('hr_players','interrogated_before',"INTEGER NOT NULL DEFAULT 0");
+    // (Renamed from interrogated_before/last_interrogated_target/
+    // last_interrogation_tier — "interrogation" was overloaded between this
+    // day-vote outcome and the unrelated L2 Interrogator role's night scan.
+    // "Torture" is the day-vote outcome; "Interrogator" stays the role name.)
+    this.renameColumn('hr_players','interrogated_before','tortured_before',"INTEGER NOT NULL DEFAULT 0");
+    this.renameColumn('hr_games','last_interrogated_target','last_tortured_target',"TEXT");
+    this.renameColumn('hr_games','last_interrogation_tier','last_torture_tier',"INTEGER NOT NULL DEFAULT 0");
     // Anonymized mode (Operational Parameters, lobby-only, off by default):
     // when on, start() assigns each player row a codename drawn from
     // NOTABLE_NAMES; displayName() below is the single place that decides
@@ -171,6 +177,11 @@ export class HeresyGameManager {
   emitChatMessage(c,message){for(const fn of this._chatMessageListeners)try{fn(c,message);}catch{}}
   close(){this.db.close();}
   ensureColumn(table,column,definition){if(!/** @type {{name:string}[]} */ (this.db.prepare(`PRAGMA table_info(${table})`).all()).some(x=>x.name===column))this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);}
+  // Renames a column in place on existing DBs (e.g. a mid-life terminology
+  // rename); a brand-new DB already has `newColumn` from the base CREATE
+  // TABLE/a prior ensureColumn, so this only acts when the old name is
+  // still there and the new one isn't.
+  renameColumn(table,oldColumn,newColumn,definition){const cols=/** @type {{name:string}[]} */ (this.db.prepare(`PRAGMA table_info(${table})`).all());if(cols.some(x=>x.name===oldColumn)&&!cols.some(x=>x.name===newColumn))this.db.exec(`ALTER TABLE ${table} RENAME COLUMN ${oldColumn} TO ${newColumn}`);else this.ensureColumn(table,newColumn,definition);}
   /** @returns {GameRow|undefined} */
   game(c){return /** @type {GameRow|undefined} */ (this.db.prepare('SELECT * FROM hr_games WHERE code=?').get(c));}
   /** @returns {PlayerRow[]} */
@@ -319,7 +330,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       for(const witness of this.players(c).filter(x=>x.alive))this.changeDrift(c,witness.player_code,this.config.drift.WITNESSED_VIOLENCE,'witnessed-violence');}if(killRole.killLimit==='1_per_game')this.incrementUsage(c,kill.actor_code,'kill');}
     // Blood Ritual (blood-ritual.md v1.0.0): faction-wide attack,
     // one per night (enforced at submission in submitFactionAction), two-step
-    // escalation mirroring day-phase interrogate->lynch. Escalation is keyed
+    // escalation mirroring day-phase torture->lynch. Escalation is keyed
     // off whether an SV attack targeted the SAME player on round-1 AND that
     // round's outcome was 'cripple' (not 'kill') — a kill-stage attack (landed
     // or blocked) always consumes the streak, exactly like day-phase's lynch
@@ -334,7 +345,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       // tier1_until_round is g.round+1, not g.round: setPhase's T1-recovery
       // check (`cripple_tier=1 AND tier1_until_round<round`) fires on the
       // night->day transition that happens moments later in THIS SAME
-      // resolveNight() call. Day-phase interrogation sets tier1_until_round
+      // resolveNight() call. Day-phase torture sets tier1_until_round
       // while still in the day, so it survives the coming night before that
       // check ever runs against it; a night-phase cripple needs the +1 or it
       // recovers in the same breath it was applied.
@@ -357,22 +368,22 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
   trapBlocks(c,g,a,traps){if(!traps.has(a.target_code))return false;this.changeDrift(c,a.actor_code,this.config.drift.TRAP_DRIFT,'trap');const trap=traps.get(a.target_code);this.privateSystem(c,trap.actor_code,`Your trap caught ${this.displayName(g,this.player(c,a.actor_code))} targeting ${this.displayName(g,this.player(c,a.target_code))}.`);return !['kill','heretical-catalyst'].includes(a.kind);}
   resolveIntel(c,a,g){const actor=this.player(c,a.actor_code),target=this.player(c,a.target_code),role=this.role(actor.role_id);if(a.kind==='drift-hint'){const targetZone=driftZone(this.config.drift,target.drift);const rate=intelNoiseRate(this.config.drift,target.drift,role.driftWeight);const truth=targetZone.id;const zones=this.config.drift.zones;const truthIdx=zones.findIndex(z=>z.id===truth);let shown=truth;if(this.random()<rate){const left=truthIdx>0?truthIdx-1:truthIdx+1;const right=truthIdx<zones.length-1?truthIdx+1:truthIdx-1;const adj=this.random()<0.5?left:right;shown=zones[adj].id;}this.privateSystem(c,a.actor_code,this.hints(c)[shown],{intelKind:'drift-hint',action:'scan_drift',target:a.target_code,zone:shown});return{};}const intensity=Number(String(a.variant||'T1').replace('T',''))||1;const targetZone=driftZone(this.config.drift,target.drift);if(isExecuteOnSight(intensity,targetZone.id))return{autoKill:true,actorCode:a.actor_code,targetCode:a.target_code,zone:targetZone.id,faction:target.faction};if(intensity===1){const groundTruth=targetZone.id==='green'?'Clean':'Tainted';const isTrue=this.random()<0.7;const display=isTrue?groundTruth:(groundTruth==='Clean'?'Tainted':'Clean');
       // Tiered Lynch v1.3.0: T1 can also clear or reinforce a day-vote
-      // interrogation mark (interrogated_before), keyed off the TARGET'S
+      // torture mark (tortured_before), keyed off the TARGET'S
       // TRUE zone — "the Interrogator's read is treated as definitive" for
       // this purpose, unlike the noisy Clean/Tainted display above (which
       // still has its own 30% flip chance). Green absolves an existing
       // mark outright; Yellow/Orange leave it untouched (too noisy for a
       // binding call); Red sets/reinforces the mark regardless of its
       // prior state — a single Red-reading scan can set someone up for a
-      // kill on their very next day-vote interrogation, "weaponizing" the
+      // kill on their very next day-vote torture, "weaponizing" the
       // scan on its own. Black is moot, left untouched.
       let markNote='';
-      if(targetZone.id==='green'&&target.interrogated_before){this.db.prepare('UPDATE hr_players SET interrogated_before=0 WHERE game_code=? AND player_code=?').run(c,a.target_code);markNote=' Your read is clean enough to absolve them — their interrogation mark is lifted.';}
-      else if(targetZone.id==='red'){if(!target.interrogated_before)this.db.prepare('UPDATE hr_players SET interrogated_before=1 WHERE game_code=? AND player_code=?').run(c,a.target_code);markNote=' Your read comes back guilty — their next interrogation will be an execution.';}
+      if(targetZone.id==='green'&&target.tortured_before){this.db.prepare('UPDATE hr_players SET tortured_before=0 WHERE game_code=? AND player_code=?').run(c,a.target_code);markNote=' Your read is clean enough to absolve them — their torture mark is lifted.';}
+      else if(targetZone.id==='red'){if(!target.tortured_before)this.db.prepare('UPDATE hr_players SET tortured_before=1 WHERE game_code=? AND player_code=?').run(c,a.target_code);markNote=' Your read comes back guilty — their next torture will be an execution.';}
       this.privateSystem(c,a.actor_code,`${this.displayName(g,target)} is ${display.toLowerCase()}.${markNote}`,{intelKind:'interrogate',tier:1,target:a.target_code,zone:targetZone.id,result:display.toLowerCase()});return{};}const effectiveTier=getEffectiveScanTier(intensity,targetZone.id);const rate=intelNoiseRate(this.config.drift,actor.drift,role.driftWeight);if(effectiveTier>=3){const text=target.faction==='loyalist'?'Confirmed: they are a Loyalist. The Emperor\'s light is unbroken in them.':'Confirmed: they are a Heretic. The warp taint is undeniable.';this.privateSystem(c,a.actor_code,text,{intelKind:'interrogate',tier:intensity,effectiveTier,target:a.target_code,zone:targetZone.id,faction:target.faction});return{};}const truth=target.faction==='loyalist';const result=noisyResult(truth,rate,this.random);let text=result==='unclear'?'You learned nothing.':result?'Their story holds together.':'Something does not add up.';if(effectiveTier>=2)text+=` You sense their drift zone: ${targetZone.id}.`;this.privateSystem(c,a.actor_code,text,{intelKind:'interrogate',tier:intensity,effectiveTier,target:a.target_code,zone:effectiveTier>=2?targetZone.id:null,factionHint:result==='unclear'?null:(result?'loyalist':'heretic')});return{};}
-  resolveDay(g){if(g.day_stage==='response')throw new Error('Awaiting interrogation response or direct ask');const votingEnabled=g.round!==1;if(!votingEnabled){const payload={round:g.round,outcome:'skip',target:null,reason:'day1-no-vote',voterResults:[],witnessedDrift:0,alignmentRevealed:null,crippleTier:null};this.event(g.code,'day-resolution',payload);this.system(g.code,`Day ${g.round} concludes with no vote. The conclave disperses.`);this.applyHereticCap(g.code,g.round);this.resolvePossessionDetonation(g.code);if(!this.finishIfWon(g.code))this.setPhase(g.code,'night',g.round);return payload;}const payload=this.resolveDayVote(g);this.resolvePossessionDetonation(g.code);return payload;}
+  resolveDay(g){if(g.day_stage==='response')throw new Error('Awaiting torture response or direct ask');const votingEnabled=g.round!==1;if(!votingEnabled){const payload={round:g.round,outcome:'skip',target:null,reason:'day1-no-vote',voterResults:[],witnessedDrift:0,alignmentRevealed:null,crippleTier:null};this.event(g.code,'day-resolution',payload);this.system(g.code,`Day ${g.round} concludes with no vote. The conclave disperses.`);this.applyHereticCap(g.code,g.round);this.resolvePossessionDetonation(g.code);if(!this.finishIfWon(g.code))this.setPhase(g.code,'night',g.round);return payload;}const payload=this.resolveDayVote(g);this.resolvePossessionDetonation(g.code);return payload;}
   // H6 Animus: fires unconditionally after the day's vote tally is announced
-  // (E4), regardless of that day's outcome (interrogate/lynch/skip/tie) —
+  // (E4), regardless of that day's outcome (torture/lynch/skip/tie) —
   // possession runs on its own one-day clock, not tied to whether this
   // day's vote landed on the possessed player. Uses possession_revealed
   // (not alive) to find the pending reveal so E1 (possessed player was
@@ -404,45 +415,48 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     // Tiered Lynch (tiered-lynch.md v1.2.0): outcome is decided same-day by
     // what fraction of LIVING votes the leader cleared — >=60% executes
     // outright. v1.2.0's second kill path: if this suspect has EVER been
-    // interrogated before (interrogated_before, set in applyInterrogation
-    // below), today's interrogation escalates to a kill — no cabal defense,
+    // tortured before (tortured_before, set in applyTorture
+    // below), today's torture escalates to a kill — no cabal defense,
     // the mark is not cleared by an intervening skip day or a different
-    // target being interrogated in between (superseded the old v1.1.0
+    // target being tortured in between (superseded the old v1.1.0
     // "consecutive days only" rule, which used previousDayResolution and
     // reset on any gap).
-    const targetCode=leaderCodes[0],targetPlayerForTally=this.player(c,targetCode),targetName=targetPlayerForTally?this.displayName(g,targetPlayerForTally):'someone',targetVotes=votes.filter(v=>v.choice===targetCode),voterNames=targetVotes.map(v=>{const voter=this.player(c,v.voter_code);return voter?this.displayName(g,voter):'?';}).filter(Boolean),threshold=Math.ceil(totalAlive*0.6),markedForEscalation=!!this.player(c,targetCode)?.interrogated_before,outcome=(top>=threshold||markedForEscalation)?'lynch':'interrogate';
+    const targetCode=leaderCodes[0],targetPlayerForTally=this.player(c,targetCode),targetName=targetPlayerForTally?this.displayName(g,targetPlayerForTally):'someone',targetVotes=votes.filter(v=>v.choice===targetCode),voterNames=targetVotes.map(v=>{const voter=this.player(c,v.voter_code);return voter?this.displayName(g,voter):'?';}).filter(Boolean),threshold=Math.ceil(totalAlive*0.6),markedForEscalation=!!this.player(c,targetCode)?.tortured_before,outcome=(top>=threshold||markedForEscalation)?'lynch':'torture';
     this.system(c,`Vote tally — ${targetName} received ${targetVotes.length} vote(s). Voters: ${voterNames.join(', ')}.`);
-    return outcome==='lynch'?this.applyLynch(g,targetCode):this.applyInterrogation(g,targetCode);
+    return outcome==='lynch'?this.applyLynch(g,targetCode):this.applyTorture(g,targetCode);
   }
   previousDayResolution(c,round){const row=/** @type {{payload:string}|undefined} */ (this.db.prepare("SELECT payload FROM hr_events WHERE game_code=? AND type='day-resolution' ORDER BY id DESC LIMIT 1").get(c));if(!row)return null;try{const payload=JSON.parse(row.payload);return payload.round===round-1?payload:null;}catch{return null;}}
   previousBloodRitual(c,round){const row=/** @type {{payload:string}|undefined} */ (this.db.prepare("SELECT payload FROM hr_events WHERE game_code=? AND type='blood-ritual' ORDER BY id DESC LIMIT 1").get(c));if(!row)return null;try{const payload=JSON.parse(row.payload);return payload.round===round-1?payload:null;}catch{return null;}}
   skipDay(g,reason='skip'){const c=g.code,payload={round:g.round,outcome:'skip',target:null,reason,voterResults:this.dayVotes(c,g.round).map(v=>({voter:v.voter_code,votedFor:v.choice,driftDelta:0})),witnessedDrift:0,alignmentRevealed:null,crippleTier:null};this.event(c,'day-resolution',payload);this.system(c,'The conclave stands down. No sentence is passed.');this.applyHereticCap(c,g.round);if(!this.finishIfWon(c))this.setPhase(c,'night',g.round);return payload;}
-  // Tiered Lynch E5 (locked): a target already at T3 is STILL interrogated
+  // Tiered Lynch E5 (locked): a target already at T3 is STILL tortured
   // — they just lose a night action again; the cripple-tier benefit is
   // saturated (Math.min caps it at 3) but the probe itself never blocks.
-  // No drift event fires from interrogation alone (tiered-lynch.md: "No
-  // drift event from interrogation alone, beyond the player's cripple
-  // tier") — this supersedes the old wrong/right-interrogation drift rows
+  // No drift event fires from torture alone (tiered-lynch.md: "No
+  // drift event from torture alone, beyond the player's cripple
+  // tier") — this supersedes the old wrong/right-torture drift rows
   // in day-phase.md's drift table; the probe's only cost is the cripple
   // tier plus the lost night action, never drift.
-  applyInterrogation(g,targetCode){const c=g.code,target=this.player(c,targetCode);if(!target?.alive){this.system(c,'Vote tally — The leading candidate was already dead; the conclave dispersed without judgement.');return this.skipDay(g,'invalid-target');}
+  // (Renamed from applyInterrogation — "interrogation" was overloaded
+  // between this day-vote outcome and the L2 Interrogator role's own
+  // night-side scan, which is unaffected and unchanged.)
+  applyTorture(g,targetCode){const c=g.code,target=this.player(c,targetCode);if(!target?.alive){this.system(c,'Vote tally — The leading candidate was already dead; the conclave dispersed without judgement.');return this.skipDay(g,'invalid-target');}
     // T1's own auto-recovery (setPhase's day-entry check, interrogation.md
-    // "T1 recovers after 1 round of no re-interrogation") fires unconditionally
+    // "T1 recovers after 1 round of no re-torture") fires unconditionally
     // at the START of today, before this vote is known — so a player who was
-    // T1 yesterday and is being re-interrogated again TODAY already had their
+    // T1 yesterday and is being re-tortured again TODAY already had their
     // live cripple_tier zeroed by the time we get here. Reading the live
     // column would silently reset the escalation (1->1 instead of 1->2) every
-    // single time, defeating repeatable interrogation's whole point. If this
-    // exact player was ALSO interrogated on the immediately preceding day,
-    // escalate from THEIR tier as of that prior interrogation instead of the
+    // single time, defeating repeatable torture's whole point. If this
+    // exact player was ALSO tortured on the immediately preceding day,
+    // escalate from THEIR tier as of that prior torture instead of the
     // (possibly just-reset) live value. Any player at T2/T3 is unaffected —
     // that recovery only ever targets cripple_tier===1.
-    const previous=this.previousDayResolution(c,g.round),baseTier=(previous?.outcome==='interrogate'&&previous.target===targetCode)?previous.crippleTier:(Number(target.cripple_tier)||0),tier=Math.min(3,baseTier+1),voters=this.dayVotes(c,g.round).filter(v=>v.choice===targetCode);this.db.prepare('UPDATE hr_games SET last_interrogated_target=?,last_interrogation_tier=?,day_stage=?,deadline=NULL,updated_at=? WHERE code=?').run(targetCode,tier,null,this.now(),c);this.db.prepare('UPDATE hr_players SET cripple_tier=?,tier1_until_round=?,skip_next_night=1,interrogated_before=1 WHERE game_code=? AND player_code=?').run(tier,tier===1?g.round:null,c,targetCode);const voterResults=voters.map(v=>({voter:v.voter_code,votedFor:v.choice,driftDelta:0}));const payload={round:g.round,outcome:'interrogate',target:targetCode,voterResults,witnessedDrift:0,alignmentRevealed:null,crippleTier:tier};this.event(c,'day-resolution',payload);const targetDisplay=this.displayName(g,target);const tortureBody=this.flavor('tortureChamber',{victim:targetDisplay,tier,severity:crippleSeverityLabel(tier)});this.system(c,tortureBody);this.emitAnnouncement(c,{type:'torture-chamber',title:'TORTURE CHAMBER',message:tortureBody,victim:{name:targetDisplay},round:g.round,phase:'day'});this.applyHereticCap(c,g.round);if(!this.finishIfWon(c))this.setPhase(c,'night',g.round);return payload;}
+    const previous=this.previousDayResolution(c,g.round),baseTier=(previous?.outcome==='torture'&&previous.target===targetCode)?previous.crippleTier:(Number(target.cripple_tier)||0),tier=Math.min(3,baseTier+1),voters=this.dayVotes(c,g.round).filter(v=>v.choice===targetCode);this.db.prepare('UPDATE hr_games SET last_tortured_target=?,last_torture_tier=?,day_stage=?,deadline=NULL,updated_at=? WHERE code=?').run(targetCode,tier,null,this.now(),c);this.db.prepare('UPDATE hr_players SET cripple_tier=?,tier1_until_round=?,skip_next_night=1,tortured_before=1 WHERE game_code=? AND player_code=?').run(tier,tier===1?g.round:null,c,targetCode);const voterResults=voters.map(v=>({voter:v.voter_code,votedFor:v.choice,driftDelta:0}));const payload={round:g.round,outcome:'torture',target:targetCode,voterResults,witnessedDrift:0,alignmentRevealed:null,crippleTier:tier};this.event(c,'day-resolution',payload);const targetDisplay=this.displayName(g,target);const tortureBody=this.flavor('tortureChamber',{victim:targetDisplay,tier,severity:crippleSeverityLabel(tier)});this.system(c,tortureBody);this.emitAnnouncement(c,{type:'torture-chamber',title:'TORTURE CHAMBER',message:tortureBody,victim:{name:targetDisplay},round:g.round,phase:'day'});this.applyHereticCap(c,g.round);if(!this.finishIfWon(c))this.setPhase(c,'night',g.round);return payload;}
   applyLynch(g,targetCode){const c=g.code,target=this.player(c,targetCode),votes=this.dayVotes(c,g.round).filter(v=>v.choice===targetCode),voterResults=votes.map(v=>({voter:v.voter_code,votedFor:v.choice,driftDelta:0})),targetDisplay=this.displayName(g,target);this.db.prepare('UPDATE hr_players SET cripple_tier=3,alive=0 WHERE game_code=? AND player_code=?').run(c,targetCode);this.system(c,`${targetDisplay} was lynched and revealed ${target.faction}.`);this.emitAnnouncement(c,{type:'lynch',title:'SENTENCE EXECUTED',message:`${targetDisplay} was lynched and revealed as ${target.faction}.`,victim:{name:targetDisplay,faction:target.faction},round:g.round,phase:'day'});for(const p of this.players(c).filter(x=>x.alive))this.changeDrift(c,p.player_code,1,'witnessed-violence');if(target.faction==='loyalist')for(const result of voterResults){result.driftDelta=this.config.drift.WRONG_LYNCH;this.changeDrift(c,result.voter,this.config.drift.WRONG_LYNCH,'wrong-lynch');}const payload={round:g.round,outcome:'lynch',target:targetCode,voterResults,witnessedDrift:1,alignmentRevealed:target.faction,crippleTier:3};this.event(c,'day-resolution',payload);this.applyHereticCap(c,g.round);if(!this.finishIfWon(c))this.setPhase(c,'night',g.round);return payload;}
-  respondInterrogation(c,p,response){const g=this.requireGame(c),target=this.player(c,p);if(g.phase!=='day'||g.day_stage!=='response'||g.last_interrogated_target!==p)throw new Error('No response is pending');if(target.cripple_tier>=3)throw new Error('Tier 3 requires a direct ask');if(!['confess','resist','refuse-break'].includes(response))throw new Error('Invalid response');if(response==='confess'){
-      // TODO(heresy-spec): Confession token blocks same-day re-interrogation, expires Day→Night, does not stack, and skips the next night action.
+  respondTorture(c,p,response){const g=this.requireGame(c),target=this.player(c,p);if(g.phase!=='day'||g.day_stage!=='response'||g.last_tortured_target!==p)throw new Error('No response is pending');if(target.cripple_tier>=3)throw new Error('Tier 3 requires a direct ask');if(!['confess','resist','refuse-break'].includes(response))throw new Error('Invalid response');if(response==='confess'){
+      // TODO(heresy-spec): Confession token blocks same-day re-torture, expires Day→Night, does not stack, and skips the next night action.
       this.db.prepare('UPDATE hr_players SET confessed=1,confession_token_round=?,skip_next_night=1 WHERE game_code=? AND player_code=?').run(g.round,c,p);const targetDisplay=this.displayName(g,target);this.system(c,`${targetDisplay} confessed: ${this.role(target.role_id).displayName}.`);this.emitAnnouncement(c,{type:'confession',title:'CONFESSION',message:`${targetDisplay} confessed: ${this.role(target.role_id).displayName}.`,victim:{name:targetDisplay},round:g.round,phase:'day'});}else if(response==='resist')this.changeDrift(c,p,1,'resist');else{this.db.prepare('UPDATE hr_players SET cripple_tier=MAX(cripple_tier,2),skip_next_night=1 WHERE game_code=? AND player_code=?').run(c,p);this.changeDrift(c,p,2,'refuse-break');}this.applyHereticCap(c,g.round);if(!this.finishIfWon(c))this.setPhase(c,'night',g.round);return this.state(c,p);}
-  askConfession(c,asker,targetCode){const g=this.requireGame(c);this.requireAlive(c,asker);const target=this.requirePlayer(c,targetCode);if(g.phase!=='day'||g.day_stage!=='response'||targetCode!==g.last_interrogated_target||target.cripple_tier<3)throw new Error('This player cannot be asked now');
+  askConfession(c,asker,targetCode){const g=this.requireGame(c);this.requireAlive(c,asker);const target=this.requirePlayer(c,targetCode);if(g.phase!=='day'||g.day_stage!=='response'||targetCode!==g.last_tortured_target||target.cripple_tier<3)throw new Error('This player cannot be asked now');
     // TODO(heresy-spec): Tier 3 confession occurs only on a direct ask and is required for Loyalist victory.
     this.db.prepare('UPDATE hr_players SET confessed=1 WHERE game_code=? AND player_code=?').run(c,targetCode);const targetDisplay=this.displayName(g,target);this.system(c,`${targetDisplay} is forced to confess: ${this.role(target.role_id).displayName}.`);this.emitAnnouncement(c,{type:'confession',title:'FORCED CONFESSION',message:`${targetDisplay} is forced to confess: ${this.role(target.role_id).displayName}.`,victim:{name:targetDisplay},round:g.round,phase:'day'});this.applyHereticCap(c,g.round);if(!this.finishIfWon(c))this.setPhase(c,'night',g.round);return this.state(c,asker);}
   applyHereticCap(c,day){if(day!==this.config.drift.HERETIC_CAP_DAY)return;for(const p of this.players(c).filter(x=>x.alive&&x.faction==='heretic'&&x.drift<this.config.drift.HERETIC_DRIFT_CAP))this.changeDrift(c,p.player_code,this.config.drift.HERETIC_CAP_SPIKE,'heretic-cap');}
@@ -471,7 +485,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
    * @param {string} [params.body]
    * @param {string} [params.asPlayerCode]
    */
-  submitAction(c,p,params={}){const{targetCode,variant,data,body,asPlayerCode}=params;const g=this.requireGame(c),actor=this.requireAlive(c,p),role=this.role(actor.role_id),action=g.phase==='night'?role.actions.night:role.actions.day;if(!action||action.kind==='sleep')throw new Error('Your role has no active action now');if(action.kind==='protect'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'protect',targetCode,silent:true};if(action.kind==='bodyguard'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'bodyguard',targetCode,silent:true};if(action.kind==='drift-hint'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'drift-hint',targetCode,silent:true};if(effectiveCrippleTier(actor,g.round)>0)throw new Error('Interrogation damage blocks this action');if(action.kind==='kill'&&role.killLimit){const killUses=this.usage(c,p,'kill');if(killUses>=1)throw new Error('You can only use your kill once per game');}if(action.kind==='possess'&&role.possessLimit&&this.usage(c,p,'possess')>=1)throw new Error('The Animus is spent — one possession per game');
+  submitAction(c,p,params={}){const{targetCode,variant,data,body,asPlayerCode}=params;const g=this.requireGame(c),actor=this.requireAlive(c,p),role=this.role(actor.role_id),action=g.phase==='night'?role.actions.night:role.actions.day;if(!action||action.kind==='sleep')throw new Error('Your role has no active action now');if(action.kind==='protect'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'protect',targetCode,silent:true};if(action.kind==='bodyguard'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'bodyguard',targetCode,silent:true};if(action.kind==='drift-hint'&&effectiveCrippleTier(actor,g.round)>0)return{kind:'drift-hint',targetCode,silent:true};if(effectiveCrippleTier(actor,g.round)>0)throw new Error('Torture damage blocks this action');if(action.kind==='kill'&&role.killLimit){const killUses=this.usage(c,p,'kill');if(killUses>=1)throw new Error('You can only use your kill once per game');}if(action.kind==='possess'&&role.possessLimit&&this.usage(c,p,'possess')>=1)throw new Error('The Animus is spent — one possession per game');
 if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target=this.requireAlive(c,targetCode);if(action.target==='other'&&!canProtectSelf(role.id)&&targetCode===p)throw new Error('Choose another player');if(action.kind==='protect'&&!validateRotation(this.db,c,p,targetCode,g.round))throw new Error('Cannot protect the same target on consecutive nights');if(action.kind==='bodyguard'&&!validateRotation(this.db,c,p,targetCode,g.round))throw new Error('Cannot proxy the same target on consecutive nights');if(action.target==='hostile'&&!isHostileTo(actor,target))throw new Error('Target is not hostile');if(action.kind==='possess'&&target.possessed_by)throw new Error('That player is already possessed');if(action.variants&&!action.variants.includes(variant))throw new Error('Invalid action variant');if(['sermon','corrupt-sermon'].includes(action.kind)){const s=this.config.drift.sermons[variant],uses=this.usage(c,p,variant);if(s.limit!==null&&uses>=s.limit)throw new Error('Sermon limit reached');
       if(action.kind==='corrupt-sermon'&&variant==='warp-litany'&&target.drift<(s.target_zone_min_drift??10))return{ok:false,silent:true};
     }
@@ -497,7 +511,7 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
    * @param {object} [params]
    * @param {string} [params.targetCode]
    */
-  submitFactionAction(c,p,params={}){const{targetCode}=params;const g=this.requireGame(c),actor=this.requireAlive(c,p);if(g.phase!=='night')throw new Error('Blood Ritual is night-only');if(actor.faction!=='heretic')throw new Error('Only Heretics may take Blood Ritual');if(effectiveCrippleTier(actor,g.round)>0)throw new Error('Interrogation damage blocks this action');const target=this.requireAlive(c,targetCode);if(target.faction==='heretic')throw new Error('Target is not hostile');if(targetCode===p)throw new Error('Choose another player');if(this.actions(c,g.round).some(a=>a.kind==='blood-ritual'&&a.actor_code!==p))throw new Error('Blood Ritual has already been claimed tonight');this.db.prepare('INSERT INTO hr_actions VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(game_code,round,actor_code) DO UPDATE SET kind=excluded.kind,target_code=excluded.target_code,variant=excluded.variant,data=excluded.data,created_at=excluded.created_at').run(c,g.round,p,'blood-ritual',targetCode,null,null,this.now());this.factionSystem(c,`Cabalite ${this.displayName(g,actor)} moves against ${this.displayName(g,target)}.`);return {kind:'blood-ritual',targetCode};}
+  submitFactionAction(c,p,params={}){const{targetCode}=params;const g=this.requireGame(c),actor=this.requireAlive(c,p);if(g.phase!=='night')throw new Error('Blood Ritual is night-only');if(actor.faction!=='heretic')throw new Error('Only Heretics may take Blood Ritual');if(effectiveCrippleTier(actor,g.round)>0)throw new Error('Torture damage blocks this action');const target=this.requireAlive(c,targetCode);if(target.faction==='heretic')throw new Error('Target is not hostile');if(targetCode===p)throw new Error('Choose another player');if(this.actions(c,g.round).some(a=>a.kind==='blood-ritual'&&a.actor_code!==p))throw new Error('Blood Ritual has already been claimed tonight');this.db.prepare('INSERT INTO hr_actions VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(game_code,round,actor_code) DO UPDATE SET kind=excluded.kind,target_code=excluded.target_code,variant=excluded.variant,data=excluded.data,created_at=excluded.created_at').run(c,g.round,p,'blood-ritual',targetCode,null,null,this.now());this.factionSystem(c,`Cabalite ${this.displayName(g,actor)} moves against ${this.displayName(g,target)}.`);return {kind:'blood-ritual',targetCode};}
   // TODO(heresy-spec): Saboteur trap frequency is once per night; the action table enforces one submission per actor and round.
   /** @returns {ActionRow[]} */
   actions(c,r){return /** @type {ActionRow[]} */ (this.db.prepare('SELECT * FROM hr_actions WHERE game_code=? AND round=?').all(c,r));}
@@ -541,18 +555,18 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   // or (c) the reveal has already fired (post-detonation, everyone learns) —
   // matches the existing role/faction reveal-on-`ended` pattern one line up.
   // Tiered Lynch (tiered-lynch.md v1.2.0): every living player who has ever
-  // survived an interrogation is one more interrogation away from a free
+  // survived a torture is one more torture away from a free
   // execution — public knowledge, so the whole table can coordinate. Mirrors
   // resolveDayVote's own markedForEscalation check exactly (same
-  // interrogated_before column), so the flags the client shows are always
+  // tortured_before column), so the flags the client shows are always
   // consistent with what would actually happen if that player is voted
   // leader again. Unlike v1.1.0, this is not "whoever the last day-resolution
   // event happened to be" — the mark is persistent and un-cleared by
   // anything except death, so more than one living player can be marked at
   // once (hence a list, not a single target).
-  atRiskTargets(c){return this.players(c).filter(p=>p.alive&&p.interrogated_before).map(p=>p.player_code);}
-  state(c,viewerCode){const g=this.requireGame(c),viewer=this.requirePlayer(c,viewerCode),ended=g.status==='ended',players=this.players(c).map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((p.player_code===viewerCode||ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...(viewer.faction==='heretic'&&p.faction==='heretic'?{faction:'heretic'}:{}),...((viewerCode===p.possessed_by||(viewerCode===p.player_code&&p.possessed_by)||(!p.alive&&p.possessed_by)||(ended&&p.possessed_by))?{possessed:true}:{})}));const privateMessages=/** @type {{id:number,author:string,body:string,kind:string,createdAt:number,meta:string|null}[]} */ (this.db.prepare("SELECT id,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id").all(c,viewerCode)).map(m=>({...m,meta:m.meta?JSON.parse(m.meta):null}));const votingEnabled=g.phase==='day'?g.round!==1:true;return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,dayStartMinuteUtc:g.day_start_minute_utc,isHost:g.host_code===viewerCode,players,me:players.find(x=>x.playerCode===viewerCode),votes:g.phase==='day'?this.voteState(c):[],myAction:this.db.prepare('SELECT kind,target_code AS targetCode,variant FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').get(c,g.round,viewerCode)||null,lastProtectTarget:getLastProtectTarget(this.db,g.code,viewerCode),privateMessages,pendingInterrogation:g.day_stage==='response'?{targetCode:g.last_interrogated_target,tier:g.last_interrogation_tier,canRespond:g.last_interrogated_target===viewerCode}:null,votingEnabled,atRiskTargets:this.atRiskTargets(c),...(g.phase==='lobby'?{compositionLabel:`${players.length}-operative doctrine`}:{})};}
-  spectate(c){const g=this.requireGame(c);if(g.phase==='lobby')throw new Error('Game has not started yet');const ended=g.status==='ended';const players=this.players(c).map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...((!p.alive&&p.possessed_by)||(ended&&p.possessed_by)?{possessed:true}:{})}));return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,dayStartMinuteUtc:g.day_start_minute_utc,isHost:false,players,me:null,votes:g.phase==='day'?this.voteState(c):[],myAction:null,lastProtectTarget:null,privateMessages:[],pendingInterrogation:null,votingEnabled:g.phase==='day'?g.round!==1:false,atRiskTargets:this.atRiskTargets(c),isSpectator:true};}
+  atRiskTargets(c){return this.players(c).filter(p=>p.alive&&p.tortured_before).map(p=>p.player_code);}
+  state(c,viewerCode){const g=this.requireGame(c),viewer=this.requirePlayer(c,viewerCode),ended=g.status==='ended',players=this.players(c).map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((p.player_code===viewerCode||ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...(viewer.faction==='heretic'&&p.faction==='heretic'?{faction:'heretic'}:{}),...((viewerCode===p.possessed_by||(viewerCode===p.player_code&&p.possessed_by)||(!p.alive&&p.possessed_by)||(ended&&p.possessed_by))?{possessed:true}:{})}));const privateMessages=/** @type {{id:number,author:string,body:string,kind:string,createdAt:number,meta:string|null}[]} */ (this.db.prepare("SELECT id,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id").all(c,viewerCode)).map(m=>({...m,meta:m.meta?JSON.parse(m.meta):null}));const votingEnabled=g.phase==='day'?g.round!==1:true;return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,dayStartMinuteUtc:g.day_start_minute_utc,isHost:g.host_code===viewerCode,players,me:players.find(x=>x.playerCode===viewerCode),votes:g.phase==='day'?this.voteState(c):[],myAction:this.db.prepare('SELECT kind,target_code AS targetCode,variant FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').get(c,g.round,viewerCode)||null,lastProtectTarget:getLastProtectTarget(this.db,g.code,viewerCode),privateMessages,pendingTorture:g.day_stage==='response'?{targetCode:g.last_tortured_target,tier:g.last_torture_tier,canRespond:g.last_tortured_target===viewerCode}:null,votingEnabled,atRiskTargets:this.atRiskTargets(c),...(g.phase==='lobby'?{compositionLabel:`${players.length}-operative doctrine`}:{})};}
+  spectate(c){const g=this.requireGame(c);if(g.phase==='lobby')throw new Error('Game has not started yet');const ended=g.status==='ended';const players=this.players(c).map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,confessed:!!p.confessed,...((ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.role(p.role_id):null,faction:p.faction}:{}),...((!p.alive&&p.possessed_by)||(ended&&p.possessed_by)?{possessed:true}:{})}));return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,dayStartMinuteUtc:g.day_start_minute_utc,isHost:false,players,me:null,votes:g.phase==='day'?this.voteState(c):[],myAction:null,lastProtectTarget:null,privateMessages:[],pendingTorture:null,votingEnabled:g.phase==='day'?g.round!==1:false,atRiskTargets:this.atRiskTargets(c),isSpectator:true};}
   adminRole(id){if(!id)return null;const r=this.config.roles.get(id);return r?{id:r.id,displayName:r.displayName,faction:r.faction,claim:r.claim,driftWeight:r.driftWeight,objective:r.objective,ability:r.ability}:null;}
   adminPlayer(p,g){return {playerCode:p.player_code,name:p.name,seat:p.seat,roleId:p.role_id,role:this.adminRole(p.role_id),faction:p.faction,drift:p.drift,alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,isBot:!!p.is_bot,crippleTier:p.cripple_tier,tier1UntilRound:p.tier1_until_round,confessed:!!p.confessed,confessionTokenRound:p.confession_token_round,skipNextNight:!!p.skip_next_night,joinedAt:p.joined_at};}
   adminGameSummary(g){const players=this.players(g.code),messages=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_messages WHERE game_code=?').get(g.code)).count,events=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_events WHERE game_code=?').get(g.code)).count,actions=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_actions WHERE game_code=?').get(g.code)).count,votes=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_votes WHERE game_code=?').get(g.code)).count;return {code:g.code,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,hintProfile:g.hint_profile,createdAt:g.created_at,updatedAt:g.updated_at,hostCode:g.host_code,playerCount:players.length,aliveCount:players.filter(p=>p.alive).length,connectedCount:players.filter(p=>p.connected).length,readyCount:players.filter(p=>p.ready).length,averageDrift:players.length?players.reduce((sum,p)=>sum+p.drift,0)/players.length:0,maxPlayerDrift:players.length?Math.max(...players.map(p=>p.drift)):0,hereticCount:players.filter(p=>p.faction==='heretic').length,loyalistCount:players.filter(p=>p.faction==='loyalist').length,messageCount:messages,eventCount:events,actionCount:actions,voteCount:votes};}

@@ -148,7 +148,7 @@ export function createH1Murderer(id, factionState) {
       if (cleanTargets.length > 0) return cleanTargets[0];
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -184,7 +184,7 @@ export function createH2HereticPriest(id, factionState) {
       if (consensus && s.voteOptions.includes(consensus)) return consensus;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -228,7 +228,7 @@ export function createH3Conspirator(id, factionState) {
       if (consensus && s.voteOptions.includes(consensus)) return consensus;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -262,7 +262,7 @@ export function createH4Saboteur(id, factionState) {
       if (consensus && s.voteOptions.includes(consensus)) return consensus;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
@@ -288,7 +288,7 @@ export function createH5Recruiter(id, factionState) {
       if (target && s.voteOptions.includes(target)) return target;
       return s.voteOptions[0];
     },
-    respondInterrogation() { return 'resist'; }
+    respondTorture() { return 'resist'; }
   };
 }
 
