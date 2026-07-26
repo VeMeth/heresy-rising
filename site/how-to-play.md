@@ -75,6 +75,12 @@ Interrogation is what you do *instead* of killing. It cripples a target one tier
 
 A target who clears **60% of living votes** in a single day is **lynched** (killed, alignment revealed, Tier 3 cripple). A target below that threshold but still the lynch leader is **interrogated** (one cripple tier, skips next night action). **Two interrogations on the same suspect = execution** — once a suspect carries the mark, the second orange border on them kills them. The cabal has no pivot to clear it. The Loyalist's day weapon is a *tiered probe* — investigate without killing, or escalate when you're sure.
 
+### Interrogator can clear a false mark
+
+If the table wrongly accuses a Loyalist and the mark lands, the **Interrogator** can spend their **T1 scan** to clear the mark — but only on **clean (Green) reads**. Noisy reads (Yellow/Orange) don't clear, because the read isn't reliable enough to make a binding call. A **Red** read *doubles* the mark — next interrogation on that target is an execution.
+
+The clearing is **public**: the cabal sees the Interrogator reach for that player and knows they're clean. That's the cost — the Interrogator telegraphs their suspicion. The job is to *prevent* the mark from landing on a Loyalist in the first place, not to bail out mistakes after the fact.
+
 ## The Roles
 
 There are **12 roles** in v1: seven Loyalist, five Heretic, plus *Imperial Citizen* (a fill role that exists to balance parity).
@@ -83,7 +89,7 @@ Browse the **[full role roster](/roles/)** for blurb and quick-reference on each
 
 ### Loyalists
 - **[Imperial Citizen](/roles/imperial-citizen)** — no power; sleeps nightly (silent −1 drift). Pure voter.
-- **[Interrogator](/roles/interrogator)** — interrogate at T1/T2/T3; T2+ on Orange+ target = execute on sight.
+- **[Interrogator](/roles/interrogator)** — interrogate at T1/T2/T3; T2+ on Orange+ target = execute on sight. **Can spend T1 scan to clear a mark on a falsely accused Loyalist** — but only on a clean/Green read. Noisy reads don't clear; Red reads double the mark. Clearing is public, so the cabal sees the Interrogator's play.
 - **[Chirurgeon](/roles/chirurgeon)** — silently blocks a night strike (kill or cripple) on one target per night. Rotation rule: no same target 2 nights in a row (incl. self). No feedback on success.
 - **[Arbitrator](/roles/arbitrator)** — bodyguard; dies in the target's place on a strike they guarded.
 - **[Novice-Psychic](/roles/novice-psychic)** — receives one drift hint per night about a target.
