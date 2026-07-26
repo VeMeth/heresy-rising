@@ -4,7 +4,8 @@
     <EmberField />
     <header class="masthead">
       <button class="brand" @click="leaveToHome" aria-label="Heresy Rising home">
-        <span class="brand-mark">H</span><span><strong>HERESY RISING</strong><small>A game of accusation and survival</small></span>
+        <img class="brand-logo" src="/logo.svg" alt="" width="46" height="46" />
+        <span><strong>HERESY RISING</strong><small>A game of accusation and survival</small></span>
       </button>
       <div class="mast-actions">
         <button class="ghost compact" @click="openManual" aria-haspopup="dialog">Manual</button>

@@ -1,5 +1,6 @@
 import { h, ref, onMounted, defineComponent } from 'vue'
 import DefaultTheme from 'vitepress/theme'
+import { withBase } from 'vitepress'
 import './style.css'
 
 // Rendered only when the docs are framed by the SPA's manual overlay.
@@ -32,7 +33,7 @@ const ManualCloseButton = defineComponent({
 const Layout = () => h(DefaultTheme.Layout, null, {
   'nav-bar-title-before': () => [
     h('span', { class: 'docs-brand' }, [
-      h('span', { class: 'docs-brand-mark', 'aria-hidden': 'true' }, 'H'),
+      h('img', { class: 'docs-brand-mark', src: withBase('/logo.svg'), alt: '', 'aria-hidden': 'true' }),
       h('span', { class: 'docs-brand-copy' }, [
         h('strong', 'HERESY RISING'),
         h('small', 'A game of accusation and survival'),

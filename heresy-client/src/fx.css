@@ -123,12 +123,13 @@
   from { background-position: -180px 0; }
   to   { background-position: calc(100% + 180px) 0; }
 }
-.brand-mark {
-  box-shadow: 0 0 10px rgba(182, 154, 92, .28), inset 0 0 6px rgba(182, 154, 92, .18);
+.brand-logo {
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(182, 154, 92, .3));
   animation: brand-glow 4s ease-in-out infinite alternate;
 }
 @keyframes brand-glow {
-  to { box-shadow: 0 0 18px rgba(182, 154, 92, .5), inset 0 0 10px rgba(182, 154, 92, .3); }
+  to { filter: drop-shadow(0 0 12px rgba(182, 154, 92, .55)); }
 }
 .game-code {
   text-shadow: 0 0 12px rgba(223, 194, 124, .3);

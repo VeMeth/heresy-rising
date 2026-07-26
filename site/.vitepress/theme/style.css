@@ -132,19 +132,10 @@ body::before {
 }
 
 .docs-brand-mark {
-  display: grid;
-  place-items: center;
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  border: 1px solid #b69a5c;
-  color: #dfc27c;
-  font: 700 24px 'Cinzel', serif;
-  transform: rotate(45deg);
-}
-
-.docs-brand-mark::first-letter {
-  transform: rotate(-45deg);
+  display: block;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
 }
 
 .docs-brand-copy {
@@ -646,12 +637,11 @@ body::after {
 
 /* ---------- 4 · Brand mark glow ---------- */
 .dark .docs-brand-mark {
-  box-shadow: 0 0 10px rgba(182, 154, 92, 0.28), inset 0 0 6px rgba(182, 154, 92, 0.18);
+  filter: drop-shadow(0 0 6px rgba(182, 154, 92, 0.3));
   animation: brand-glow 4s ease-in-out infinite alternate;
-  transition: box-shadow 0.2s ease;
 }
 @keyframes brand-glow {
-  to { box-shadow: 0 0 18px rgba(182, 154, 92, 0.5), inset 0 0 10px rgba(182, 154, 92, 0.3); }
+  to { filter: drop-shadow(0 0 12px rgba(182, 154, 92, 0.55)); }
 }
 
 /* ---------- 5 · VPButton letterpress + hover lift ---------- */

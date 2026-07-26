@@ -68,6 +68,8 @@ function docsDevServer() {
           : file.endsWith('.js') ? 'application/javascript; charset=utf-8'
           : file.endsWith('.woff2') ? 'font/woff2'
           : file.endsWith('.json') ? 'application/json; charset=utf-8'
+          : file.endsWith('.svg') ? 'image/svg+xml'
+          : file.endsWith('.png') ? 'image/png'
           : 'application/octet-stream';
         res.setHeader('Content-Type', mime);
         // CSP sandbox (matches nginx) — prevents VitePress from navigating
