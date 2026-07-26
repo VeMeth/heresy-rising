@@ -28,7 +28,7 @@
         :has-more="hasMoreByChannel[channel]"
         :busy="busy" :now="now" :spectator="spectator" :voting-enabled="game?.votingEnabled"
         @channel="changeChannel" @send="sendMessage" @send-as="sendMessageAs" @history="loadHistory"
-        @vote="submitVote" @retract-vote="retractVote" @action="submitAction"
+        @vote="submitVote" @retract-vote="retractVote" @vote-as="submitVoteAs" @retract-vote-as="retractVoteAs" @action="submitAction"
         @faction-action="submitFactionAction"
         @retract-action="retractAction" @respond="respondInterrogation" @ask-confession="askConfession"
         @open-manual="openManual" @leave="leaveGame" />
@@ -122,6 +122,8 @@ async function sendMessageAs(body) { try { await command('chat:send-as', { code:
 async function loadHistory(before) { try { if (before == null) { let all = []; let cursor; let hasMore = true; while (hasMore) { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before: cursor, limit: 100 }); const batch = data?.messages || []; if (!batch.length) break; all = [...batch, ...all]; hasMore = !!data?.hasMore; cursor = batch[0]?.id; if (!cursor) break; } messagesByChannel.value = { ...messagesByChannel.value, [channel.value]: all }; hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: hasMore }; } else { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before, limit: 50 }); mergeMessages(channel.value, data?.messages || [], true); hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: !!data?.hasMore }; } } catch {} }
 async function submitVote(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
 async function retractVote() { try { await command('vote:retract', { code: game.value.code }); } catch {} }
+async function submitVoteAs(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit-as', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
+async function retractVoteAs() { try { await command('vote:retract-as', { code: game.value.code }); } catch {} }
 async function submitAction(payload) { try { const data=await command('action:submit', { code: game.value.code, ...(typeof payload==='string'?{targetCode:payload}:payload) }); if(data?.action) game.value={...game.value,myAction:data.action}; } catch {} }
 async function submitFactionAction(payload) { try { const data=await command('action:submit-faction', { code: game.value.code, ...payload }); if(data?.action) game.value={...game.value,myAction:data.action}; } catch {} }
 async function retractAction() { try { const data = await command('action:retract', { code: game.value.code }); if (data?.action === null) game.value = { ...game.value, myAction: null }; } catch {} }

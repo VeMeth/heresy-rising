@@ -218,6 +218,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
     'chat:send': { points: 12, duration: 10_000 },
     'chat:send-as': { points: 12, duration: 10_000 },
     'vote:submit': { points: 20, duration: 10_000 },
+    'vote:submit-as': { points: 20, duration: 10_000 },
     'action:submit': { points: 20, duration: 10_000 },
     'action:submit-faction': { points: 20, duration: 10_000 },
     'game:kick': { points: 6, duration: 60_000 }
@@ -264,6 +265,8 @@ export function createHeresyServer({ databasePath, now } = {}) {
     ackWrap(socket,'chat:send-as',p=>{const code=normalizeRoomCode(p.code),message=gameManager.sendMessageAs(code,auth(socket,p),p.body);broadcastMessage(code,message);return {message};});
     ackWrap(socket,'vote:submit',p=>{const code=normalizeRoomCode(p.code),result=gameManager.vote(code,auth(socket,p),String(p.targetCode||''),p.justification);io.to(code).emit('vote:state',{votes:result.votes});if(result.message)broadcastMessage(code,result.message);return {votes:result.votes};});
     ackWrap(socket,'vote:retract',p=>{const code=normalizeRoomCode(p.code),votes=gameManager.retractVote(code,auth(socket,p));io.to(code).emit('vote:state',{votes});return {votes};});
+    ackWrap(socket,'vote:submit-as',p=>{const code=normalizeRoomCode(p.code),result=gameManager.voteAs(code,auth(socket,p),String(p.targetCode||''),p.justification);io.to(code).emit('vote:state',{votes:result.votes});if(result.message)broadcastMessage(code,result.message);return {votes:result.votes};});
+    ackWrap(socket,'vote:retract-as',p=>{const code=normalizeRoomCode(p.code),votes=gameManager.retractVoteAs(code,auth(socket,p));io.to(code).emit('vote:state',{votes});return {votes};});
     ackWrap(socket,'action:submit',p=>{const code=normalizeRoomCode(p.code),action=gameManager.submitAction(code,auth(socket,p),p);if(action?.message)broadcastMessage(code,action.message);return {action};});
     ackWrap(socket,'action:retract',p=>{const code=normalizeRoomCode(p.code);gameManager.retractAction(code,auth(socket,p));return {action:null};});
     ackWrap(socket,'action:submit-faction',p=>{const code=normalizeRoomCode(p.code),action=gameManager.submitFactionAction(code,auth(socket,p),p);return {action};});

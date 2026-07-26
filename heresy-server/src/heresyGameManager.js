@@ -338,11 +338,13 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
   /** @returns {VoteRow[]} */
   dayVotes(c,r){return /** @type {VoteRow[]} */ (this.db.prepare("SELECT * FROM hr_votes WHERE game_code=? AND round=? AND stage='target'").all(c,r));}
   resolveDayVote(g){
-    // H6 Animus: a possessed player's vote is silently suppressed — cast
-    // normally client-side (no visible tell, per spec), dropped here before
-    // any counting happens so every downstream number (skip majority, target
-    // counts, tie-break) is already correct with no special-casing below.
-    const c=g.code,living=this.players(c).filter(p=>p.alive),votes=this.dayVotes(c,g.round).filter(v=>!this.player(c,v.voter_code)?.possessed_by),skipCount=votes.filter(v=>v.choice==='skip').length,totalAlive=living.length;
+    // H6 Animus: a possessed player can no longer submit their own vote at
+    // all (vote() rejects them below, mirroring authorizeChannel's chat
+    // block) — the only way a vote lands for that seat is via voteAs(), the
+    // Animus acting through them. So nothing here needs to filter possessed
+    // voters out; whatever's in hr_votes for a round is exactly what should
+    // count.
+    const c=g.code,living=this.players(c).filter(p=>p.alive),votes=this.dayVotes(c,g.round),skipCount=votes.filter(v=>v.choice==='skip').length,totalAlive=living.length;
     if(skipCount>totalAlive/2){this.system(c,`Vote tally — Stand down carried: ${skipCount} of ${totalAlive} voted to stand down. The conclave dispersed.`);return this.skipDay(g,'skip-majority');}
     const counts=new Map();for(const v of votes){if(v.choice==='skip')continue;const target=this.player(c,v.choice);if(target?.alive)counts.set(v.choice,(counts.get(v.choice)||0)+1);}
     if(counts.size===0){this.system(c,'Vote tally — No votes were cast for any candidate. The conclave dispersed.');return this.skipDay(g,'no-votes');}
@@ -394,8 +396,22 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     // TODO(heresy-spec): Tier 3 confession occurs only on a direct ask and is required for Loyalist victory.
     this.db.prepare('UPDATE hr_players SET confessed=1 WHERE game_code=? AND player_code=?').run(c,targetCode);const targetDisplay=this.displayName(g,target);this.system(c,`${targetDisplay} is forced to confess: ${this.role(target.role_id).displayName}.`);this.emitAnnouncement(c,{type:'confession',title:'FORCED CONFESSION',message:`${targetDisplay} is forced to confess: ${this.role(target.role_id).displayName}.`,victim:{name:targetDisplay},round:g.round,phase:'day'});this.applyHereticCap(c,g.round);if(!this.finishIfWon(c))this.setPhase(c,'night',g.round);return this.state(c,asker);}
   applyHereticCap(c,day){if(day!==this.config.drift.HERETIC_CAP_DAY)return;for(const p of this.players(c).filter(x=>x.alive&&x.faction==='heretic'&&x.drift<this.config.drift.HERETIC_DRIFT_CAP))this.changeDrift(c,p.player_code,this.config.drift.HERETIC_CAP_SPIKE,'heretic-cap');}
-  vote(c,p,choice,justification=''){const g=this.requireGame(c),v=this.requireAlive(c,p),cleanChoice=String(choice||'');if(g.phase!=='day'||g.day_stage==='response'||g.round===1)throw new Error('Voting is closed');if(cleanChoice!=='skip')this.requireAlive(c,cleanChoice);if(effectiveCrippleTier(v,g.round)>=2&&!String(justification).trim())throw new Error('Broken players must justify every vote');const votePlayer=cleanChoice==='skip'?null:this.player(c,cleanChoice);const targetName=cleanChoice==='skip'?null:(votePlayer?this.displayName(g,votePlayer):'Unknown');const voterDisplay=this.displayName(g,v);const voteMsg=targetName?`${voterDisplay} accused ${targetName}.`:`${voterDisplay} stood down.`;this.system(c,voteMsg);const message=justification?this.insertMessage(c,'public',null,p,voterDisplay,`Vote justification: ${String(justification).trim().slice(0,300)}`,'vote'):null;this.db.prepare('INSERT INTO hr_votes VALUES(?,?,?,?,?,?) ON CONFLICT(game_code,round,stage,voter_code) DO UPDATE SET choice=excluded.choice,created_at=excluded.created_at').run(c,g.round,'target',v.player_code,cleanChoice,this.now());return{votes:this.voteState(c),message};}
+  vote(c,p,choice,justification=''){const g=this.requireGame(c),v=this.requireAlive(c,p),cleanChoice=String(choice||'');if(g.phase!=='day'||g.day_stage==='response'||g.round===1)throw new Error('Voting is closed');
+    // H6 Animus: mirrors authorizeChannel's chat block — a possessed player
+    // cannot cast their own vote at all (their controller does it for them
+    // via voteAs). Client-side this is preempted the same way chat is (the
+    // vote UI is disabled while possessed), so this throw is a defensive
+    // backstop, not something a normal client ever hits.
+    if(v.possessed_by)throw new Error('You are possessed and cannot vote today');
+    if(cleanChoice!=='skip')this.requireAlive(c,cleanChoice);if(effectiveCrippleTier(v,g.round)>=2&&!String(justification).trim())throw new Error('Broken players must justify every vote');const votePlayer=cleanChoice==='skip'?null:this.player(c,cleanChoice);const targetName=cleanChoice==='skip'?null:(votePlayer?this.displayName(g,votePlayer):'Unknown');const voterDisplay=this.displayName(g,v);const voteMsg=targetName?`${voterDisplay} accused ${targetName}.`:`${voterDisplay} stood down.`;this.system(c,voteMsg);const message=justification?this.insertMessage(c,'public',null,p,voterDisplay,`Vote justification: ${String(justification).trim().slice(0,300)}`,'vote'):null;this.db.prepare('INSERT INTO hr_votes VALUES(?,?,?,?,?,?) ON CONFLICT(game_code,round,stage,voter_code) DO UPDATE SET choice=excluded.choice,created_at=excluded.created_at').run(c,g.round,'target',v.player_code,cleanChoice,this.now());return{votes:this.voteState(c),message};}
   retractVote(c,p){const g=this.requireGame(c),v=this.player(c,p);this.db.prepare("DELETE FROM hr_votes WHERE game_code=? AND round=? AND stage='target' AND voter_code=?").run(c,g.round,p);if(v?.alive)this.system(c,`${this.displayName(g,v)} retracted their accusation.`);return this.voteState(c);}
+  // H6 Animus: the vote-side equivalent of sendMessageAs — the possessed
+  // target is derived server-side from the live possessed_by record (never
+  // client-supplied), so a bot/client can never spoof "vote as" someone it
+  // doesn't actually possess. Writes under the TARGET's own voter_code, so
+  // it's indistinguishable from a normal vote to everyone else at the table.
+  voteAs(c,p,choice,justification=''){const g=this.requireGame(c);if(g.phase!=='day'||g.day_stage==='response'||g.round===1)throw new Error('Voting is closed');this.requireAlive(c,p);const target=this.players(c).find(x=>x.possessed_by===p&&x.alive);if(!target)throw new Error('You are not possessing anyone right now');const cleanChoice=String(choice||'');if(cleanChoice!=='skip')this.requireAlive(c,cleanChoice);if(effectiveCrippleTier(target,g.round)>=2&&!String(justification).trim())throw new Error('Broken players must justify every vote');const votePlayer=cleanChoice==='skip'?null:this.player(c,cleanChoice);const targetName=cleanChoice==='skip'?null:(votePlayer?this.displayName(g,votePlayer):'Unknown');const puppetDisplay=this.displayName(g,target);const voteMsg=targetName?`${puppetDisplay} accused ${targetName}.`:`${puppetDisplay} stood down.`;this.system(c,voteMsg);const message=justification?this.insertMessage(c,'public',null,p,puppetDisplay,`Vote justification: ${String(justification).trim().slice(0,300)}`,'vote'):null;this.db.prepare('INSERT INTO hr_votes VALUES(?,?,?,?,?,?) ON CONFLICT(game_code,round,stage,voter_code) DO UPDATE SET choice=excluded.choice,created_at=excluded.created_at').run(c,g.round,'target',target.player_code,cleanChoice,this.now());return{votes:this.voteState(c),message};}
+  retractVoteAs(c,p){const g=this.requireGame(c);const target=this.players(c).find(x=>x.possessed_by===p&&x.alive);if(!target)throw new Error('You are not possessing anyone right now');this.db.prepare("DELETE FROM hr_votes WHERE game_code=? AND round=? AND stage='target' AND voter_code=?").run(c,g.round,target.player_code);this.system(c,`${this.displayName(g,target)} retracted their accusation.`);return this.voteState(c);}
   voteState(c){const g=this.game(c);if(!g)return[];return /** @type {{stage:string,voterCode:string,choice:string,createdAt:number}[]} */ (this.db.prepare("SELECT stage,voter_code AS voterCode,choice,created_at AS createdAt FROM hr_votes WHERE game_code=? AND round=? AND stage='target'").all(c,g.round));}
   /**
    * @param {object} [params]

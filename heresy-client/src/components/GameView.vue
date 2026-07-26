@@ -21,19 +21,19 @@
         <ul class="player-list">
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',interrogate:lynchLeader===p.playerCode&&lynchLeaderOutcome==='interrogate'}" @click="voteFor(p)">
             <span class="portrait" :data-status="portraitStatus(p)"><svg class="portrait-glyph"><use :href="portraitGlyph(p)"/></svg></span>
-            <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
+            <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small></div>
             <small v-if="p.alive&&p.crippleTier" class="tier-badge" :data-tier="p.crippleTier">T{{ p.crippleTier }}</small>
             <span v-else-if="!p.alive" class="death-badge" :class="{executed:p.crippleTier===3}" :title="p.crippleTier===3?'Lynched':'Slain'"><svg class="death-glyph" aria-hidden="true"><use :href="p.crippleTier===3?'#hr-execution':'#hr-deceased'"/></svg></span>
-            <small v-if="p.possessed" class="possessed-badge">POSSESSED</small>
             <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)">{{ targetVoteCount(p.playerCode) }}</small>
             <i :class="{online:p.connected}"></i>
           </li>
         </ul>
         <div v-if="votingOpen && !spectator" class="verdict-block">
-          <span class="eyebrow">Cast Your Verdict</span>
+          <span class="eyebrow">{{ speakAsTarget && possessedTarget ? 'Vote as ' + possessedTarget.name : 'Cast Your Verdict' }}</span>
           <button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small>{{ targetVoteCount('skip') }}</small></button>
-          <button v-if="myVote" class="ghost wide" @click="$emit('retract-vote')">Retract vote</button>
+          <button v-if="myVote" class="ghost wide" @click="retractMyVote">Retract vote</button>
         </div>
+        <p v-else-if="me?.possessed && !spectator" class="day1-hint">Possessed — you cannot vote today.</p>
         <p v-else-if="game.phase==='day' && game.round===1 && !spectator" class="day1-hint">Day 1 — no vote. Introduce yourself and observe.</p>
         <button class="ghost wide leave" @click="$emit('leave')">Leave session</button>
       </aside>
@@ -87,7 +87,7 @@
             <ul v-if="mentionSuggestions.length" class="mention-suggestions">
               <li v-for="(p,i) in mentionSuggestions" :key="p.playerCode" :class="{active:i===mentionActiveIndex}" @mousedown.prevent="selectMention(p)">{{ p.name }}</li>
             </ul>
-            <textarea ref="composerInput" v-model.trim="draft" maxlength="1000" rows="2" :disabled="!canChat" :placeholder="canChat?(speakAsTarget&&possessedTarget?'Transmit as '+possessedTarget.name+'… (Enter to send)':'Transmit… (Enter to send, Shift+Enter for newline, @ to mention)'):(me?.possessed?'Possessed — you cannot speak today':'Channel sealed')" @keydown="onComposerKeydown" @input="syncMentionQuery" @keyup="onComposerKeyup" @click="syncMentionQuery"></textarea>
+            <textarea ref="composerInput" v-model.trim="draft" maxlength="1000" rows="2" :disabled="!canChat" :class="{'speaking-as':speakAsTarget&&possessedTarget}" :placeholder="canChat?(speakAsTarget&&possessedTarget?'Transmit as '+possessedTarget.name+'… (Enter to send)':'Transmit… (Enter to send, Shift+Enter for newline, @ to mention)'):(me?.possessed?'Possessed — you cannot speak today':'Channel sealed')" @keydown="onComposerKeydown" @input="syncMentionQuery" @keyup="onComposerKeyup" @click="syncMentionQuery"></textarea>
           </div>
           <button class="primary" :disabled="!draft||!canChat">Transmit</button>
         </form>
@@ -219,14 +219,14 @@
 </template>
 <script setup>
 import { computed,nextTick,ref,watch } from 'vue';
-const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
+const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
 const showEarlierDays = ref(false);
 function isDayStart(m){return m.kind==='system'&&/Day\s+\d+(\s*:|\s+begins)/i.test(m.body);}
 function isDayEnd(m){return m.kind==='system'&&/(concludes with no vote|conclave stands down|was interrogated and left|was lynched and revealed)/i.test(m.body);}
 function nightStart(msgs,markerIdx,lowerBound){let start=markerIdx;for(let j=markerIdx-1;j>lowerBound;j--){const m=msgs[j];if(m.kind==='player'){start=j+1;break;}if(isDayStart(m)){start=j+1;break;}if(isDayEnd(m)){start=j+1;break;}start=j;}return start;}
-const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),pending=computed(()=>props.game.pendingInterrogation),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===props.me?.playerCode)),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),maxVoteCount=computed(()=>Math.max(0,...Object.values(voteCounts.value))),votingOpen=computed(()=>props.votingEnabled&&props.game.phase==='day'&&!pending.value),pastDays=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];const markers=[];for(let i=0;i<msgs.length;i++){if(isDayStart(msgs[i]))markers.push(i);}if(markers.length<2)return[];const sections=[];for(let d=0;d<markers.length-1;d++){const start=d===0?markers[0]:nightStart(msgs,markers[d],d>0?markers[d-1]:-1);const end=nightStart(msgs,markers[d+1],markers[d]);const dayNum=msgs[markers[d]].body.match(/Day\s+(\d+)/i)?.[1]||(d+1);const label=`Day ${dayNum}`;sections.push({label,messages:msgs.slice(start,end),expanded:dayExpanded.value[label]??false});}return sections;}),recentPastDay=computed(()=>pastDays.value.length?pastDays.value[pastDays.value.length-1]:null),earlierPastDays=computed(()=>pastDays.value.slice(0,-1)),visibleDays=computed(()=>[...(showEarlierDays.value?earlierPastDays.value:[]),...(recentPastDay.value?[recentPastDay.value]:[])]),currentMessages=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];let lastMarker=-1;for(let i=msgs.length-1;i>=0;i--){if(isDayStart(msgs[i])){lastMarker=i;break;}}if(lastMarker===-1)return msgs;let prevMarker=-1;for(let i=lastMarker-1;i>=0;i--){if(isDayStart(msgs[i])){prevMarker=i;break;}}const start=nightStart(msgs,lastMarker,prevMarker);return msgs.slice(start);});
+const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),pending=computed(()=>props.game.pendingInterrogation),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===effectiveVoterCode.value)),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),maxVoteCount=computed(()=>Math.max(0,...Object.values(voteCounts.value))),votingOpen=computed(()=>props.votingEnabled&&props.game.phase==='day'&&!pending.value&&!props.me?.possessed),pastDays=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];const markers=[];for(let i=0;i<msgs.length;i++){if(isDayStart(msgs[i]))markers.push(i);}if(markers.length<2)return[];const sections=[];for(let d=0;d<markers.length-1;d++){const start=d===0?markers[0]:nightStart(msgs,markers[d],d>0?markers[d-1]:-1);const end=nightStart(msgs,markers[d+1],markers[d]);const dayNum=msgs[markers[d]].body.match(/Day\s+(\d+)/i)?.[1]||(d+1);const label=`Day ${dayNum}`;sections.push({label,messages:msgs.slice(start,end),expanded:dayExpanded.value[label]??false});}return sections;}),recentPastDay=computed(()=>pastDays.value.length?pastDays.value[pastDays.value.length-1]:null),earlierPastDays=computed(()=>pastDays.value.slice(0,-1)),visibleDays=computed(()=>[...(showEarlierDays.value?earlierPastDays.value:[]),...(recentPastDay.value?[recentPastDay.value]:[])]),currentMessages=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];let lastMarker=-1;for(let i=msgs.length-1;i>=0;i--){if(isDayStart(msgs[i])){lastMarker=i;break;}}if(lastMarker===-1)return msgs;let prevMarker=-1;for(let i=lastMarker-1;i>=0;i--){if(isDayStart(msgs[i])){prevMarker=i;break;}}const start=nightStart(msgs,lastMarker,prevMarker);return msgs.slice(start);});
 function toggleDay(label){dayExpanded.value[label]=!dayExpanded.value[label];}
 watch(variants,v=>variant.value=v[0]||'',{immediate:true});
 let preChangeHeight=0,preChangeScrollTop=0;
@@ -259,6 +259,10 @@ canChat=computed(()=>props.game.phase==='ended'?props.channel==='public':(props.
 // that isn't me" IS "my current target," no extra role check needed, but we
 // check role.id anyway for clarity/defensiveness.
 const possessedTarget=computed(()=>role.value.id==='animus'?players.value.find(p=>p.possessed&&p.playerCode!==props.me?.playerCode)||null:null);
+// H6 Animus: "speak as" now also steers voting — while it's checked, the
+// vote/retract actions below act as the possessed target (server derives
+// the target from possessed_by itself; this is only which button we press).
+const effectiveVoterCode=computed(()=>(speakAsTarget.value&&possessedTarget.value)?possessedTarget.value.playerCode:props.me?.playerCode);
 const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeader=computed(()=>{if(!votingOpen.value)return null;const counts=voteCounts.value;let leader=null,max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max){max=count;leader=code;}}return leader}),
 // Tiered Lynch (tiered-lynch.md v1.0.0): outcome is same-day, decided by
 // what fraction of LIVING votes the leader cleared — >=60% executes,
@@ -271,8 +275,9 @@ const secondsLeft=computed(()=>{if(!deadline.value)return null;return Math.max(0
 const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.game.nightMs:props.game.dayMs)||0;if(!total||secondsLeft.value==null)return 0;return Math.min(1,Math.max(0,1-(secondsLeft.value*1000)/total));});
 const driftPct=computed(()=>{const max=props.game.maxDrift||20;const d=props.me?.drift||0;return Math.min(100,Math.round((d/max)*100));});
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
-function castVote(choice){emit('vote',{choice,justification:voteJustification.value})}
-function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===props.me?.playerCode)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+function castVote(choice){if(speakAsTarget.value&&possessedTarget.value)emit('vote-as',{choice,justification:voteJustification.value});else emit('vote',{choice,justification:voteJustification.value})}
+function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}
+function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(p.crippleTier)return`Interrogation Tier ${p.crippleTier}`;return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 // @mention autocomplete: player names can contain spaces ("Player 1",
 // "Priestess Vale"), so the token can't just stop at the first whitespace —
 // findMentionQuery instead scans left from the caret for the nearest '@'
@@ -579,16 +584,53 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
 }
 
 .speak-as-toggle {
+  /* The global label{flex-direction:column;margin:15px 0} reset (style.css,
+     meant for form fields) wins per-property on anything this rule doesn't
+     explicitly set itself — flex-direction and the other margin sides were
+     falling through to it, stacking the checkbox above the text instead of
+     beside it. Every property that reset touches needs an explicit value
+     here, not just the ones that happened to differ. */
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font: 600 10px/1.4 Inter, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #b79bff;
-  margin-bottom: 6px;
+  margin: 0 0 6px;
+  cursor: pointer;
 }
-.speak-as-toggle input { accent-color: #b79bff; }
+/* The global input{width:100%;border;background;padding;border-radius}
+   reset (style.css, meant for text/number fields) also lands on this
+   checkbox and flattens it into a barely-visible filled square. Reset
+   those specifically and let accent-color theme the native control. */
+.speak-as-toggle input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 0;
+  accent-color: #b79bff;
+  cursor: pointer;
+}
+
+/* Speak-as glow: same violet as the possessed badge/toggle, so the
+   composer visibly signals "you're channeling the possessed target"
+   while the checkbox above is on. */
+.composer textarea.speaking-as {
+  border-color: rgba(168, 130, 255, 0.55);
+  box-shadow: 0 0 0 2px rgba(168, 130, 255, 0.15), 0 0 14px rgba(168, 130, 255, 0.25);
+}
+.composer textarea.speaking-as:focus {
+  border-color: #b79bff;
+  box-shadow: 0 0 0 2px rgba(168, 130, 255, 0.25), 0 0 18px rgba(168, 130, 255, 0.4);
+}
 
 /* @mention autocomplete dropdown — anchored above the composer textarea
    since the composer sits at the bottom of the panel and a below-anchored
