@@ -54,12 +54,12 @@
                 </header>
                 <div class="day-messages" v-show="day.expanded">
                   <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
-                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
+                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span></span>
                     <template v-else>
                       <span class="avatar mini">{{ initial(m.author) }}</span>
                       <div>
                         <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
-                        <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><template v-else>{{ seg.text }}</template></template></p>
+                        <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
                       </div>
                     </template>
                   </article>
@@ -67,12 +67,12 @@
               </section>
             </div>
             <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
-              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text">{{ m.body }}</span></span>
+              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span></span>
               <template v-else>
                 <span class="avatar mini">{{ initial(m.author) }}</span>
                 <div>
                   <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
-                  <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><template v-else>{{ seg.text }}</template></template></p>
+                  <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
                 </div>
               </template>
             </article>
@@ -215,10 +215,19 @@
         </template>
       </aside>
     </div>
+    <Teleport to="body">
+      <div v-if="tip" class="glossary-tip" :class="'is-'+tipPos.placement" :style="tipStyle" role="tooltip">
+        <span class="tip-kind" :class="tip.faction">{{ tip.kind }}</span>
+        <strong class="tip-label">{{ tip.label }}</strong>
+        <p class="tip-gloss">{{ tip.gloss }}</p>
+        <span class="tip-more">Click to open the manual</span>
+      </div>
+    </Teleport>
   </section>
 </template>
 <script setup>
-import { computed,nextTick,ref,watch } from 'vue';
+import { computed,nextTick,onBeforeUnmount,ref,watch } from 'vue';
+import { TERM_PATTERN, lookupTerm } from '../glossary.js';
 const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
@@ -316,8 +325,36 @@ function targetName(code){return players.value.find(p=>p.playerCode===code)?.nam
 function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
 const mentionNames=computed(()=>[...new Set(players.value.map(p=>p.name).filter(Boolean))].sort((a,b)=>b.length-a.length));
 function mentionPattern(){return mentionNames.value.length?new RegExp('@('+mentionNames.value.map(escapeRegExp).join('|')+')','gi'):null;}
-function messageSegments(m){const body=m.body||'';const pattern=mentionPattern();if(!pattern)return[{text:body,mention:false}];const segments=[];let lastIndex=0,match;while((match=pattern.exec(body))){if(match.index>lastIndex)segments.push({text:body.slice(lastIndex,match.index),mention:false});segments.push({text:match[1],mention:true});lastIndex=match.index+match[0].length;}if(lastIndex<body.length)segments.push({text:body.slice(lastIndex),mention:false});return segments;}
+function mentionSegments(body){const pattern=mentionPattern();if(!pattern)return[{text:body,mention:false}];const segments=[];let lastIndex=0,match;while((match=pattern.exec(body))){if(match.index>lastIndex)segments.push({text:body.slice(lastIndex,match.index),mention:false});segments.push({text:match[1],mention:true});lastIndex=match.index+match[0].length;}if(lastIndex<body.length)segments.push({text:body.slice(lastIndex),mention:false});return segments;}
+// Second pass: split the plain runs again on glossary terms. Mentions are left
+// alone so a player called "Priest" keeps their @mention styling instead of
+// turning into a rules link. TERM_PATTERN is module-level and /g, so its
+// lastIndex has to be reset before every scan.
+function glossarySegments(text){const out=[];TERM_PATTERN.lastIndex=0;let lastIndex=0,match;while((match=TERM_PATTERN.exec(text))){const term=lookupTerm(match[1]);if(term){if(match.index>lastIndex)out.push({text:text.slice(lastIndex,match.index)});out.push({text:match[1],term});lastIndex=match.index+match[0].length;}}if(!out.length)return[{text}];if(lastIndex<text.length)out.push({text:text.slice(lastIndex)});return out;}
+// Memoised: the phase countdown ticks `now` every second, which re-renders the
+// whole feed, and this would otherwise re-scan every visible message against
+// the mention list and the glossary on each tick. Message bodies are immutable
+// once sent, so the id is a safe key; the roster changing (new player, rename
+// under anonymised mode) invalidates the whole cache because mention matching
+// depends on it.
+const segmentCache=new Map();
+watch(mentionNames,()=>segmentCache.clear());
+function messageSegments(m){const key=m.id;const body=m.body||'';const hit=key!=null?segmentCache.get(key):null;if(hit&&hit.body===body)return hit.segments;const out=[];for(const seg of mentionSegments(body)){if(seg.mention){out.push(seg);continue;}for(const piece of glossarySegments(seg.text))out.push({...piece,mention:false});}if(key!=null)segmentCache.set(key,{body,segments:out});return out;}
 function messageMentionsMe(m){if(m.kind==='system'||!props.me?.name)return false;return new RegExp('@'+escapeRegExp(props.me.name)+'(?![\\w])','i').test(m.body||'');}
+// ── Glossary tooltip ──────────────────────────────────────────────────────
+// One shared popover teleported to <body>: the chat feed is an overflow:auto
+// column, so a tooltip positioned inside it would be clipped at the panel
+// edge. Fixed coordinates come from the term's own rect, flipped below when
+// there isn't room above and clamped to the viewport horizontally.
+const tip=ref(null),tipPos=ref({left:0,top:0,placement:'above'});
+const TIP_W=290;
+function showTip(term,ev){const r=ev.currentTarget.getBoundingClientRect();const above=r.top>190;const left=Math.min(Math.max(10,r.left+r.width/2-TIP_W/2),window.innerWidth-TIP_W-10);tipPos.value={left,top:above?r.top-10:r.bottom+10,placement:above?'above':'below'};tip.value=term;}
+function hideTip(){tip.value=null;}
+function openTerm(term){hideTip();emit('open-manual',term.doc);}
+const tipStyle=computed(()=>({left:tipPos.value.left+'px',top:tipPos.value.top+'px',width:TIP_W+'px',transform:tipPos.value.placement==='above'?'translateY(-100%)':'none'}));
+// Any scroll moves the anchor out from under a fixed-position tooltip, so drop
+// it rather than let it float detached. Capture phase catches the inner feed.
+if(typeof window!=='undefined'){window.addEventListener('scroll',hideTip,true);onBeforeUnmount(()=>window.removeEventListener('scroll',hideTip,true));}
 // ── Generated sigil assets (heresy-sigils.svg, inlined in index.html) ─────
 const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen',arbitrator:'hr-arbitrator','novice-psychic':'hr-novice-psychic','sanctioned-psyker':'hr-sanctioned-psyker',saboteur:'hr-saboteur','heretic-priest':'hr-heretic-priest',recruiter:'hr-recruiter',conspirator:'hr-conspirator',animus:'hr-animus'};
 function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
@@ -687,6 +724,79 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   font-weight: 700;
   text-shadow: 0 0 6px rgba(111, 209, 224, .45);
 }
+/* Glossary terms: a real <button> so hover, keyboard focus and click all work
+   from one element. Reset hard — the global button rules in style.css would
+   otherwise give these padding, uppercase and a border. Inherits the
+   surrounding text's font and colour so a marked word reads as prose with a
+   rule under it, not as a control dropped into the sentence. */
+.message .glossary-term,
+.log-entry .glossary-term {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: help;
+  text-decoration: underline dotted rgba(182, 154, 92, .7);
+  text-underline-offset: 3px;
+  transition: color .12s ease, text-decoration-color .12s ease;
+}
+.message .glossary-term:hover,
+.message .glossary-term:focus-visible,
+.log-entry .glossary-term:hover,
+.log-entry .glossary-term:focus-visible {
+  color: var(--gold2);
+  text-decoration-color: var(--gold2);
+}
+
+/* Teleported to <body>, so it sits outside .message — but it is still written
+   in this component's template and therefore carries the scope attribute. */
+.glossary-tip {
+  position: fixed;
+  z-index: 1200;
+  padding: 12px 14px 10px;
+  background: linear-gradient(160deg, rgba(24, 26, 21, .99), rgba(13, 15, 13, .99));
+  border: 1px solid var(--gold);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .75), inset 0 0 14px rgba(182, 154, 92, .05);
+  pointer-events: none;
+  animation: tipIn .13s ease;
+}
+@keyframes tipIn { from { opacity: 0; } }
+.glossary-tip .tip-kind {
+  display: block;
+  font: 700 8px Inter, sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 3px;
+}
+.glossary-tip .tip-kind.heretic { color: #d4534a; }
+.glossary-tip .tip-label {
+  display: block;
+  font: 700 14px Cinzel, serif;
+  letter-spacing: .06em;
+  color: var(--pale);
+  margin-bottom: 6px;
+}
+.glossary-tip .tip-gloss {
+  margin: 0;
+  font: 400 12.5px/1.5 Georgia, serif;
+  color: #cfcdc0;
+}
+.glossary-tip .tip-more {
+  display: block;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(182, 154, 92, .18);
+  font: 600 8.5px Inter, sans-serif;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .message.mentions-me p {
   border-color: #6fd1e0;
   border-left-color: #6fd1e0;
