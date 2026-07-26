@@ -54,6 +54,27 @@
   89%      { opacity: .93; }
 }
 
+/* Night grade: when the conclave sleeps, the whole room cools — the warm
+   brazier glow gives way to moonlit blues and a deeper vignette. Both
+   pseudo-layers already exist; night only re-tints them, so the change
+   is a single crossfaded repaint, not a new element. */
+.app.phase-night::before {
+  background: radial-gradient(ellipse 118% 88% at 50% 42%,
+      transparent 46%, rgba(4, 8, 18, .52) 100%);
+}
+.app.phase-night::after {
+  background:
+    radial-gradient(ellipse 55% 32% at 50% -12%, rgba(96, 126, 190, .085), transparent 70%),
+    radial-gradient(ellipse 42% 30% at 12% 108%, rgba(52, 64, 110, .07), transparent 70%),
+    radial-gradient(ellipse 42% 30% at 88% 108%, rgba(70, 46, 110, .06), transparent 70%),
+    linear-gradient(rgba(24, 34, 62, .10), rgba(24, 34, 62, .10));
+  animation: warp-breath 9s ease-in-out infinite;
+}
+@keyframes warp-breath {
+  0%, 100% { opacity: .8; }
+  50%      { opacity: 1; }
+}
+
 /* ---------- 2 · Panel grain, inner top-light, bracket glow ---------- */
 /* Fine parchment/metal grain over every panel's inner frame.
    The SVG turbulence rect carries its own low alpha, so the

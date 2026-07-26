@@ -130,8 +130,8 @@
             <span class="role-sigil" aria-hidden="true"><svg class="dossier-glyph"><use :href="sigilFor(role, me?.faction)"/></svg></span>
             <button class="role-name" @click="$emit('open-manual', '/docs/roles/' + (role.id || '').toLowerCase())">{{ role.displayName }}</button>
             <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
-            <dl v-if="me?.drift != null || me?.crippleTier" class="role-meta">
-              <div v-if="me?.drift != null"><dt>Drift</dt><dd>{{ me.drift }} / {{ game.maxDrift }}<span class="drift-gauge" aria-hidden="true"><i :style="{ width: driftPct + '%' }"></i></span></dd></div>
+            <dl class="role-meta">
+              <div class="zone-row"><dt>Warp taint</dt><dd><span class="zone-gauge" role="img" :aria-label="'Last sensed drift zone: ' + knownZone"><i v-for="z in DRIFT_ZONES" :key="z" :class="[z, { lit: z === knownZone }]"></i></span><span class="zone-word" :class="knownZone">{{ knownZone }}</span></dd></div>
               <div v-if="me?.crippleTier"><dt>Torture</dt><dd>Tier {{ me.crippleTier }}</dd></div>
             </dl>
           </div>
@@ -273,7 +273,11 @@ lynchLeaderOutcome=computed(()=>{if(!lynchLeader.value)return null;return target
 standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 const secondsLeft=computed(()=>{if(!deadline.value)return null;return Math.max(0,Math.floor((deadline.value-props.now)/1000));});
 const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.game.nightMs:props.game.dayMs)||0;if(!total||secondsLeft.value==null)return 0;return Math.min(1,Math.max(0,1-(secondsLeft.value*1000)/total));});
-const driftPct=computed(()=>{const max=props.game.maxDrift||20;const d=props.me?.drift||0;return Math.min(100,Math.round((d/max)*100));});
+// Players never see their raw drift number — the engine privately hints only
+// when they cross a zone boundary (meta.ownZone on a private system message).
+// The gauge shows the most recent hint; everyone starts the game at green.
+const DRIFT_ZONES=['green','yellow','orange','red','black'];
+const knownZone=computed(()=>{const msgs=props.game.privateMessages||[];for(let i=msgs.length-1;i>=0;i--){const meta=msgs[i]?.meta,z=meta&&typeof meta==='object'?meta.ownZone:null;if(z&&DRIFT_ZONES.includes(z))return z;}return 'green';});
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
 function castVote(choice){if(speakAsTarget.value&&possessedTarget.value)emit('vote-as',{choice,justification:voteJustification.value});else emit('vote',{choice,justification:voteJustification.value})}
 function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}
@@ -315,7 +319,7 @@ function mentionPattern(){return mentionNames.value.length?new RegExp('@('+menti
 function messageSegments(m){const body=m.body||'';const pattern=mentionPattern();if(!pattern)return[{text:body,mention:false}];const segments=[];let lastIndex=0,match;while((match=pattern.exec(body))){if(match.index>lastIndex)segments.push({text:body.slice(lastIndex,match.index),mention:false});segments.push({text:match[1],mention:true});lastIndex=match.index+match[0].length;}if(lastIndex<body.length)segments.push({text:body.slice(lastIndex),mention:false});return segments;}
 function messageMentionsMe(m){if(m.kind==='system'||!props.me?.name)return false;return new RegExp('@'+escapeRegExp(props.me.name)+'(?![\\w])','i').test(m.body||'');}
 // ── Generated sigil assets (heresy-sigils.svg, inlined in index.html) ─────
-const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen'};
+const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen',arbitrator:'hr-arbitrator','novice-psychic':'hr-novice-psychic','sanctioned-psyker':'hr-sanctioned-psyker',saboteur:'hr-saboteur','heretic-priest':'hr-heretic-priest',recruiter:'hr-recruiter',conspirator:'hr-conspirator',animus:'hr-animus'};
 function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
 const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.phase==='ended'?'#hr-verdict':'#hr-day');
 // Tiered Lynch v1.2.0: any living player who has ever survived a
@@ -341,6 +345,9 @@ function messageEventType(m){if(!m?.meta)return null;try{const meta=typeof m.met
 function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||'');
   if(eventType==='night-kill')return{type:'death',glyph:'#hr-deceased'};
   if(/victory|conclave is (ended|dissolved)|game over|ended by admin/i.test(b))return{type:'verdict',glyph:'#hr-verdict'};
+  // Torture-chamber outcome lines (all deathFlavor tortureChamber variants end
+  // in "and left <severity>") get their own glyph, distinct from executions.
+  if(/and left (wounded|crippled|shattered)|torture chamber|excruciator|agony bonds/i.test(b))return{type:'torture',glyph:'#hr-torture'};
   if(/lynched|executed|summary execution|revealed (as )?(loyalist|heretic)|left at tier \d|forced to confess|confessed:/i.test(b))return{type:'execution',glyph:'#hr-execution'};
   if(/slain|was killed|found dead|absorbed a strike|deflected/i.test(b))return{type:'death',glyph:'#hr-deceased'};
   if(/vote tally|\d+ of \d+ votes|voters:/i.test(b))return{type:'vote',glyph:'#hr-vote'};
@@ -913,6 +920,30 @@ button.ghost.wide.stand-down-leading {
   white-space: nowrap;
 }
 
+/* Warp-taint zone gauge — five segments, one lit: the last zone the Warp
+   whispered to this player. Not a numeric readout; drift stays hidden. */
+.role-meta .zone-row { grid-column: 1 / -1; }
+.role-meta .zone-row dd { display: flex; align-items: center; gap: 8px; }
+.zone-gauge { display: inline-flex; gap: 3px; }
+.zone-gauge i {
+  width: 14px; height: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  clip-path: polygon(2px 0, 100% 0, calc(100% - 2px) 100%, 0 100%);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.zone-gauge i.green.lit  { background: #5c8a76; box-shadow: 0 0 8px rgba(92, 138, 118, 0.6); border-color: #5c8a76; }
+.zone-gauge i.yellow.lit { background: #c9a961; box-shadow: 0 0 8px rgba(201, 169, 97, 0.6); border-color: #c9a961; }
+.zone-gauge i.orange.lit { background: #c07840; box-shadow: 0 0 8px rgba(192, 120, 64, 0.65); border-color: #c07840; }
+.zone-gauge i.red.lit    { background: #a32a26; box-shadow: 0 0 9px rgba(163, 42, 38, 0.75); border-color: #c14545; }
+.zone-gauge i.black.lit  { background: #171214; box-shadow: 0 0 10px rgba(163, 42, 38, 0.9); border-color: #d4534a; }
+.zone-word { font: 700 10px Inter, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
+.zone-word.green  { color: #7fae97; }
+.zone-word.yellow { color: var(--gold2); }
+.zone-word.orange { color: #d8945e; }
+.zone-word.red    { color: #d4534a; }
+.zone-word.black  { color: #e0574c; text-shadow: 0 0 8px rgba(163, 42, 38, 0.8); }
+
 .dossier-section {
   margin: 0 0 16px;
   padding: 14px 14px 12px;
@@ -1232,6 +1263,7 @@ button.ghost.wide.stand-down-leading {
 .log-entry--accusation { --tint: #b69a5c; }
 .log-entry--vote       { --tint: #8f9c6a; }
 .log-entry--execution  { --tint: #c14545; }
+.log-entry--torture    { --tint: #c07840; }
 .log-entry--death      { --tint: #ff5c4d; }
 .log-entry--phase      { --tint: #7f8ca6; }
 .log-entry--verdict    { --tint: var(--gold2); }

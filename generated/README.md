@@ -39,9 +39,11 @@ Log entry types: `accusation`, `vote`, `execution`, `death`, `phase`,
 ## Glyph ids
 
 `hr-priest` `hr-murderer` `hr-interrogator` `hr-chirurgeon` `hr-citizen`
-`hr-unknown` · `hr-alive` `hr-deceased` `hr-observing` `hr-sealed` ·
+`hr-unknown` `hr-arbitrator` `hr-novice-psychic` `hr-sanctioned-psyker`
+`hr-saboteur` `hr-heretic-priest` `hr-recruiter` `hr-conspirator`
+`hr-animus` · `hr-alive` `hr-deceased` `hr-observing` `hr-sealed` ·
 `hr-day` `hr-night` · `hr-accusation` `hr-vote` `hr-verdict` `hr-execution`
-`hr-vox` `hr-conclave` · `hr-mark` (logo / favicon)
+`hr-torture` `hr-vox` `hr-conclave` · `hr-mark` (logo / favicon)
 
 ## Notes
 

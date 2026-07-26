@@ -74,7 +74,7 @@ function docsDevServer() {
         // the parent SPA. Unlike the HTML sandbox attribute, a CSP sandbox
         // cannot be lifted by scripts.
         if (mime.startsWith('text/html')) {
-          res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; img-src 'self' data; font-src 'self' https://fonts.gstatic.com data; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; sandbox allow-scripts allow-same-origin allow-popups allow-forms;");
+          res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; sandbox allow-scripts allow-same-origin allow-popups allow-forms;");
         }
         fs.createReadStream(file).on('error', () => { res.statusCode = 404; res.end('Not found'); }).pipe(res);
       });

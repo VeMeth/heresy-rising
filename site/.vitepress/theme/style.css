@@ -806,7 +806,23 @@ body::after {
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* ---------- 12 · Reduced motion ---------- */
+/* ---------- 12 · Sidebar role sigils ---------- */
+/* Inline glyphs emitted by config.mjs roleItem() — monoline, tinted by the
+   link's own color so the active role lights its sigil gold too. */
+.VPSidebarItem .role-sigil {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  opacity: 0.75;
+}
+.VPSidebarItem .is-active .role-sigil,
+.VPSidebarItem .link:hover .role-sigil {
+  opacity: 1;
+}
+
+/* ---------- 13 · Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

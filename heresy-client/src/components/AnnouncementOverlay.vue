@@ -4,9 +4,14 @@
     <div class="letterbox top" aria-hidden="true"></div>
     <div class="letterbox bottom" aria-hidden="true"></div>
     <div class="announcement-card">
+      <svg class="announcement-rosette" aria-hidden="true"><use href="#hr-rosette"/></svg>
       <span class="announcement-badge">{{ badgeLabel }}</span>
       <h1 class="announcement-title">{{ displayTitle }}</h1>
       <p class="announcement-message">{{ announcement.message }}</p>
+      <div v-if="stampLabel" class="verdict-stamp" aria-hidden="true">
+        <span class="stamp-wax"></span>
+        <span class="stamp-text">{{ stampLabel }}</span>
+      </div>
       <button v-if="persistent" class="announcement-dismiss" @click="emit('dismiss')">Acknowledge</button>
     </div>
   </div>
@@ -49,6 +54,10 @@ const displayTitle = computed(() => {
   if (!a) return '';
   return (a.type === 'role-reveal' && a.role) ? a.role : (a.title || '');
 });
+
+// Day-vote verdicts get a wax stamp pressed across the card corner.
+const stampLabels = { 'lynch': 'LYNCHED', 'torture-chamber': 'TORTURED' };
+const stampLabel = computed(() => stampLabels[props.announcement?.type] || '');
 
 // Faction tint for the role reveal: heretic oxblood vs loyalist gold.
 const factionClass = computed(() => {
@@ -143,15 +152,57 @@ const animationKey = computed(() => {
     left 5px bottom 5px, left 5px bottom 5px,
     right 5px bottom 5px, right 5px bottom 5px;
 }
-.announcement-card::before {
-  content: "\24B8";
+/* Rose-window watermark behind the card copy — inherits the per-type tint */
+.announcement-rosette {
   position: absolute;
   top: 50%; left: 50%;
-  transform: translate(-50%, -50%) rotate(45deg);
-  font: 700 180px Cinzel, serif;
-  opacity: 0.025;
+  width: 240px; height: 240px;
+  transform: translate(-50%, -50%);
+  color: currentColor;
+  opacity: 0.05;
   pointer-events: none;
-  line-height: 1;
+  fill: none;
+}
+
+/* Wax verdict stamp — pressed askew over the card's corner for day-vote
+   outcomes. The roughen filter lives on the wax disc only, so the text
+   above stays legible. */
+.verdict-stamp {
+  position: absolute;
+  top: -14px; right: -10px;
+  width: 96px; height: 96px;
+  display: grid;
+  place-items: center;
+  transform: rotate(12deg);
+  pointer-events: none;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6));
+  animation: stamp-in 0.55s cubic-bezier(.2, 1.3, .35, 1) 0.45s both;
+}
+.stamp-wax {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  filter: url(#hr-roughen);
+  background: radial-gradient(circle at 34% 28%,
+    #c9524a 0%, #a32a26 40%, #6e1815 78%, #45100e 100%);
+}
+.type-torture-chamber .stamp-wax {
+  background: radial-gradient(circle at 34% 28%,
+    #d8945e 0%, #b0642e 40%, #74401c 78%, #482712 100%);
+}
+.stamp-text {
+  position: relative;
+  z-index: 1;
+  font: 700 0.68rem Cinzel, serif;
+  letter-spacing: 0.16em;
+  color: #f6e6c8;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  border-radius: 50%;
+  width: 72px; height: 72px;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.25), inset 0 0 18px rgba(0, 0, 0, 0.45);
 }
 
 /* The badge slams down like a wax stamp and stays slightly askew */

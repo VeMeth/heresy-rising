@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Heresy Rising mark — the game's rune (hr-mark) in aged gilt on void -->
+  <rect width="24" height="24" rx="4" fill="#0a0806"/>
+  <g fill="none" stroke="#c9a961" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m12 2.1 9.9 9.9L12 21.9 2.1 12z"/>
+    <path d="M8.8 8.4v7.2M15.2 8.4v7.2M8.8 12h6.4"/>
+  </g>
+</svg>

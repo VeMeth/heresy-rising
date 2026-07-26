@@ -1,6 +1,6 @@
 <template>
   <AdminView v-if="isAdminRoute" />
-  <div v-else class="app">
+  <div v-else class="app" :class="game ? 'phase-' + game.phase : ''">
     <EmberField />
     <header class="masthead">
       <button class="brand" @click="leaveToHome" aria-label="Heresy Rising home">
