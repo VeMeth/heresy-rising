@@ -12,6 +12,7 @@ const MIDNIGHT = Date.UTC(2024, 0, 10, 0, 0, 0);
 const NINE_AM = MIDNIGHT + 9 * 60 * 60_000; // 09:00 UTC
 const NINE_PM = MIDNIGHT + 21 * 60 * 60_000; // 21:00 UTC
 const NEXT_DAY_NINE_AM = NINE_AM + DAY_MS;
+const NEXT_DAY_NINE_PM = NINE_PM + DAY_MS;
 
 function fixture({ now: initialNow = MIDNIGHT, playerCount = 5 } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-async-'));
@@ -98,12 +99,20 @@ test('live configure(): unaffected — dayMs/nightMs remain configurable, day_st
   } finally { f.close(); }
 });
 
-test('async start(): now before today\'s day-start → Day 1 deadline clips to today\'s day-start', () => {
+test('async start(): now before today\'s day-start (i.e. still within the night window) → Day 1 deadline clips to tonight\'s night-start, NOT today\'s day-start', () => {
+  // Regression test: 03:00 UTC sits inside the night window (21:00 the
+  // previous day through 09:00 today). start() always creates the game in
+  // 'day' phase, so Day 1's deadline must be the next NIGHT-start (21:00
+  // today), never the next day-start — picking day-start here would make
+  // this "Day 1" straddle what should still be night, and since every later
+  // boundary is a fixed +12h step from this first one, that single wrong
+  // pick would permanently swap which 12h half of the day is labelled day
+  // vs night for the rest of the game.
   const f = fixture({ now: MIDNIGHT + 3 * 60 * 60_000 }); // 03:00 UTC
   try {
     const code = createAsyncGame(f);
     const result = f.manager.start(code, 'p0');
-    assert.equal(result.deadline, NINE_AM, 'clips forward to 09:00 UTC, the upcoming day-start/night-end boundary');
+    assert.equal(result.deadline, NINE_PM, 'clips forward to 21:00 UTC, the upcoming night-start boundary');
   } finally { f.close(); }
 });
 
@@ -116,12 +125,17 @@ test('async start(): now within the day window → Day 1 deadline clips to tonig
   } finally { f.close(); }
 });
 
-test('async start(): now within the night window → Day 1 deadline clips to tomorrow\'s day-start', () => {
+test('async start(): now within the night window, after tonight\'s night-start has passed → Day 1 deadline clips to tomorrow\'s night-start, NOT tomorrow\'s day-start', () => {
+  // Same regression as above from the other side: 23:00 UTC is 2h past
+  // tonight's 21:00 night-start, so the next night-start is a full day
+  // away. This is the exact scenario reported live — a host starting an
+  // async game shortly after the configured night-start time, which used
+  // to lock onto the (nearer) day-start instead and swap the schedule.
   const f = fixture({ now: NINE_PM + 2 * 60 * 60_000 }); // 23:00 UTC, inside the 21:00-09:00 night window
   try {
     const code = createAsyncGame(f);
     const result = f.manager.start(code, 'p0');
-    assert.equal(result.deadline, NEXT_DAY_NINE_AM, 'clips forward to tomorrow 09:00 UTC');
+    assert.equal(result.deadline, NEXT_DAY_NINE_PM, 'clips forward to tomorrow 21:00 UTC — the next night-start, a full day out');
   } finally { f.close(); }
 });
 

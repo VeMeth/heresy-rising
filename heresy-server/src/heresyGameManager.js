@@ -30,17 +30,22 @@ const MAX_DRIFT_CEILING = 100;
 // phase boundary lands on the host's chosen day-start time, every later
 // boundary (setPhase() just adds the fixed 12h duration) automatically
 // keeps landing on the same wall-clock time forever — no per-transition
-// rescheduling needed. This only has to find that first boundary: the
-// soonest moment (day-start or day-start+12h, whichever is next) after `now`.
+// rescheduling needed.
+//
+// start() always creates the game in 'day' phase (see below), so this first
+// boundary is unconditionally "when does Night 1 begin" — the next
+// occurrence of dayStartMinuteUtc + 12h. It must NOT be "whichever of
+// {day-start, day-start+12h} comes up soonest": if the host starts the game
+// after today's day-start+12h instant has already passed, the nearer
+// instant is tomorrow's day-start, and locking onto that instead silently
+// swaps which 12h half of the day is labelled "day" vs "night" for the
+// entire rest of the game (every later boundary is a fixed +12h step from
+// whatever this first one was, so a wrong pick here never self-corrects).
 function nextScheduleBoundary(now, dayStartMinuteUtc) {
   const DAY_MS = 86_400_000;
-  const dayStartMs = ((Number(dayStartMinuteUtc) || 0) % 1440) * 60_000;
+  const nightStartMs = (((Number(dayStartMinuteUtc) || 0) + 720) % 1440) * 60_000;
   const todayMidnight = Math.floor(now / DAY_MS) * DAY_MS;
-  const candidates = [];
-  for (let offset = -1; offset <= 1; offset++) {
-    const base = todayMidnight + offset * DAY_MS;
-    candidates.push(base + dayStartMs, base + dayStartMs + ASYNC_PHASE_MS);
-  }
+  const candidates = [-1, 0, 1].map(offset => todayMidnight + offset * DAY_MS + nightStartMs);
   return candidates.filter(t => t > now).sort((a, b) => a - b)[0];
 }
 
@@ -271,11 +276,13 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
 
     const assigned=shuffle(ids);
     // Async mode: day/night are locked at 12h regardless of what's passed
-    // in (defense in depth, same as configure()). Day 1's deadline is
-    // clipped to the next schedule boundary (day-start or day-start+12h,
-    // whichever comes first) instead of a full 12h from "now" — so Day 1
-    // may run short, but every phase after it lands exactly on the host's
-    // chosen wall-clock time, forever (see nextScheduleBoundary above).
+    // in (defense in depth, same as configure()). Day 1's deadline is the
+    // next occurrence of Night's start (day-start + 12h) rather than a
+    // flat 12h from "now" — so Day 1 can run anywhere from a few minutes
+    // up to just under 24h depending on when the host actually clicks
+    // start relative to that wall-clock time, but every phase after it
+    // lands exactly on the host's chosen schedule, forever (see
+    // nextScheduleBoundary above).
     const resolvedDayMs=g.mode==='async'?ASYNC_PHASE_MS:Math.max(PHASE_MS_FLOOR_START,Math.min(PHASE_MS_CEILING,Number(dayMs)||DAY_MS_SYNC_DEFAULT));
     const resolvedNightMs=g.mode==='async'?ASYNC_PHASE_MS:Math.max(PHASE_MS_FLOOR_START,Math.min(PHASE_MS_CEILING,Number(nightMs)||NIGHT_MS_SYNC_DEFAULT));
     const startDeadline=g.mode==='async'?nextScheduleBoundary(this.now(),g.day_start_minute_utc??DEFAULT_DAY_START_MINUTE_UTC):this.now()+resolvedDayMs;

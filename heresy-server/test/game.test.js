@@ -322,3 +322,46 @@ test('Animus: possessed player cannot speak in public chat, but can speak-as the
 
 test('Animus: game-end reveal marks possessed:true ONLY for players who were actually possessed, not the whole roster',()=>{const f=fixture(9);try{f.manager.start(f.code,'p0');makeAnimus(f);f.manager.advance(f.code,'p0');const animus=f.manager.players(f.code).find(p=>p.role_id==='animus'),possessedTarget=f.manager.players(f.code).find(p=>p.faction==='loyalist');f.manager.db.prepare('UPDATE hr_players SET possessed_by=? WHERE game_code=? AND player_code=?').run(animus.player_code,f.code,possessedTarget.player_code);f.manager.db.prepare("UPDATE hr_games SET status='ended' WHERE code=?").run(f.code);const viewer=f.manager.players(f.code).find(p=>p.player_code!==animus.player_code&&p.player_code!==possessedTarget.player_code);const state=f.manager.state(f.code,viewer.player_code);const possessedRows=state.players.filter(p=>p.possessed);assert.deepEqual(possessedRows.map(p=>p.playerCode),[possessedTarget.player_code],'only the actually-possessed player is flagged, not every player in the ended game');const spectateState=f.manager.spectate(f.code);const spectatePossessedRows=spectateState.players.filter(p=>p.possessed);assert.deepEqual(spectatePossessedRows.map(p=>p.playerCode),[possessedTarget.player_code],'same guarantee for spectators');}finally{f.close();}});
 
+
+test('Async mode: Day 1 always ends at day-start+12h, never at day-start itself — regression for the day/night swap bug',()=>{
+  // Starting the game AFTER today's night-start boundary has already passed
+  // (here: 09:00 UTC day-start, so night-start is 21:00 UTC, and the host
+  // starts at 21:25 UTC) used to lock Day 1's deadline onto the nearer of
+  // {day-start, day-start+12h} — which was tomorrow's day-start (09:00 UTC),
+  // not night-start. Every later boundary is a fixed +12h step from that
+  // first one, so that single wrong pick permanently swapped which half of
+  // the day was labelled "day" vs "night" for the rest of the game.
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heresy-async-'));
+  const dayStartMinuteUtc=540; // 09:00 UTC
+  let now=Date.parse('2026-07-26T21:25:00.000Z'); // 25 minutes after night-start (21:00 UTC)
+  const manager=new HeresyGameManager({databasePath:path.join(dir,'game.db'),now:()=>now,random:()=>0.9});
+  try{
+    const {code}=manager.create({playerCode:'p0',name:'P0',mode:'async',options:{dayStartMinuteUtc}});
+    for(let i=1;i<5;i++){manager.join({code,playerCode:`p${i}`,name:`P${i}`});manager.ready(code,`p${i}`,true);}
+    manager.start(code,'p0');
+
+    const nightStart=Date.parse('2026-07-27T21:00:00.000Z'),dayStart=Date.parse('2026-07-27T09:00:00.000Z');
+    assert.equal(manager.game(code).deadline,nightStart,'Day 1 must end at the next night-start (21:00 UTC), not the next day-start (09:00 UTC)');
+
+    now=nightStart; manager.resolve(code,true);
+    assert.equal(manager.game(code).phase,'night');
+    assert.equal(manager.game(code).deadline,Date.parse('2026-07-28T09:00:00.000Z'),'Night 1 must end at the following day-start');
+
+    now=Date.parse('2026-07-28T09:00:00.000Z'); manager.resolve(code,true);
+    assert.equal(manager.game(code).phase,'day');
+    assert.equal(manager.game(code).deadline,Date.parse('2026-07-28T21:00:00.000Z'),'Day 2 must end at night-start again — schedule stays anchored, not swapped');
+  }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('Async mode: starting during the day window still ends Day 1 at the same night-start anchor',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heresy-async2-'));
+  const dayStartMinuteUtc=540; // 09:00 UTC
+  let now=Date.parse('2026-07-26T10:00:00.000Z'); // within the intended day window
+  const manager=new HeresyGameManager({databasePath:path.join(dir,'game.db'),now:()=>now,random:()=>0.9});
+  try{
+    const {code}=manager.create({playerCode:'p0',name:'P0',mode:'async',options:{dayStartMinuteUtc}});
+    for(let i=1;i<5;i++){manager.join({code,playerCode:`p${i}`,name:`P${i}`});manager.ready(code,`p${i}`,true);}
+    manager.start(code,'p0');
+    assert.equal(manager.game(code).deadline,Date.parse('2026-07-26T21:00:00.000Z'),'starting mid-day still lands on the same-day night-start');
+  }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
