@@ -26,6 +26,7 @@ services:
       - "${SERVER_HOST_BIND:-127.0.0.1}:${SERVER_PORT:-4100}:${SERVER_PORT:-4100}"
     volumes:
       - ./data:/usr/src/app/data
+      - ./game_data:/usr/src/app/config:ro
     restart: unless-stopped
     deploy:
       resources:
@@ -101,6 +102,8 @@ services:
       - SIM_MAX_WORKERS=${SIM_MAX_WORKERS:-2}
     ports:
       - "${SIM_HOST_BIND:-127.0.0.1}:${SIM_PORT:-7879}:${SIM_PORT:-7879}"
+    volumes:
+      - ./game_data:/usr/src/app/config:ro
     restart: unless-stopped
     deploy:
       resources:

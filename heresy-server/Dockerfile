@@ -18,7 +18,7 @@ COPY heresy-server/package.json heresy-server/package-lock.json* ./
 RUN npm ci --omit=dev
 
 COPY heresy-server/src ./src
-COPY data ./config
+COPY game_data ./config
 
 RUN mkdir -p data && chown -R nodejs:nodejs data
 

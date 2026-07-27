@@ -231,7 +231,7 @@ import { computed,nextTick,onBeforeUnmount,ref,watch } from 'vue';
 import { TERM_PATTERN, lookupTerm } from '../glossary.js';
 import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
 import { settings } from '../settings.js';
-import { DRIFT, resolveScaledCost, formatSigned } from '../driftCosts.js';
+import { DRIFT, DRIFT_ZONE_ORDER, resolveScaledCost, formatSigned } from '../driftCosts.js';
 const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
@@ -289,7 +289,7 @@ const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.
 // Players never see their raw drift number — the engine privately hints only
 // when they cross a zone boundary (meta.ownZone on a private system message).
 // The gauge shows the most recent hint; everyone starts the game at green.
-const DRIFT_ZONES=['green','yellow','orange','red','black'];
+const DRIFT_ZONES=DRIFT_ZONE_ORDER;
 const zoneForValue=v=>{for(const z of DRIFT_ZONES){const[min,max]=DRIFT.ZONES[z];if(v>=min&&v<=max)return z;}return'black';};
 const knownZone=computed(()=>{const msgs=props.game.privateMessages||[];for(let i=msgs.length-1;i>=0;i--){const meta=msgs[i]?.meta,z=meta&&typeof meta==='object'?meta.ownZone:null;if(z&&DRIFT_ZONES.includes(z))return z;}return 'green';});
 // Q34: scaled-cost roles (Interrogator) have a per-tier drift cost that

@@ -39,7 +39,7 @@ RUN npm install --omit=dev
 
 COPY heresy-sim/src ./heresy-sim/src
 COPY heresy-server/src ./heresy-server/src
-COPY data ./config
+COPY game_data ./config
 
 RUN mkdir -p /usr/src/app/heresy-sim/sim-results && chown -R nodejs:nodejs /usr/src/app
 

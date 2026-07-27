@@ -1,12 +1,10 @@
-// Client-side drift cost constants — values live in game_data/driftCosts.json for
-// easy balance editing, imported here and re-exported alongside rendering
-// functions.
-//
-// This is a client-side copy of selector numbers from data/roles-40k.json and
-// data/drift.json (the server's source of truth). The client has no shared-code
-// channel with the server package (two separate npm packages), so edits to
-// server files must be mirrored here; nothing enforces that automatically.
-// Putting the values in a separate JSON makes that sync check a simple diff.
+// Client-side drift cost constants — DERIVED directly from the server's own
+// config files (game_data/drift.json, game_data/roles-40k.json) via a Vite
+// alias (@game_data → ../game_data, see vite.config.js). The client has no
+// shared-code channel with the server package (two separate npm packages),
+// but both now read the SAME json off disk, so there is no manual mirror to
+// keep in sync — edit the server config and the client picks it up on next
+// build/reload.
 //
 // This file exists so that compositionData.js and glossary.js — the two
 // places on the client that describe ability costs in prose — pull every
@@ -15,12 +13,36 @@
 // replaces this static object is what changes; the templates that consume
 // it do not.
 
-import values from '../../game_data/driftCosts.json';
+import drift from '@game_data/drift.json';
+import rolesFile from '@game_data/roles-40k.json';
 
-export const DRIFT = values.DRIFT;
-export const ROLE_DRIFT_WEIGHT = values.ROLE_DRIFT_WEIGHT;
-export const SERMON_TARGET = values.SERMON_TARGET;
-export const SCALED_COSTS = values.SCALED_COSTS;
+// Zone order, derived (not hand-listed) from each zone's `min` so a new zone
+// added to drift.json's `zones` array is picked up automatically instead of
+// being a silent no-op on the client.
+export const DRIFT_ZONE_ORDER = [...drift.zones].sort((a, b) => a.min - b.min).map((z) => z.id);
+
+export const DRIFT = {
+  MAX: drift.MAX_DRIFT,
+  SLEEP_RECOVERY: drift.NIGHTLY_SLEEP_RECOVERY,
+  TRAP_DRIFT: drift.TRAP_DRIFT,
+  ZONES: Object.fromEntries(drift.zones.map((z) => [z.id, [z.min, z.max]]))
+};
+
+export const ROLE_DRIFT_WEIGHT = Object.fromEntries(
+  rolesFile.roles.map((role) => [role.id, role.driftWeight])
+);
+
+export const SERMON_TARGET = {
+  whisper: drift.sermons.whisper.target,
+  hymn: drift.sermons.hymn.target,
+  litany: drift.sermons.litany.target
+};
+
+// scaledCosts, minus the `_schema` documentation key (scaledCostLabel below
+// iterates role keys and would otherwise trip over it).
+export const SCALED_COSTS = Object.fromEntries(
+  Object.entries(drift.scaledCosts).filter(([key]) => key !== '_schema')
+);
 
 export function scaledCostFormula(base, floor, players) {
   return Math.round(Math.max(floor, base / players));
@@ -32,7 +54,7 @@ export function resolveScaledCost(roleKey, tierKey, playerCount) {
   const role = SCALED_COSTS[roleKey];
   if (!role) throw new Error(`driftCosts: no scaledCosts config for role "${roleKey}"`);
   const known = role.perPlayerCount[playerCount];
-  if (known) return known[tierKey];
+  if (known && known[tierKey] !== undefined) return known[tierKey];
   return scaledCostFormula(role.baseValues[tierKey], role.floors[tierKey], playerCount);
 }
 

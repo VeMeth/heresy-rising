@@ -86,8 +86,16 @@ function docsDevServer() {
 
 export default defineConfig({
   plugins: [vue(), quotesAsset(), docsDevServer()],
+  resolve: {
+    alias: {
+      '@game_data': path.resolve(__dirname, '../game_data')
+    }
+  },
   server: {
     port: 5174,
+    fs: {
+      allow: ['..']
+    },
     proxy: {
       '/socket.io': {
         target: process.env.SERVER_URL || 'http://localhost:4100',

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { renderAbility } from './mechanics/abilityText.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const configRoot = process.env.GAME_CONFIG_DIR || path.join(root, 'data');
+const configRoot = process.env.GAME_CONFIG_DIR || path.join(root, 'game_data');
 const read = (name) => JSON.parse(fs.readFileSync(path.join(configRoot, name), 'utf8'));
 
 export function loadGameConfig() {
