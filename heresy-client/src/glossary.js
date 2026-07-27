@@ -21,6 +21,7 @@
 // reads from the live game.
 
 import { validRoles } from './compositionData.js';
+import { DRIFT, ROLE_DRIFT_WEIGHT, formatSigned, renderTemplate } from './driftCosts.js';
 
 // Aliases per role. Longest match wins at scan time, so "Heretic Priest"
 // resolves to the Heretic Priest and never to the Loyalist Priest.
@@ -47,12 +48,16 @@ const ROLE_DOC = id => '/docs/roles/' + id;
 // conventions, or run long. Those read badly as a definition dropped into the
 // middle of a conversation, so they are re-voiced here. The lobby copy stays as
 // it is; only these four diverge, and only in register, never in rules.
-const ROLE_GLOSS_OVERRIDE = {
+const ROLE_GLOSS_OVERRIDE_TEMPLATE = {
   'heretic-priest': 'Wears the Priest\'s vestments and preaches the same sermons — but drift rises where it should fall. Finding one means noticing who got worse after a blessing.',
   'murderer': 'The knife in the dark. Kills one player each night, and sits in the cabal\'s channel watching every other Heretic\'s plan.',
-  'sanctioned-psyker': 'One sanctioned warp-kill, once per game, against anyone. Firing it costs +15 drift — which lands the Psyker in Red, where a T2 scan executes them on sight. Nothing marks them: from the table they look exactly like a Murderer.',
+  'sanctioned-psyker': 'One sanctioned warp-kill, once per game, against anyone. Firing it costs {driftWeight} drift — which lands the Psyker in Red, where a T2 scan executes them on sight. Nothing marks them: from the table they look exactly like a Murderer.',
   'animus': 'Once per game, reaches for a player believed to be drowning in Red drift. If right, the Animus speaks in their name for a day and the body ruptures at dusk, revealing everything. If wrong, the attempt wastes in silence.',
 };
+const ROLE_GLOSS_OVERRIDE = Object.fromEntries(
+  Object.entries(ROLE_GLOSS_OVERRIDE_TEMPLATE).map(([id, template]) =>
+    [id, renderTemplate(template, { driftWeight: formatSigned(ROLE_DRIFT_WEIGHT[id] ?? 0) })])
+);
 
 const roleTerms = [...validRoles.values()].map(role => ({
   id: role.id,
@@ -70,7 +75,7 @@ const mechanicTerms = [
   {
     id: 'drift', label: 'Drift', kind: 'Mechanic', doc: '/docs/drift',
     aliases: ['drift', 'drifting', 'drifted', 'drift cost'],
-    gloss: 'The corruption the Warp leaves on a soul, scored 0 to 20. It climbs when you act, kill, or vote with the losing side, and it never resets — you only ever feel it as a whisper, never as a number.',
+    glossTemplate: 'The corruption the Warp leaves on a soul, scored 0 to {maxDrift}. It climbs when you act, kill, or vote with the losing side, and it never resets — you only ever feel it as a whisper, never as a number.',
   },
   {
     id: 'warp', label: 'The Warp', kind: 'Setting', doc: '/docs/drift',
@@ -80,7 +85,7 @@ const mechanicTerms = [
   {
     id: 'zone', label: 'Drift zone', kind: 'Mechanic', doc: '/docs/drift',
     aliases: ['drift zone', 'drift zones', 'green zone', 'yellow zone', 'orange zone', 'red zone', 'black zone'],
-    gloss: 'Where a score sits on the ladder: Green (0–4), Yellow (5–9), Orange (10–14), Red (15–19), Black (20). Powers read the zone, not the number.',
+    glossTemplate: 'Where a score sits on the ladder: Green ({greenMin}–{greenMax}), Yellow ({yellowMin}–{yellowMax}), Orange ({orangeMin}–{orangeMax}), Red ({redMin}–{redMax}), Black ({blackMin}). Powers read the zone, not the number.',
   },
   {
     id: 'torture', label: 'Torture', kind: 'Day outcome', doc: '/docs/how-to-play',
@@ -120,7 +125,7 @@ const mechanicTerms = [
   {
     id: 'catalyst', label: 'Catalyst', kind: 'Mechanic', doc: '/docs/roles/recruiter',
     aliases: ['catalyst', 'conversion', 'converted'],
-    gloss: 'The Recruiter\'s conversion. A player sitting at Black — drift 20 — can be flipped to the Heretic side silently, and wakes already turned.',
+    glossTemplate: 'The Recruiter\'s conversion. A player sitting at Black — drift {blackMin} — can be flipped to the Heretic side silently, and wakes already turned.',
   },
   {
     id: 'conclave', label: 'The Conclave', kind: 'Setting', doc: '/docs/how-to-play',
@@ -150,9 +155,25 @@ const mechanicTerms = [
   {
     id: 'sleep', label: 'Sleep', kind: 'Mechanic', doc: '/docs/drift',
     aliases: ['sleep', 'sleeps', 'slept', 'sleeping'],
-    gloss: 'Submitting no night action. It costs nothing and pays −1 drift, which is the only dependable way back down the ladder.',
+    glossTemplate: 'Submitting no night action. It costs nothing and pays {sleepRecovery} drift, which is the only dependable way back down the ladder.',
   },
 ];
+
+// Renders any entry's glossTemplate (drift/zone/catalyst/sleep — the four
+// that state a number) into its final `gloss`; entries with a plain `gloss`
+// already (no numbers to template) pass through untouched.
+const MECHANIC_COST_CONTEXT = {
+  maxDrift: DRIFT.MAX,
+  sleepRecovery: formatSigned(DRIFT.SLEEP_RECOVERY),
+  greenMin: DRIFT.ZONES.green[0], greenMax: DRIFT.ZONES.green[1],
+  yellowMin: DRIFT.ZONES.yellow[0], yellowMax: DRIFT.ZONES.yellow[1],
+  orangeMin: DRIFT.ZONES.orange[0], orangeMax: DRIFT.ZONES.orange[1],
+  redMin: DRIFT.ZONES.red[0], redMax: DRIFT.ZONES.red[1],
+  blackMin: DRIFT.ZONES.black[0],
+};
+for (const term of mechanicTerms) {
+  if (term.glossTemplate) term.gloss = renderTemplate(term.glossTemplate, MECHANIC_COST_CONTEXT);
+}
 
 export const GLOSSARY_TERMS = [...roleTerms, ...mechanicTerms];
 

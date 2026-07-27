@@ -30,7 +30,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "You have no night power. Discuss, vote, read the table, and survive on wit. Sleep (−1 drift) by default.",
+      "abilityTemplate": "You have no night power. Discuss, vote, read the table, and survive on wit. Sleep ({sleepRecovery} drift) by default.",
       "objective": "Loyalist win: reduce Heretic living count to below parity."
     },
     {
@@ -54,7 +54,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Each night, interrogate one player at chosen intensity: T1 Soft (+1 drift, 'story holds / something off / nothing'), T2 Standard (+2 drift, same + zone hint), T3 Brutal (+3 drift, confirmed Heretic or Loyalist). Target's drift zone auto-upgrades effective tier. Effective T2+ vs Orange+ target = Execute on Sight (auto-kill, alignment revealed).",
+      "abilityTemplate": "Each night, interrogate one player at chosen intensity: T1 Soft ('story holds / something off / nothing'), T2 Standard (same + zone hint), T3 Brutal (confirmed Heretic or Loyalist) — every intensity costs {driftWeight} drift. Target's drift zone auto-upgrades effective tier. Effective T2+ vs Orange+ target = Execute on Sight (auto-kill, alignment revealed).",
       "objective": "Find the heretics. Stay clean enough to be believed."
     },
     {
@@ -78,7 +78,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Each night, designate one player to protect. If that player is targeted by a night kill, the kill is prevented. You do not learn whether your protection fired.",
+      "abilityTemplate": "Each night, designate one player to protect. If that player is targeted by a night kill, the kill is prevented. You do not learn whether your protection fired.",
       "objective": "Keep the conclave alive. Standard Doctor slot, drift-priced."
     },
     {
@@ -102,7 +102,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Each night, receive a qualitative drift hint about one target. Reads drift, not alignment. Cannot catch Heretics who haven't drifted yet. Drift hints carry zone-based noise (T1 = half zone rate).",
+      "abilityTemplate": "Each night, receive a qualitative drift hint about one target. Reads drift, not alignment. Cannot catch Heretics who haven't drifted yet. Drift hints carry zone-based noise (T1 = half zone rate).",
       "objective": "Sense the warp on people. Punish action, not stealth."
     },
     {
@@ -126,7 +126,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Each night, bodyguard-proxy one player: take the hit for them if they're attacked. The kill lands on you instead. You survive. You and the protected player both learn next day that the proxy fired.",
+      "abilityTemplate": "Each night, bodyguard-proxy one player: take the hit for them if they're attacked. The kill lands on you instead. You survive. You and the protected player both learn next day that the proxy fired.",
       "objective": "Soak the bullet. Marks you as 'worth attacking' — durable defender slot."
     },
     {
@@ -151,7 +151,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "One-shot warp-kill. Once per game, fire a kill on any night. Drift cost on self: +15 flat (lands Psyker at Red zone, 15-19). At Red, any T2+ Interrogator scan triggers Execute on Sight (Psyker dies). No role marker — Psyker looks identical to Murderer from the table's perspective. Crippled Psyker cannot fire the kill (T1+ blocks it).",
+      "abilityTemplate": "One-shot warp-kill. Once per game, fire a kill on any night. Drift cost on self: {driftWeight} flat (lands Psyker at Red zone, {redMin}-{redMax}). At Red, any T2+ Interrogator scan triggers Execute on Sight (Psyker dies). No role marker — Psyker looks identical to Murderer from the table's perspective. Crippled Psyker cannot fire the kill (T1+ blocks it).",
       "objective": "Land one kill on a Heretic. Survive long enough to fire it. Hide that you fired it.",
       "notes": "Locked 2026-07-18 (Heretic + Nicolas). Composition: ships at ≥7p, max 1 per game. Symmetry role to H1 Murderer (hidden killer + drift-priced). At Red zone, the Loyalist Interrogator is the structural threat."
     },
@@ -194,7 +194,7 @@
         ],
         "onCripple": "disable-all"
       },
-      "ability": "Each night, choose one sermon tier and target. Whisper (−2, daily), Hymn (−5, 2/game), Litany (−10 floored at 0, once/game). Litany rescue: Priest enters Orange, target exits Red. Skilled Priests hold the conclave together; militant ones climb drift.",
+      "abilityTemplate": "Each night, choose one sermon tier and target. Whisper ({whisperTarget}, daily), Hymn ({hymnTarget}, 2/game), Litany ({litanyTarget} floored at 0, once/game). Litany rescue: Priest enters Orange, target exits Red. Skilled Priests hold the conclave together; militant ones climb drift.",
       "objective": "Cleanse drift. Keep the faithful clean. Don't burn out."
     },
     {
@@ -219,7 +219,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Each night, kill one player for +15 self-drift, gated against MAX_DRIFT (20) — if the kill would push you over, it fails silently instead and you get a private warning. Traditional hidden-killer role. Full Heretic chat access. Sees other Heretics' plans.",
+      "abilityTemplate": "Each night, kill one player for {driftWeight} self-drift, gated against MAX_DRIFT ({maxDrift}) — if the kill would push you over, it fails silently instead and you get a private warning. Traditional hidden-killer role. Full Heretic chat access. Sees other Heretics' plans.",
       "objective": "Heretic win: achieve parity (Heretic living count ≥ Loyalist living count)."
     },
     {
@@ -259,7 +259,7 @@
         ],
         "onCripple": "disable-all"
       },
-      "ability": "Same UI as Loyalist Priest. Effects inverted: target drift rises instead of falls. Detection requires drift-delta tracking across Priest interventions. Anti-Priest framing rejected 2026-07-06 — replaced with claim-disguise framing.",
+      "abilityTemplate": "Same UI as Loyalist Priest. Effects inverted: target drift rises instead of falls. Detection requires drift-delta tracking across Priest interventions. Anti-Priest framing rejected 2026-07-06 — replaced with claim-disguise framing.",
       "objective": "Hide in the Priest slot. Drift up the table without being seen. Conversion of max-drift players happens via Recruiter, not via sermons."
     },
     {
@@ -282,7 +282,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Once per day, post a message in day chat that the system attributes to a different player of your choice. The forged sender sees the message and must decide whether to publicly correct it (admitting they're the source) or let it stand (lying).",
+      "abilityTemplate": "Once per day, post a message in day chat that the system attributes to a different player of your choice. The forged sender sees the message and must decide whether to publicly correct it (admitting they're the source) or let it stand (lying).",
       "objective": "Seed chaos in table-talk. Frame the Loyalist Interrogator. Survive day-phase."
     },
     {
@@ -306,7 +306,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Each night, choose one player to booby-trap (trap expires at sunrise). Any night action performed on the trapped player: actor takes +5 drift extra; action returns false / no result; you get private notification that trap sprung. Silent detection — trapped player doesn't know.",
+      "abilityTemplate": "Each night, choose one player to booby-trap (trap expires at sunrise). Any night action performed on the trapped player: actor takes {trapDrift} drift extra; action returns false / no result; you get private notification that trap sprung. Silent detection — trapped player doesn't know.",
       "objective": "Counter investigators. Read who pokes whom. Survive without acting."
     },
     {
@@ -331,7 +331,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Each night, target one player at Black zone (drift 20) to perform the heretical catalyst. Flip is silent and immediate — victim wakes as Heretic. Failure (target not at Black): silent fail. If Saboteur trapped the target tonight: flip still resolves, but you take +5 drift extra (= +8 total).",
+      "abilityTemplate": "Each night, target one player at Black zone (drift {blackMin}) to perform the heretical catalyst. Flip is silent and immediate — victim wakes as Heretic. Failure (target not at Black): silent fail. If Saboteur trapped the target tonight: flip still resolves, but you take {trapDrift} drift extra (= {recruiterComboTotal} total).",
       "objective": "Burn max-drift players. Force Heretic parity via conversion, not just kills."
     },
     {
@@ -355,7 +355,7 @@
         ],
         "onCripple": "disable-one"
       },
-      "ability": "Once per game, target a living non-Heretic you believe is in Red drift (15-19). Costs +3 self-drift immediately, win or lose, paid the moment you submit. If confirmed Red at night-end, you possess them: you write their day chat, their vote is silently suppressed, their night action is skipped. At day's end, after the vote tally, the body detonates — they die, revealed as Neverborn with full role, faction, and drift shown. Guess wrong and the attempt wastes silently; you don't learn why.",
+      "abilityTemplate": "Once per game, target a living non-Heretic you believe is in Red drift ({redMin}-{redMax}). Costs {driftWeight} self-drift immediately, win or lose, paid the moment you submit. If confirmed Red at night-end, you possess them: you write their day chat, their vote is silently suppressed, their night action is skipped. At day's end, after the vote tally, the body detonates — they die, revealed as Neverborn with full role, faction, and drift shown. Guess wrong and the attempt wastes silently; you don't learn why.",
       "objective": "Speculate a target into Red-zone possession. One shot, no confirmation on failure — read the table, not the feedback."
     }
   ]
