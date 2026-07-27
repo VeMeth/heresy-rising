@@ -133,7 +133,7 @@
             <dl v-if="game.warpTaintVisible || me?.crippleTier || scaledCostRow" class="role-meta">
               <div v-if="game.warpTaintVisible" class="zone-row"><dt>Warp taint</dt><dd><span class="zone-gauge" role="img" :aria-label="'Last sensed drift zone: ' + knownZone"><i v-for="z in DRIFT_ZONES" :key="z" :class="[z, { lit: z === knownZone }]"></i></span><span class="zone-word" :class="knownZone">{{ knownZone }}</span></dd></div>
               <div v-if="me?.crippleTier"><dt>Torture</dt><dd>Tier {{ me.crippleTier }}</dd></div>
-              <div v-if="scaledCostRow" class="zone-row"><dt>Cost this game ({{ players.length }}p)</dt><dd class="cost-readout">{{ scaledCostRow }}</dd></div>
+              <div v-if="scaledCostRow" class="zone-row cost-row"><dt>Cost this game ({{ players.length }}p)</dt><dd class="cost-readout"><span v-for="c in scaledCostRow" :key="c.tier" class="cost-chip" :class="c.zone"><small class="chip-tier">{{ c.tier }}</small><span class="chip-cost">{{ c.value }}</span></span></dd></div>
             </dl>
           </div>
           <section class="dossier-section">
@@ -231,7 +231,7 @@ import { computed,nextTick,onBeforeUnmount,ref,watch } from 'vue';
 import { TERM_PATTERN, lookupTerm } from '../glossary.js';
 import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
 import { settings } from '../settings.js';
-import { resolveScaledCost, formatSigned } from '../driftCosts.js';
+import { DRIFT, resolveScaledCost, formatSigned } from '../driftCosts.js';
 const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
@@ -290,13 +290,14 @@ const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.
 // when they cross a zone boundary (meta.ownZone on a private system message).
 // The gauge shows the most recent hint; everyone starts the game at green.
 const DRIFT_ZONES=['green','yellow','orange','red','black'];
+const zoneForValue=v=>{for(const z of DRIFT_ZONES){const[min,max]=DRIFT.ZONES[z];if(v>=min&&v<=max)return z;}return'black';};
 const knownZone=computed(()=>{const msgs=props.game.privateMessages||[];for(let i=msgs.length-1;i>=0;i--){const meta=msgs[i]?.meta,z=meta&&typeof meta==='object'?meta.ownZone:null;if(z&&DRIFT_ZONES.includes(z))return z;}return 'green';});
 // Q34: scaled-cost roles (Interrogator) have a per-tier drift cost that
 // depends on THIS game's player count, already baked into role.ability's
 // prose — but a player scanning past a paragraph to find "the number" is
 // exactly the failure mode a dedicated readout avoids. Computed straight
 // from driftCosts.js + the live roster size, not parsed out of the prose.
-const scaledCostRow=computed(()=>{const r=role.value;if(!r?.scaledCostKey)return null;const n=players.value.length;if(!n)return null;return ['t1','t2','t3'].map(tier=>`${tier.toUpperCase()} ${formatSigned(resolveScaledCost(r.scaledCostKey,tier,n))}`).join(' · ');});
+const scaledCostRow=computed(()=>{const r=role.value;if(!r?.scaledCostKey)return null;const n=players.value.length;if(!n)return null;return ['t1','t2','t3'].map((tier,i)=>{const v=resolveScaledCost(r.scaledCostKey,tier,n);return{tier:tier.toUpperCase(),tierNum:i+1,value:formatSigned(v),zone:zoneForValue(v)};});});
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
 function castVote(choice){if(speakAsTarget.value&&possessedTarget.value)emit('vote-as',{choice,justification:voteJustification.value});else emit('vote',{choice,justification:voteJustification.value})}
 function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}
@@ -1071,6 +1072,29 @@ button.ghost.wide.stand-down-leading {
 .zone-word.orange { color: #d8945e; }
 .zone-word.red    { color: #d4534a; }
 .zone-word.black  { color: #e0574c; text-shadow: 0 0 8px rgba(163, 42, 38, 0.8); }
+
+/* Scaled-cost readout — one chip per intensity tier, tinted by the drift zone
+   that tier's cost lands the player in. Vocabulary mirrors tier-badge (pill
+   shape) and zone-word (zone palette) so it reads as part of the dossier. */
+.role-meta .cost-row dd { gap: 6px; flex-wrap: wrap; }
+.cost-chip {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  padding: 2px 7px 3px;
+  font: 600 9px/1.4 Inter, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+.cost-chip .chip-tier { font-weight: 700; opacity: 0.72; letter-spacing: 0.1em; }
+.cost-chip .chip-cost { font-weight: 600; letter-spacing: 0.04em; }
+.cost-chip.green  { color: #7fae97; border-color: rgba(127, 174, 151, 0.45); box-shadow: 0 0 6px rgba(92, 138, 118, 0.18); }
+.cost-chip.yellow { color: var(--gold2); border-color: rgba(201, 169, 97, 0.5); box-shadow: 0 0 6px rgba(201, 169, 97, 0.18); }
+.cost-chip.orange { color: #d8945e; border-color: rgba(216, 148, 94, 0.5); box-shadow: 0 0 7px rgba(192, 120, 64, 0.2); }
+.cost-chip.red    { color: #d4534a; border-color: rgba(212, 83, 74, 0.55); box-shadow: 0 0 8px rgba(163, 42, 38, 0.28); }
+.cost-chip.black  { color: #e0574c; border-color: rgba(224, 87, 76, 0.6); box-shadow: 0 0 10px rgba(163, 42, 38, 0.45); text-shadow: 0 0 8px rgba(163, 42, 38, 0.6); }
 
 .dossier-section {
   margin: 0 0 16px;
