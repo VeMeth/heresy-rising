@@ -232,6 +232,7 @@ import { TERM_PATTERN, lookupTerm } from '../glossary.js';
 import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
 import { settings } from '../settings.js';
 import { DRIFT, DRIFT_ZONE_ORDER, resolveScaledCost, formatSigned } from '../driftCosts.js';
+import rules from '@game_data/rules.json';
 const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
@@ -281,7 +282,7 @@ const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!dead
 // what fraction of LIVING votes the leader cleared — >=60% executes,
 // otherwise (any positive count) tortures. Border color previews this
 // live during the vote so players can coordinate before it resolves.
-lynchThreshold=computed(()=>Math.ceil(alive.value.length*0.6)),
+lynchThreshold=computed(()=>Math.ceil(alive.value.length*rules.day.EXECUTION_THRESHOLD)),
 lynchLeaderOutcome=computed(()=>{if(!lynchLeader.value)return null;return targetVoteCount(lynchLeader.value)>=lynchThreshold.value?'kill':'torture'}),
 standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 const secondsLeft=computed(()=>{if(!deadline.value)return null;return Math.max(0,Math.floor((deadline.value-props.now)/1000));});
@@ -528,8 +529,8 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   border-radius: 2px;
   letter-spacing: 0.04em;
 }
-/* Tiered Lynch (tiered-lynch.md v1.0.0): red = will execute (>=60% of
-   living votes), orange = will be tortured (leading, but under 60%). */
+/* Tiered Lynch (tiered-lynch.md v1.0.0): red = will execute (>=EXECUTION_THRESHOLD of
+   living votes), orange = will be tortured (leading, but under threshold). Threshold defined in game_data/rules.json. */
 .player-list li.lynch-leader.kill {
   border-color: #ff3333;
   /* background-color only — the fx layer adds a red corner reticle via

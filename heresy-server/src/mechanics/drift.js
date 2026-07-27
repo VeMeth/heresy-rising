@@ -2,14 +2,15 @@ export function driftZone(config, value) {
   return config.zones.find(zone => value >= zone.min && value <= zone.max) || config.zones.at(-1);
 }
 
-export function intelNoiseRate(config, drift, weight) {
-  const rate = driftZone(config, drift).noise || 0;
-  return weight === 1 ? rate / 2 : rate;
+export function intelNoiseRate(driftConfig, rules, drift, weight) {
+  const rate = driftZone(driftConfig, drift).noise || 0;
+  const { GENTLE_ROLE_DRIFT_WEIGHT, GENTLE_ROLE_NOISE_MULTIPLIER } = rules.interrogation;
+  return weight === GENTLE_ROLE_DRIFT_WEIGHT ? rate * GENTLE_ROLE_NOISE_MULTIPLIER : rate;
 }
 
-export function noisyResult(truth, rate, random = Math.random) {
+export function noisyResult(rules, truth, rate, random = Math.random) {
   if (random() >= rate) return truth;
-  return random() < 0.5 ? 'unclear' : truth === true ? false : truth === false ? true : 'unclear';
+  return random() < rules.interrogation.NOISE_UNCLEAR_CHANCE ? 'unclear' : truth === true ? false : truth === false ? true : 'unclear';
 }
 
 // Private narrative cue shown to the Murderer when a kill attempt is

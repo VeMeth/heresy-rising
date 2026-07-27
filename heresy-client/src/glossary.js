@@ -22,6 +22,7 @@
 
 import { validRoles } from './compositionData.js';
 import { DRIFT, ROLE_DRIFT_WEIGHT, formatSigned, renderTemplate } from './driftCosts.js';
+import rules from '@game_data/rules.json';
 
 // Aliases per role. Longest match wins at scan time, so "Heretic Priest"
 // resolves to the Heretic Priest and never to the Loyalist Priest.
@@ -95,7 +96,7 @@ const mechanicTerms = [
   {
     id: 'lynch', label: 'Lynch', kind: 'Day outcome', doc: '/docs/how-to-play',
     aliases: ['lynch', 'lynched', 'lynching'],
-    gloss: 'The day vote\'s fatal verdict. At 60% of the living — or against a suspect already marked — the conclave executes rather than tortures, and the body\'s allegiance is read out publicly.',
+    glossTemplate: 'The day vote\'s fatal verdict. At {executionPercentage}% of the living — or against a suspect already marked — the conclave executes rather than tortures, and the body\'s allegiance is read out publicly.',
   },
   {
     id: 'crippled', label: 'Crippled', kind: 'Mechanic', doc: '/docs/how-to-play',
@@ -159,7 +160,7 @@ const mechanicTerms = [
   },
 ];
 
-// Renders any entry's glossTemplate (drift/zone/catalyst/sleep — the four
+// Renders any entry's glossTemplate (drift/zone/catalyst/sleep/lynch — the entries
 // that state a number) into its final `gloss`; entries with a plain `gloss`
 // already (no numbers to template) pass through untouched.
 const MECHANIC_COST_CONTEXT = {
@@ -170,6 +171,7 @@ const MECHANIC_COST_CONTEXT = {
   orangeMin: DRIFT.ZONES.orange[0], orangeMax: DRIFT.ZONES.orange[1],
   redMin: DRIFT.ZONES.red[0], redMax: DRIFT.ZONES.red[1],
   blackMin: DRIFT.ZONES.black[0],
+  executionPercentage: Math.round(rules.day.EXECUTION_THRESHOLD * 100),
 };
 for (const term of mechanicTerms) {
   if (term.glossTemplate) term.gloss = renderTemplate(term.glossTemplate, MECHANIC_COST_CONTEXT);

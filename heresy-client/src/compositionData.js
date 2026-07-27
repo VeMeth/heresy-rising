@@ -12,6 +12,12 @@
 // driftCosts.js — see that file for why this is a second, hand-kept-in-sync
 // copy of the server's numbers rather than one shared source.
 import { DRIFT, ROLE_DRIFT_WEIGHT, SERMON_TARGET, formatSigned, renderTemplate, scaledCostLabel } from './driftCosts.js';
+// hardRules / roleThresholds below are DERIVED from game_data/composition.json
+// (the server's authoritative config, read via the @game_data Vite alias —
+// see driftCosts.js for why this pattern beats hand-typing the same numbers
+// twice) rather than re-typed here, so a threshold change in one place can't
+// silently drift out of sync with the other.
+import composition from '@game_data/composition.json';
 
 export const validRoles = new Map([
   ['imperial-citizen', {
@@ -120,23 +126,36 @@ export function roleAbilityForLobby(role, playerCount) {
   return renderTemplate(role.abilityTemplate, costContext(role.id, playerCount));
 }
 
-export const hardRules = {
-  priest_min_player_count: 5,
-  heretic_priest_min_player_count: 6,
-  recruiter_min_player_count: 8,
-  conspirator_min_player_count: 11,
-  animus_min_player_count: 8,
-};
+// Every *_min_player_count numeric entry in composition.json's hardRules
+// block (the *_rationale prose entries and non-numeric rules are filtered
+// out) — picks up any new threshold (e.g. sanctioned_psyker_min_player_count)
+// automatically instead of needing a matching line added here by hand.
+export const hardRules = Object.fromEntries(
+  Object.entries(composition.hardRules).filter(
+    ([key, value]) => key.endsWith('_min_player_count') && typeof value === 'number'
+  )
+);
 
 // Human-readable labels for the soft-rule thresholds, used by the picker to
-// explain *why* a role is gated below a given count.
-export const roleThresholds = {
-  priest:           { min: 5,  label: 'Priest ships at 5p+.' },
-  'heretic-priest': { min: 6,  label: 'Needs a Priest claim and ≥1 other Heretic for cover (6p+).' },
-  recruiter:        { min: 8,  label: 'Catalyst carrier required for the conversion win path (8p+).' },
-  conspirator:      { min: 11, label: 'Forgery needs ≥10 living players for density (11p+).' },
-  animus:           { min: 8,  label: 'Possession needs a big enough table for a speculation guess to matter (8p+).' },
+// explain *why* a role is gated below a given count. The player-count number
+// in each label is generated from hardRules (itself derived from
+// composition.json above) via the template functions below, so the label
+// can never disagree with the threshold it describes — only the prose
+// around the number is hand-kept here.
+const roleThresholdText = {
+  priest:           { key: 'priest_min_player_count',         label: (min) => `Priest ships at ${min}p+.` },
+  'heretic-priest': { key: 'heretic_priest_min_player_count', label: (min) => `Needs a Priest claim and ≥1 other Heretic for cover (${min}p+).` },
+  recruiter:        { key: 'recruiter_min_player_count',      label: (min) => `Catalyst carrier required for the conversion win path (${min}p+).` },
+  conspirator:      { key: 'conspirator_min_player_count',    label: (min) => `Forgery needs ≥10 living players for density (${min}p+).` },
+  animus:           { key: 'animus_min_player_count',         label: (min) => `Possession needs a big enough table for a speculation guess to matter (${min}p+).` },
 };
+
+export const roleThresholds = Object.fromEntries(
+  Object.entries(roleThresholdText).map(([id, { key, label }]) => {
+    const min = hardRules[key];
+    return [id, { min, label: label(min) }];
+  })
+);
 
 export const presetFlavor = {
   5:  'Interrogation cell — tight, lethal, no hiding',

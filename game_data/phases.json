@@ -1,0 +1,15 @@
+{
+  "_comment": "Phase lengths and the bounds start()/configure() clamp host overrides into. Previously module consts at the top of heresy-server/src/heresyGameManager.js. Sync mode: host may set day/night length, clamped to [floor, ceiling]. Async mode: day and night are LOCKED at ASYNC_PHASE_MS each and are not separately configurable — the host instead picks a wall-clock day-start time (DEFAULT_DAY_START_MINUTE_UTC is the default, 540 = 09:00 UTC). The two floors are deliberately asymmetric: start() allows much shorter phases than configure() so tests and demos can drive a game quickly.",
+
+  "SYNC_DAY_MS": 300000,
+  "SYNC_NIGHT_MS": 120000,
+
+  "ASYNC_PHASE_MS": 43200000,
+  "DEFAULT_DAY_START_MINUTE_UTC": 540,
+
+  "PHASE_MS_FLOOR_START": 10000,
+  "PHASE_MS_FLOOR_CONFIGURE": 60000,
+  "PHASE_MS_CEILING": 86400000,
+
+  "MAX_DRIFT_CEILING": 100
+}

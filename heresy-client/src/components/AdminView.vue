@@ -289,7 +289,8 @@
               <input v-model="spawnForm.name" type="text" placeholder="random W40k name" maxlength="20" />
             </label>
             <label>Seat hint (optional)
-              <input v-model.number="spawnForm.seatHint" type="number" min="0" max="11" placeholder="auto" />
+              <!-- max is MAX_PLAYERS - 1, expressed as a zero-based seat index -->
+              <input v-model.number="spawnForm.seatHint" type="number" min="0" :max="rules.MAX_PLAYERS - 1" placeholder="auto" />
             </label>
             <label>Per-game token budget
               <input v-model.number="spawnForm.costCeiling" type="number" min="1000" max="500000" />
@@ -571,6 +572,9 @@ import { pickBotName } from '../botNames.js';
 import { validRoles, hardRules, presetFlavor } from '../compositionData.js';
 import { validateComposition } from '../server-composition-validator.js';
 import SimResultsPanel from './SimResultsPanel.vue';
+import phases from '@game_data/phases.json';
+import rules from '@game_data/rules.json';
+import { DRIFT } from '../driftCosts.js';
 
 const STORAGE_KEY = 'heresy-rising:adminPassword';
 const passwordInput = ref(sessionStorage.getItem(STORAGE_KEY) || '');
@@ -622,7 +626,7 @@ const playersAtMaxDrift = computed(() => {
   const maxDrift = Number(detail.value?.game?.maxDrift || 0);
   return (detail.value?.players || []).filter(player => Number(player.drift || 0) >= maxDrift).length;
 });
-const archiveMaxDrift = computed(() => Number(selectedLog.value?.maxDrift) || 20);
+const archiveMaxDrift = computed(() => Number(selectedLog.value?.maxDrift) || DRIFT.MAX);
 const archiveEvents = computed(() => (selectedLog.value?.events || []).map(event => ({
   ...event,
   createdAt: event.createdAt || event.created_at,
@@ -864,7 +868,7 @@ async function saveBotNote() {
 // player count a real lobby would otherwise supply) and POST it to
 // /api/admin/simulate. No cooldown here — the server enforces its own
 // (higher) cap on this path but doesn't rate-limit it per Phase 2.
-const simPresetCounts = [5, 6, 7, 8, 9, 10, 11, 12];
+const simPresetCounts = Array.from({ length: rules.MAX_PLAYERS - rules.MIN_PLAYERS + 1 }, (_, i) => rules.MIN_PLAYERS + i);
 const simMode = ref('preset');
 const simPresetCount = ref(5);
 const simTargetCount = ref(5);

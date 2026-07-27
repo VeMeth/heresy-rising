@@ -1,11 +1,18 @@
-const SOFT_MESSAGES = {
-  S1: "Priest below 5p weakens the Heretic Priest\u2019s claim targets. Proceed?",
-  S2: "Heretic Priest below 6p lacks a Priest to mimic. Proceed?",
-  S3: "Recruiter below 8p shortens the catalyst carrier window. Proceed?",
-  S4: "Conspirator below 11p may produce sparse forgeries. Proceed?",
-  S5: "Heretic Priest without a Priest/chirurgeon target has weaker mimicry. Proceed?",
-  S6: "Animus below 8p makes a wrong speculation guess costlier relative to the table size. Proceed?"
-};
+// Player-count digits in these messages are generated from the same
+// hardRules values the checks below compare against (passed in by the
+// caller \u2014 see compositionData.js's hardRules, itself derived from
+// game_data/composition.json) instead of being re-typed, so a message can
+// never quote a stale threshold.
+function buildSoftMessages(hardRules) {
+  return {
+    S1: `Priest below ${hardRules.priest_min_player_count}p weakens the Heretic Priest\u2019s claim targets. Proceed?`,
+    S2: `Heretic Priest below ${hardRules.heretic_priest_min_player_count}p lacks a Priest to mimic. Proceed?`,
+    S3: `Recruiter below ${hardRules.recruiter_min_player_count}p shortens the catalyst carrier window. Proceed?`,
+    S4: `Conspirator below ${hardRules.conspirator_min_player_count}p may produce sparse forgeries. Proceed?`,
+    S5: "Heretic Priest without a Priest/chirurgeon target has weaker mimicry. Proceed?",
+    S6: `Animus below ${hardRules.animus_min_player_count}p makes a wrong speculation guess costlier relative to the table size. Proceed?`
+  };
+}
 
 /**
  * Validate a composition roster against hard and soft rules.
@@ -65,6 +72,17 @@ export function validateComposition({ roster, playerCount, confirmedWarnings = [
   }
 
   if (source === 'custom') {
+    // hardRules.animus_min_player_count is a required key in
+    // game_data/composition.json (not optional like the *_rationale prose
+    // fields) — a silent `?? 8` fallback here would mask a config/schema
+    // regression by quietly reproducing today's value instead of surfacing
+    // it, so a missing key throws rather than falling back.
+    if (roster.includes('animus') && hardRules.animus_min_player_count === undefined) {
+      throw new Error('validateComposition: hardRules.animus_min_player_count is required.');
+    }
+
+    const SOFT_MESSAGES = buildSoftMessages(hardRules);
+
     if (roster.includes('priest') && playerCount < hardRules.priest_min_player_count) {
       warnings.push({ kind: 'soft', rule: 'S1', message: SOFT_MESSAGES.S1 });
     }
@@ -80,7 +98,7 @@ export function validateComposition({ roster, playerCount, confirmedWarnings = [
     if (roster.includes('heretic-priest') && !roster.includes('priest') && !roster.includes('chirurgeon')) {
       warnings.push({ kind: 'soft', rule: 'S5', message: SOFT_MESSAGES.S5 });
     }
-    if (roster.includes('animus') && playerCount < (hardRules.animus_min_player_count ?? 8)) {
+    if (roster.includes('animus') && playerCount < hardRules.animus_min_player_count) {
       warnings.push({ kind: 'soft', rule: 'S6', message: SOFT_MESSAGES.S6 });
     }
 

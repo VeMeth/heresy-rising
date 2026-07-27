@@ -1,5 +1,9 @@
-export function effectiveCrippleTier(player, round) {
-  if (player.cripple_tier >= 2) return player.cripple_tier;
+// PERMANENT_AT_TIER, not JUSTIFY_VOTES_AT_TIER: this threshold is "damage
+// stops expiring", which happens to share the value 2 with the justify-your-
+// vote rule but is a different mechanic. Binding both to one key would make
+// raising the justify threshold silently turn tier-2 damage temporary.
+export function effectiveCrippleTier(rules, player, round) {
+  if (player.cripple_tier >= rules.cripple.PERMANENT_AT_TIER) return player.cripple_tier;
   return player.cripple_tier === 1 && player.tier1_until_round >= round ? 1 : 0;
 }
 
@@ -16,16 +20,14 @@ export function crippleSeverityLabel(tier) {
   return CRIPPLE_SEVERITY[tier] || `wounded (tier ${tier})`;
 }
 
-const ZONE_UPGRADE = { green: 0, yellow: 1, orange: 2, red: 2, black: 2 };
-
-export function getZoneUpgrade(zoneId) {
-  return ZONE_UPGRADE[zoneId] ?? 0;
+export function getZoneUpgrade(rules, zoneId) {
+  return rules.interrogation.zoneTierUpgrade[zoneId] ?? 0;
 }
 
-export function getEffectiveScanTier(chosenIntensity, targetZoneId) {
-  return Math.min(3, chosenIntensity + getZoneUpgrade(targetZoneId));
+export function getEffectiveScanTier(rules, chosenIntensity, targetZoneId) {
+  return Math.min(rules.interrogation.MAX_SCAN_TIER, chosenIntensity + getZoneUpgrade(rules, targetZoneId));
 }
 
-export function isExecuteOnSight(chosenIntensity, targetZoneId) {
-  return chosenIntensity >= 2 && getZoneUpgrade(targetZoneId) >= 2;
+export function isExecuteOnSight(rules, chosenIntensity, targetZoneId) {
+  return chosenIntensity >= rules.interrogation.EXECUTE_ON_SIGHT_MIN_INTENSITY && getZoneUpgrade(rules, targetZoneId) >= rules.interrogation.EXECUTE_ON_SIGHT_MIN_ZONE_UPGRADE;
 }

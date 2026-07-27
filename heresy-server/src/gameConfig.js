@@ -47,6 +47,8 @@ export function loadGameConfig() {
     },
     hardRules: compositionData.hardRules,
     drift,
+    phases: read('phases.json'),
+    rules: read('rules.json'),
     hintProfiles: { default: read('scenarios/default/hints.json') },
     deathFlavor: read('deathFlavor.json')
   };

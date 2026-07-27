@@ -39,7 +39,7 @@
       <article class="panel roster-card ops-cell">
         <header><h2>Operatives</h2>
           <span v-if="liveMode">{{ onlineCount }}/{{ players.length }} online</span>
-          <span v-else>{{ players.length }}/12</span>
+          <span v-else>{{ players.length }}/{{ rules.MAX_PLAYERS }}</span>
         </header>
         <ul class="lobby-players compact">
           <li v-for="p in players" :key="p.playerCode" :class="{offline:liveMode && !p.connected}">
@@ -52,7 +52,7 @@
             </span>
           </li>
         </ul>
-        <p v-if="players.length<5" class="notice">At least five operatives are required.</p>
+        <p v-if="players.length < rules.MIN_PLAYERS" class="notice">At least {{ rules.MIN_PLAYERS }} operatives are required.</p>
         <button class="secondary wide ready-in-ops" :class="{selected:me?.ready}" :disabled="busy" @click="$emit('ready')">{{ me?.ready?'Stand down':'Mark ready' }}</button>
       </article>
 
@@ -65,14 +65,14 @@
             <p class="anon-hint">Player names are replaced with notable Warhammer 40k characters once the game starts.</p>
             <label class="anon-toggle"><input type="checkbox" v-model="setup.warpTaintVisible" @change="scheduleSave"> Warp taint display</label>
             <p class="anon-hint">Shows each operative their own last-sensed drift zone gauge in the dossier. Off hides the gauge entirely — the hint is still sent, just not rendered.</p>
-            <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" max="100" @input="scheduleSave"></label>
+            <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" :max="phases.MAX_DRIFT_CEILING" @input="scheduleSave"></label>
             <template v-if="game.mode==='async'">
               <label>Day starts (UTC)<input type="time" v-model="dayStartTimeUTC" @change="scheduleSave"></label>
-              <p class="day-start-hint">{{ dayStartLocalPreview }}. Day and night are locked at 12h each.</p>
+              <p class="day-start-hint">{{ dayStartLocalPreview }}. Day and night are locked at {{ Math.round(phases.ASYNC_PHASE_MS / 3600000) }}h each.</p>
             </template>
             <template v-else>
-              <label>Day min<input v-model.number="dayMinutes" type="number" min="1" max="1440" @input="scheduleSave"></label>
-              <label>Night min<input v-model.number="nightMinutes" type="number" min="1" max="1440" @input="scheduleSave"></label>
+              <label>Day min<input v-model.number="dayMinutes" type="number" :min="phaseMinFloor" :max="phaseMinCeiling" @input="scheduleSave"></label>
+              <label>Night min<input v-model.number="nightMinutes" type="number" :min="phaseMinFloor" :max="phaseMinCeiling" @input="scheduleSave"></label>
             </template>
             <p class="save-indicator" :class="{visible: justSaved}">Saved</p>
           </div>
@@ -138,9 +138,9 @@
           <div class="target-size-picker">
             <label>Design for
               <span class="stepper">
-                <button type="button" class="ghost small" @click="setTargetPlayerCount(targetPlayerCount-1)" :disabled="targetPlayerCount<=5">−</button>
+                <button type="button" class="ghost small" @click="setTargetPlayerCount(targetPlayerCount-1)" :disabled="targetPlayerCount <= rules.MIN_PLAYERS">−</button>
                 <strong>{{ targetPlayerCount }}</strong>
-                <button type="button" class="ghost small" @click="setTargetPlayerCount(targetPlayerCount+1)" :disabled="targetPlayerCount>=12">+</button>
+                <button type="button" class="ghost small" @click="setTargetPlayerCount(targetPlayerCount+1)" :disabled="targetPlayerCount >= rules.MAX_PLAYERS">+</button>
               </span>
               operatives
             </label>
@@ -277,6 +277,8 @@ import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
 import { settings } from '../settings.js';
 import { socket, ensureConnected, getPlayerCode } from '../socket.js';
 import SimResultsPanel from './SimResultsPanel.vue';
+import phases from '@game_data/phases.json';
+import rules from '@game_data/rules.json';
 
 const props = defineProps({
   game: { type: Object, required: true },
@@ -292,16 +294,18 @@ const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors'
 const players = computed(() => props.game.players || []);
 const isHost = computed(() => props.me?.isHost);
 const playerCount = computed(() => players.value.length);
-const canStart = computed(() => playerCount.value >= 5 && players.value.every(p => p.ready));
-const presetCounts = [5, 6, 7, 8, 9, 10, 11, 12];
+const canStart = computed(() => playerCount.value >= rules.MIN_PLAYERS && players.value.every(p => p.ready));
+const presetCounts = Array.from({ length: rules.MAX_PLAYERS - rules.MIN_PLAYERS + 1 }, (_, i) => rules.MIN_PLAYERS + i);
 
-const setup = reactive({ maxDrift: 20, dayMs: 300000, nightMs: 120000, anonymized: false, warpTaintVisible: false, dayStartMinuteUtc: 540 });
+const setup = reactive({ maxDrift: 20, dayMs: phases.SYNC_DAY_MS, nightMs: phases.SYNC_NIGHT_MS, anonymized: false, warpTaintVisible: false, dayStartMinuteUtc: phases.DEFAULT_DAY_START_MINUTE_UTC });
 watch(() => props.game.maxDrift, v => { if (v) setup.maxDrift = v; }, { immediate: true });
 watch(() => props.game.dayMs, v => { if (v) setup.dayMs = v; }, { immediate: true });
 watch(() => props.game.nightMs, v => { if (v) setup.nightMs = v; }, { immediate: true });
 watch(() => props.game.anonymized, v => { setup.anonymized = !!v; }, { immediate: true });
 watch(() => props.game.warpTaintVisible, v => { setup.warpTaintVisible = !!v; }, { immediate: true });
 watch(() => props.game.dayStartMinuteUtc, v => { if (v != null) setup.dayStartMinuteUtc = v; }, { immediate: true });
+const phaseMinFloor = computed(() => Math.ceil(phases.PHASE_MS_FLOOR_CONFIGURE / 60000));
+const phaseMinCeiling = computed(() => Math.floor(phases.PHASE_MS_CEILING / 60000));
 const dayMinutes = computed({ get: () => Math.round(setup.dayMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.dayMs = n * 60000; } });
 const nightMinutes = computed({ get: () => Math.round(setup.nightMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.nightMs = n * 60000; } });
 // Async mode: day/night are locked at 12h, so the only thing the host
@@ -366,7 +370,7 @@ const expandedRole = ref(null);
 // (via compositionValid below) — the two are deliberately decoupled.
 const targetPlayerCount = ref(playerCount.value);
 function setTargetPlayerCount(n) {
-  targetPlayerCount.value = Math.max(5, Math.min(12, Math.round(Number(n) || playerCount.value)));
+  targetPlayerCount.value = Math.max(rules.MIN_PLAYERS, Math.min(rules.MAX_PLAYERS, Math.round(Number(n) || playerCount.value)));
 }
 watch(playerCount, (n) => {
   presetCount.value = n;
@@ -469,7 +473,7 @@ function roleFaction(id) {
 // client bundle.
 function seedMinimalRoster() {
   const n = targetPlayerCount.value;
-  if (n < 5) return;
+  if (n < rules.MIN_PLAYERS) return;
   const base = ['murderer', 'interrogator'];
   while (base.length < n) base.push('imperial-citizen');
   customRoster.value = base;

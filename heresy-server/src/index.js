@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
 import { config, isDefaultAdminPassword, isDefaultAdminApiKey } from './config.js';
 import { HeresyGameManager } from './heresyGameManager.js';
+import { loadGameConfig } from './gameConfig.js';
 import { normalizeRoomCode, requirePlayerCode, normalizePlayerCode } from './utils.js';
 import { SocketRateLimiter } from './socketRateLimiter.js';
 import { deleteGameLog, getGameLog, listGameLogs } from './gameLogs.js';
@@ -26,16 +27,24 @@ export function isRequestOriginAllowed(req, allowed) {
   }
 }
 
+// Player-count bounds live in game_data/rules.json (MIN_PLAYERS/MAX_PLAYERS)
+// — the single source of truth heresyGameManager.js's start()/join() also
+// read from. Loaded once at module scope since publicPresetMetadata (used
+// directly by tests) and resolveSimComposition below both need it without a
+// gameManager instance in hand.
+const { rules: sharedRules } = loadGameConfig();
+
 export function publicPresetMetadata(players) {
-  return { count: Math.max(5, Math.min(12, Number(players)||5)), minPlayers: 5, maxPlayers: 12 };
+  const { MIN_PLAYERS, MAX_PLAYERS } = sharedRules;
+  return { count: Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, Number(players)||MIN_PLAYERS)), minPlayers: MIN_PLAYERS, maxPlayers: MAX_PLAYERS };
 }
 
-// Engine floor/ceiling for a live game (heresyGameManager.js's start(): players.length<5||>12).
+// Engine floor/ceiling for a live game (heresyGameManager.js's start(): players.length<MIN_PLAYERS||>MAX_PLAYERS).
 // validateComposition() itself doesn't enforce this — it only checks roster.length===playerCount,
 // hard/soft role rules — so a 3p or 13p composition would otherwise sail through pre-validation
 // here and only fail once heresy-sim actually starts running real games (its own 500). Both sim
 // callers (host socket + admin REST) get a clean rejection up front instead of that round trip.
-const SIM_MIN_PLAYERS = 5, SIM_MAX_PLAYERS = 12;
+const SIM_MIN_PLAYERS = sharedRules.MIN_PLAYERS, SIM_MAX_PLAYERS = sharedRules.MAX_PLAYERS;
 
 // Derives {roster, playerCount} from the same `composition` shape heresyGameManager.start()
 // accepts, then runs it through the shared validateComposition(). This mirrors (deliberately,

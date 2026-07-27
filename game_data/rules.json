@@ -1,0 +1,40 @@
+{
+  "_comment": "Day-phase, cripple and interrogation tuning that used to be magic numbers inside heresyGameManager.js and src/mechanics/. Values here are the EXACT current engine behaviour as of the 2026-07-27 extraction — nothing was re-balanced while moving it. Win conditions are deliberately absent: heretic parity (living heretics >= living loyalists) and the Loyalist condition have no tunable parameter, so exposing them here would be a knob that does nothing.",
+
+  "MIN_PLAYERS": 5,
+  "MAX_PLAYERS": 12,
+
+  "day": {
+    "_comment": "FIRST_VOTING_ROUND 2 encodes 'Day 1 is chat-only, no vote' (Q28). STAND_DOWN_MAJORITY is a strict fraction of living players: skips > alive * 0.5 disperses the conclave. EXECUTION_THRESHOLD is the Tiered Lynch cut (tiered-lynch.md): a leader clearing ceil(alive * 0.6) is executed, below it they are tortured instead. Ties are broken by highest drift; if drift cannot break the tie the day is skipped.",
+    "FIRST_VOTING_ROUND": 2,
+    "STAND_DOWN_MAJORITY": 0.5,
+    "EXECUTION_THRESHOLD": 0.6
+  },
+
+  "cripple": {
+    "_comment": "Torture damage tiers. MAX_TIER caps escalation. At JUSTIFY_VOTES_AT_TIER a player must supply a written justification with every vote. DIRECT_ASK_AT_TIER cannot respond to torture normally and must be asked to confess directly. REFUSE_BREAK_TIER is the floor a 'refuse-break' response forces the player to (via MAX(cripple_tier, N)). PERMANENT_AT_TIER is where damage stops expiring: below it, tier 1 lapses once tier1_until_round passes; at or above it the tier is permanent. It currently equals JUSTIFY_VOTES_AT_TIER but is a SEPARATE concept — do not collapse them, or raising the justify threshold would silently make tier-2 damage temporary.",
+    "MAX_TIER": 3,
+    "JUSTIFY_VOTES_AT_TIER": 2,
+    "DIRECT_ASK_AT_TIER": 3,
+    "REFUSE_BREAK_TIER": 2,
+    "PERMANENT_AT_TIER": 2
+  },
+
+  "interrogation": {
+    "_comment": "Interrogator scan resolution. A scan's effective tier is min(MAX_SCAN_TIER, chosenIntensity + zoneTierUpgrade[targetZone]). Execute on Sight fires when chosenIntensity >= EXECUTE_ON_SIGHT_MIN_INTENSITY AND the target's zone upgrade >= EXECUTE_ON_SIGHT_MIN_ZONE_UPGRADE — with the table below that currently means T2+ against Orange or worse. NOTE: docs/specs/mechanics/drift.md records Q25 as locked at Red+, which this table does not implement; changing 'orange' to 1 here is the one-line fix if that lock is confirmed. T1_ACCURACY is the chance a Tier 1 Clean/Tainted read is truthful. GENTLE_ROLE_* halve the zone noise rate for low-drift-weight roles (Chirurgeon, Novice-Psychic, Arbitrator, Conspirator). NOISE_UNCLEAR_CHANCE splits a noisy result between 'unclear' and an inverted answer.",
+    "MAX_SCAN_TIER": 3,
+    "T1_ACCURACY": 0.7,
+    "GENTLE_ROLE_DRIFT_WEIGHT": 1,
+    "GENTLE_ROLE_NOISE_MULTIPLIER": 0.5,
+    "NOISE_UNCLEAR_CHANCE": 0.5,
+    "EXECUTE_ON_SIGHT_MIN_INTENSITY": 2,
+    "EXECUTE_ON_SIGHT_MIN_ZONE_UPGRADE": 2,
+    "zoneTierUpgrade": {
+      "green": 0,
+      "yellow": 1,
+      "orange": 2,
+      "red": 2,
+      "black": 2
+    }
+  }
+}
