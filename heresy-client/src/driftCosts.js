@@ -1,4 +1,4 @@
-// Client-side drift cost constants — values live in data/driftCosts.json for
+// Client-side drift cost constants — values live in game_data/driftCosts.json for
 // easy balance editing, imported here and re-exported alongside rendering
 // functions.
 //
@@ -15,7 +15,7 @@
 // replaces this static object is what changes; the templates that consume
 // it do not.
 
-import values from '../../data/driftCosts.json';
+import values from '../../game_data/driftCosts.json';
 
 export const DRIFT = values.DRIFT;
 export const ROLE_DRIFT_WEIGHT = values.ROLE_DRIFT_WEIGHT;
