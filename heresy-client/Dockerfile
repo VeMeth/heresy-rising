@@ -18,6 +18,7 @@ RUN cd /docs-deps && npx vitepress build site
 # Copy the SPA source. This will overwrite /app/site but the
 # built docs are still in /docs-deps/site/_site (outside /app/).
 COPY heresy-client .
+COPY game_data/driftCosts.json ./game_data/driftCosts.json
 COPY quotes.txt ../quotes.txt
 RUN mkdir -p ./public/docs && cp -r /docs-deps/site/_site/. ./public/docs/
 RUN npm run build
