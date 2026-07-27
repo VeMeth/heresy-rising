@@ -248,6 +248,9 @@ export function createHeresyServer({ databasePath, now } = {}) {
   // the per-bot payload (so we can stamp botId/role per recipient).
   function broadcastBots(code,event,payloadFor){for(const s of io.sockets.sockets.values()){if(!s.rooms.has(code)||!s.data.playerCode)continue;try{const player=gameManager.player(code,s.data.playerCode);if(!player||!player.is_bot)continue;s.emit(event,payloadFor(player));}catch{}}}
   io.on('connection',socket=>{
+    // Player preferences (seal style, etc.) — not tied to any specific game.
+    ackWrap(socket,'player:prefs:get',p=>({prefs:gameManager.getPlayerPrefs(auth(socket,p))}));
+    ackWrap(socket,'player:prefs:set',p=>({prefs:gameManager.setPlayerPrefs(auth(socket,p),p.prefs)}));
     ackWrap(socket,'game:create',p=>{const playerCode=auth(socket,p);const result=gameManager.create({playerCode,name:p.name,mode:p.mode,options:p.options});socket.join(result.code);return result;});
     ackWrap(socket,'game:join',p=>{const playerCode=auth(socket,p),code=normalizeRoomCode(p.code);const state=gameManager.join({code,playerCode,name:p.name});socket.join(code);broadcast(code);return {state};});
     ackWrap(socket,'game:spectate',p=>{const code=normalizeRoomCode(p.code);const normalized=typeof p.playerCode==='string'?normalizePlayerCode(p.playerCode):'';if(normalized.length<4){socket.data.playerCode='spec_'+Math.random().toString(36).slice(2,10);socket.data.playerCode+='_'+Date.now().toString(36).slice(-4);}else socket.data.playerCode=normalized;socket.data.isSpectator=true;socket.join(code);const state=gameManager.spectate(code);return {state,playerCode:socket.data.playerCode};});

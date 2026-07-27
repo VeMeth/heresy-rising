@@ -423,3 +423,42 @@ test('roster shuffle applies in non-anonymized games too, and survives a manager
     finally{ reopened.close(); }
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('player prefs: persist across devices by playerCode, independent of any game',()=>{
+  const f=fixture();
+  try{
+    // No game context at all — this is a global, per-identity store.
+    const empty=f.manager.getPlayerPrefs('HR-SOMEONE');
+    assert.deepEqual(empty,{},'unknown playerCode returns an empty object, not an error');
+
+    const saved=f.manager.setPlayerPrefs('HR-SOMEONE',{sealStyle:'coloured-mono'});
+    assert.deepEqual(saved,{sealStyle:'coloured-mono'});
+    assert.deepEqual(f.manager.getPlayerPrefs('HR-SOMEONE'),{sealStyle:'coloured-mono'},'a second read (simulating a second device) sees the same value');
+
+    // Setting again merges rather than replacing — future preference keys
+    // shouldn't clobber each other.
+    f.manager.setPlayerPrefs('HR-SOMEONE',{otherThing:'x'});
+    assert.deepEqual(f.manager.getPlayerPrefs('HR-SOMEONE'),{sealStyle:'coloured-mono',otherThing:'x'});
+
+    // A different playerCode is fully isolated.
+    assert.deepEqual(f.manager.getPlayerPrefs('HR-DIFFERENT'),{});
+  }finally{f.close();}
+});
+
+test('player prefs: garbage input is rejected or dropped, never corrupts the store',()=>{
+  const f=fixture();
+  try{
+    assert.throws(()=>f.manager.setPlayerPrefs('HR-X',null),/Invalid preferences payload/);
+    assert.throws(()=>f.manager.setPlayerPrefs('HR-X',['not','an','object']),/Invalid preferences payload/);
+    assert.throws(()=>f.manager.setPlayerPrefs('HR-X','a string'),/Invalid preferences payload/);
+
+    // Non-primitive values are silently dropped rather than stored or thrown on.
+    const result=f.manager.setPlayerPrefs('HR-X',{sealStyle:'ordinary',nested:{a:1},arr:[1,2]});
+    assert.deepEqual(result,{sealStyle:'ordinary'});
+
+    // An oversized payload is rejected outright rather than truncated.
+    const huge={};
+    for(let i=0;i<50;i++)huge['k'+i]='v'.repeat(200);
+    assert.throws(()=>f.manager.setPlayerPrefs('HR-Y',huge),/too large/);
+  }finally{f.close();}
+});

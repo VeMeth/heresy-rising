@@ -1,9 +1,15 @@
-// Player-local preferences (currently just the operative seal style),
-// keyed by playerCode so restoring a different identity on the same browser
-// gets that identity's own preference rather than inheriting whoever was
-// last signed in.
+// Player preferences (currently just the operative seal style).
+//
+// Two tiers, deliberately: a localStorage cache keyed by playerCode (instant,
+// works offline, survives a refresh with zero round trip), and the server —
+// the actual source of truth — keyed the same way. The cache alone isn't
+// enough: localStorage is per BROWSER, not per identity, so a player who
+// restores their playerCode on a second device starts with empty storage
+// there and had nothing to inherit. Syncing through the server (see
+// player:prefs:get/set in heresy-server) is what makes the preference follow
+// the identity rather than the device.
 import { reactive } from 'vue';
-import { getPlayerCode } from './socket.js';
+import { ensureConnected, emitWithAck, getPlayerCode } from './socket.js';
 import { DEFAULT_SEAL_STYLE, SEAL_STYLES } from './seals.js';
 
 const STORAGE_KEY = 'heresy-rising:settings';
@@ -29,26 +35,66 @@ function writeAll(all) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
   } catch {
-    // private mode / quota exceeded — preference just won't persist.
+    // private mode / quota exceeded — preference just won't persist locally;
+    // the server round trip (if it succeeds) still carries it.
   }
 }
 
-/** Re-read settings for the CURRENT playerCode. Call on boot and again after
- *  an identity change (recovery, new profile) since the storage key to read
- *  from changes with it. */
-export function loadSettings() {
+function loadLocal() {
   const code = getPlayerCode();
   const all = readAll();
   const mine = (code && all[code]) || {};
   settings.sealStyle = isKnownSealStyle(mine.sealStyle) ? mine.sealStyle : DEFAULT_SEAL_STYLE;
 }
 
-export function setSealStyle(id) {
-  if (!isKnownSealStyle(id)) return;
-  settings.sealStyle = id;
+function saveLocal(id) {
   const code = getPlayerCode();
   if (!code) return;
   const all = readAll();
   all[code] = { ...(all[code] || {}), sealStyle: id };
   writeAll(all);
+}
+
+/** Re-read settings for the CURRENT playerCode. Call on boot and again after
+ *  an identity change (recovery, new profile) since the identity to load for
+ *  changes with it.
+ *
+ *  Applies the local cache first — synchronous, so there's no flash of the
+ *  default while a round trip is in flight — then reconciles with the
+ *  server, which wins when it has an answer (it's the one place a second
+ *  device can actually learn what a first device already chose). Failures
+ *  (offline, server unreachable) are swallowed; the local cache already
+ *  applied stands as the fallback. */
+export async function loadSettings() {
+  loadLocal();
+  const code = getPlayerCode();
+  if (!code) return;
+  try {
+    await ensureConnected();
+    const res = await emitWithAck('player:prefs:get', { playerCode: code });
+    const remoteStyle = res?.prefs?.sealStyle;
+    if (isKnownSealStyle(remoteStyle)) {
+      settings.sealStyle = remoteStyle;
+      saveLocal(remoteStyle); // cache it so the next load on THIS device is instant too
+    } else if (settings.sealStyle !== DEFAULT_SEAL_STYLE) {
+      // Nothing saved server-side yet, but this device already has a local
+      // preference — push it up so a different device restoring this same
+      // identity later has something to pull down instead of the default.
+      emitWithAck('player:prefs:set', { playerCode: code, prefs: { sealStyle: settings.sealStyle } }).catch(() => {});
+    }
+  } catch {
+    // Offline / server unreachable — local cache from loadLocal() stands.
+  }
+}
+
+export function setSealStyle(id) {
+  if (!isKnownSealStyle(id)) return;
+  settings.sealStyle = id;
+  saveLocal(id);
+  const code = getPlayerCode();
+  if (!code) return;
+  emitWithAck('player:prefs:set', { playerCode: code, prefs: { sealStyle: id } }).catch(() => {
+    // Offline — the local cache above already has it; next successful
+    // loadSettings() (or another setSealStyle) will retry the push.
+  });
 }

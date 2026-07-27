@@ -93,7 +93,7 @@ async function joinOrSpectate(form) {
   // leaving them stuck on the join screen.
   await joinGame(form).catch(() => spectateGame(form.roomCode));
 }
-async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); loadSettings(); socket.disconnect(); await ensureConnected().catch(() => {}); notify('Identity restored'); }
+async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); await loadSettings(); notify('Identity restored'); }
 async function spectateGame(code) {
   if (!code) return;
   try {

@@ -124,6 +124,7 @@ function nextScheduleBoundary(now, dayStartMinuteUtc) {
 const schema = `
 CREATE TABLE IF NOT EXISTS hr_games(code TEXT PRIMARY KEY,host_code TEXT NOT NULL,mode TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'lobby',day_stage TEXT,status TEXT NOT NULL DEFAULT 'lobby',round INTEGER NOT NULL DEFAULT 0,deadline INTEGER,day_ms INTEGER NOT NULL,night_ms INTEGER NOT NULL,max_drift INTEGER NOT NULL,hint_profile TEXT NOT NULL DEFAULT 'default',last_tortured_target TEXT,last_torture_tier INTEGER NOT NULL DEFAULT 0,winner TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS hr_players(game_code TEXT NOT NULL,player_code TEXT NOT NULL,name TEXT NOT NULL,seat INTEGER NOT NULL,role_id TEXT,faction TEXT,drift INTEGER NOT NULL DEFAULT 0,alive INTEGER NOT NULL DEFAULT 1,ready INTEGER NOT NULL DEFAULT 0,connected INTEGER NOT NULL DEFAULT 1,cripple_tier INTEGER NOT NULL DEFAULT 0,tier1_until_round INTEGER,confessed INTEGER NOT NULL DEFAULT 0,confession_token_round INTEGER,skip_next_night INTEGER NOT NULL DEFAULT 0,joined_at INTEGER NOT NULL,PRIMARY KEY(game_code,player_code));
+CREATE TABLE IF NOT EXISTS hr_player_prefs(player_code TEXT PRIMARY KEY,prefs TEXT NOT NULL DEFAULT '{}',updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS hr_actions(game_code TEXT NOT NULL,round INTEGER NOT NULL,actor_code TEXT NOT NULL,kind TEXT NOT NULL,target_code TEXT,variant TEXT,data TEXT,created_at INTEGER NOT NULL,PRIMARY KEY(game_code,round,actor_code));
 CREATE TABLE IF NOT EXISTS hr_votes(game_code TEXT NOT NULL,round INTEGER NOT NULL,stage TEXT NOT NULL,voter_code TEXT NOT NULL,choice TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(game_code,round,stage,voter_code));
 CREATE TABLE IF NOT EXISTS hr_messages(id INTEGER PRIMARY KEY AUTOINCREMENT,game_code TEXT NOT NULL,channel TEXT NOT NULL,recipient_code TEXT,player_code TEXT,author TEXT NOT NULL,body TEXT NOT NULL,kind TEXT NOT NULL DEFAULT 'player',created_at INTEGER NOT NULL);
@@ -201,6 +202,31 @@ export class HeresyGameManager {
   emitBotPrompt(c,payload){for(const fn of this._botPromptListeners)try{fn(c,payload);}catch{}}
   onChatMessage(fn){this._chatMessageListeners.push(fn);}
   emitChatMessage(c,message){for(const fn of this._chatMessageListeners)try{fn(c,message);}catch{}}
+
+  // Small per-player, cross-game preference store (currently just the seal
+  // style) keyed by playerCode rather than by any specific game — this is
+  // what lets a preference chosen on one device follow the same identity
+  // when restored on another, where localStorage starts out empty. The
+  // client already normalizes/falls back on an unknown value (it owns the
+  // list of what a valid preference looks like), so this only needs to
+  // store and hand back a small flat object without choking on garbage.
+  getPlayerPrefs(playerCode){
+    const row=/** @type {{prefs:string}|undefined} */ (this.db.prepare('SELECT prefs FROM hr_player_prefs WHERE player_code=?').get(playerCode));
+    if(!row)return{};
+    try{const parsed=JSON.parse(row.prefs);return(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))?parsed:{};}catch{return{};}
+  }
+  setPlayerPrefs(playerCode,patch){
+    if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new Error('Invalid preferences payload');
+    // Flat, primitive-valued keys only, and capped — this is a small settings
+    // blob, not a general-purpose store, so garbage/oversized input is
+    // dropped rather than rejecting the whole request over one bad key.
+    const entries=Object.entries(patch).filter(([k,v])=>typeof k==='string'&&k.length<=64&&['string','number','boolean'].includes(typeof v)).slice(0,32);
+    const merged={...this.getPlayerPrefs(playerCode),...Object.fromEntries(entries)};
+    const serialized=JSON.stringify(merged);
+    if(serialized.length>4000)throw new Error('Preferences payload too large');
+    this.db.prepare('INSERT INTO hr_player_prefs(player_code,prefs,updated_at) VALUES(?,?,?) ON CONFLICT(player_code) DO UPDATE SET prefs=excluded.prefs,updated_at=excluded.updated_at').run(playerCode,serialized,this.now());
+    return merged;
+  }
   close(){this.db.close();}
   ensureColumn(table,column,definition){if(!/** @type {{name:string}[]} */ (this.db.prepare(`PRAGMA table_info(${table})`).all()).some(x=>x.name===column))this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);}
   // Renames a column in place on existing DBs (e.g. a mid-life terminology
