@@ -227,6 +227,28 @@ export class HeresyGameManager {
     this.db.prepare('INSERT INTO hr_player_prefs(player_code,prefs,updated_at) VALUES(?,?,?) ON CONFLICT(player_code) DO UPDATE SET prefs=excluded.prefs,updated_at=excluded.updated_at').run(playerCode,serialized,this.now());
     return merged;
   }
+
+  // Every conclave this playerCode has an hr_players row in — the "which
+  // games am I in" list for the conclave switcher, so a player never has to
+  // remember or bookmark a room code. Spectators are NOT included: spectating
+  // never inserts an hr_players row (see the game:spectate handler), so
+  // there is nothing persisted to list.
+  // Ended games stay listed for `endedWithinMs` (default 24h) so a player can
+  // jump back to see the final judgement, but are always sorted after every
+  // non-ended game regardless of recency — the switcher is primarily a place
+  // to resume play, not a history log.
+  listPlayerGames(playerCode,{endedWithinMs=24*60*60*1000}={}){
+    const cutoff=this.now()-endedWithinMs;
+    const rows=/** @type {any[]} */ (this.db.prepare(`
+      SELECT g.code,g.mode,g.phase,g.day_stage,g.status,g.round,g.winner,g.updated_at,g.host_code,
+        (SELECT COUNT(*) FROM hr_players hp2 WHERE hp2.game_code=g.code) AS player_count,
+        (SELECT COUNT(*) FROM hr_players hp2 WHERE hp2.game_code=g.code AND hp2.alive=1) AS alive_count
+      FROM hr_players hp JOIN hr_games g ON g.code=hp.game_code
+      WHERE hp.player_code=? AND (g.status!='ended' OR g.updated_at>=?)
+      ORDER BY (g.status='ended') ASC, g.updated_at DESC
+    `).all(playerCode,cutoff));
+    return rows.map(r=>({code:r.code,mode:r.mode,phase:r.phase,dayStage:r.day_stage,status:r.status,round:r.round,winner:r.winner,updatedAt:r.updated_at,playerCount:r.player_count,aliveCount:r.alive_count,isHost:r.host_code===playerCode}));
+  }
   close(){this.db.close();}
   ensureColumn(table,column,definition){if(!/** @type {{name:string}[]} */ (this.db.prepare(`PRAGMA table_info(${table})`).all()).some(x=>x.name===column))this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);}
   // Renames a column in place on existing DBs (e.g. a mid-life terminology

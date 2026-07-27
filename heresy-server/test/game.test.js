@@ -462,3 +462,47 @@ test('player prefs: garbage input is rejected or dropped, never corrupts the sto
     assert.throws(()=>f.manager.setPlayerPrefs('HR-Y',huge),/too large/);
   }finally{f.close();}
 });
+
+test('listPlayerGames: lists every conclave a playerCode has a seat in, active games always sorted before ended ones',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heresy-switcher-'));
+  let now=1_000_000;
+  const manager=new HeresyGameManager({databasePath:path.join(dir,'game.db'),now:()=>now,random:()=>0.9});
+  try{
+    // Game A: lobby, this player is host.
+    const {code:codeA}=manager.create({playerCode:'p0',name:'Host'});
+    // Game B: started (active), joined as a non-host.
+    const {code:codeB}=manager.create({playerCode:'other',name:'OtherHost'});
+    manager.join({code:codeB,playerCode:'p0',name:'P0'});
+    for(let i=1;i<5;i++){manager.join({code:codeB,playerCode:`b${i}`,name:`B${i}`});manager.ready(codeB,`b${i}`,true);}
+    manager.ready(codeB,'other',true);manager.ready(codeB,'p0',true);
+    now+=1000;
+    manager.start(codeB,'other');
+    // Game C: ended a long time ago (outside the default 24h window) — must not appear.
+    const {code:codeC}=manager.create({playerCode:'p0',name:'Host2'});
+    manager.db.prepare("UPDATE hr_games SET status='ended',updated_at=? WHERE code=?").run(now-25*60*60*1000,codeC);
+    // Game D: ended recently (within the window) — must appear, but after A/B.
+    const {code:codeD}=manager.create({playerCode:'p0',name:'Host3'});
+    now+=1000;
+    manager.db.prepare("UPDATE hr_games SET status='ended',winner='loyalist',updated_at=? WHERE code=?").run(now,codeD);
+    // Game E: this player was never in it — must not appear regardless of status.
+    manager.create({playerCode:'stranger',name:'Stranger'});
+
+    const list=manager.listPlayerGames('p0');
+    const codes=list.map(g=>g.code);
+    assert.ok(codes.includes(codeA)&&codes.includes(codeB)&&codes.includes(codeD),'A, B and D all present');
+    assert.ok(!codes.includes(codeC),'C is outside the 24h window and must not appear');
+    const endedIndex=codes.indexOf(codeD),lastActiveIndex=Math.max(codes.indexOf(codeA),codes.indexOf(codeB));
+    assert.ok(lastActiveIndex<endedIndex,'every non-ended game sorts before the ended one, regardless of recency');
+
+    const entryA=list.find(g=>g.code===codeA);
+    assert.equal(entryA.status,'lobby');assert.equal(entryA.isHost,true);assert.equal(entryA.playerCount,1);
+
+    const entryB=list.find(g=>g.code===codeB);
+    assert.equal(entryB.status,'active');assert.equal(entryB.phase,'day');assert.equal(entryB.isHost,false,'joined, not hosted');assert.equal(entryB.playerCount,6);
+
+    const entryD=list.find(g=>g.code===codeD);
+    assert.equal(entryD.status,'ended');assert.equal(entryD.winner,'loyalist');
+
+    assert.deepEqual(manager.listPlayerGames('ghost-code'),[],'a playerCode with no games at all returns an empty list, not an error');
+  }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

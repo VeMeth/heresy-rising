@@ -7,9 +7,12 @@
         <img class="brand-logo" src="/logo.svg" alt="" width="46" height="46" />
         <span><strong>HERESY RISING</strong><small>A game of accusation and survival</small></span>
       </button>
+      <!-- Replaces the old static "CONCLAVE {{ code }}" label that used to
+           sit in .mast-actions: the switcher already shows the current code
+           here, so a second copy on the right would just be clutter. -->
+      <ConclaveSwitcher :current-code="game?.code || ''" @switch="switchToGame" />
       <div class="mast-actions">
         <button class="ghost compact" @click="openManual" aria-haspopup="dialog">Manual</button>
-        <span v-if="game" class="game-code">CONCLAVE {{ game.code }}</span>
         <span class="connection" :class="connectionState"><i></i>{{ connectionLabel }}</span>
         <button v-if="game" class="ghost compact" @click="copyInvite">Copy invite</button>
         <SettingsMenu />
@@ -64,6 +67,7 @@ import JoinView from './components/JoinView.vue';
 import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
 import SettingsMenu from './components/SettingsMenu.vue';
+import ConclaveSwitcher from './components/ConclaveSwitcher.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
 const showManual = ref(false); const manualMounted = ref(false); const manualUrl = ref('/docs/how-to-play');
@@ -94,6 +98,28 @@ async function joinOrSpectate(form) {
   await joinGame(form).catch(() => spectateGame(form.roomCode));
 }
 async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); await loadSettings(); notify('Identity restored'); }
+// Every game the switcher lists is one this playerCode has an actual seat
+// in (listPlayerGames() joins on hr_players — a spectated-only game never
+// appears there), so this always goes through the real reconnect path,
+// never game:spectate.
+async function switchToGame(code) {
+  if (!code || code === game.value?.code) return;
+  try {
+    await ensureConnected();
+    const data = await emitWithAck('game:state', { code, playerCode: getPlayerCode() });
+    const state = normalize(data);
+    if (state) {
+      game.value = state;
+      saveGameCode(state.code);
+      history.replaceState({}, '', `?game=${state.code}`);
+      saveProfile({ playerCode: getPlayerCode(), isSpectator: false });
+      channel.value = 'public';
+      messagesByChannel.value = { public: [], faction: [], graveyard: [] };
+      hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
+      await loadHistory();
+    }
+  } catch (e) { notify(e.message || 'Unable to switch conclaves.'); }
+}
 async function spectateGame(code) {
   if (!code) return;
   try {
