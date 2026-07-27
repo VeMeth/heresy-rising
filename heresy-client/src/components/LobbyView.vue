@@ -293,12 +293,12 @@ const playerCount = computed(() => players.value.length);
 const canStart = computed(() => playerCount.value >= 5 && players.value.every(p => p.ready));
 const presetCounts = [5, 6, 7, 8, 9, 10, 11, 12];
 
-const setup = reactive({ maxDrift: 20, dayMs: 300000, nightMs: 120000, anonymized: false, warpTaintVisible: true, dayStartMinuteUtc: 540 });
+const setup = reactive({ maxDrift: 20, dayMs: 300000, nightMs: 120000, anonymized: false, warpTaintVisible: false, dayStartMinuteUtc: 540 });
 watch(() => props.game.maxDrift, v => { if (v) setup.maxDrift = v; }, { immediate: true });
 watch(() => props.game.dayMs, v => { if (v) setup.dayMs = v; }, { immediate: true });
 watch(() => props.game.nightMs, v => { if (v) setup.nightMs = v; }, { immediate: true });
 watch(() => props.game.anonymized, v => { setup.anonymized = !!v; }, { immediate: true });
-watch(() => props.game.warpTaintVisible, v => { setup.warpTaintVisible = v == null ? true : !!v; }, { immediate: true });
+watch(() => props.game.warpTaintVisible, v => { setup.warpTaintVisible = !!v; }, { immediate: true });
 watch(() => props.game.dayStartMinuteUtc, v => { if (v != null) setup.dayStartMinuteUtc = v; }, { immediate: true });
 const dayMinutes = computed({ get: () => Math.round(setup.dayMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.dayMs = n * 60000; } });
 const nightMinutes = computed({ get: () => Math.round(setup.nightMs / 60000), set: v => { const n = Math.round(Number(v) || 0); if (n >= 1) setup.nightMs = n * 60000; } });

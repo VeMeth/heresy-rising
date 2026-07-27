@@ -167,12 +167,12 @@ export class HeresyGameManager {
     // whether narrative text/state payloads show it or the real `name`.
     this.ensureColumn('hr_games','anonymized',"INTEGER NOT NULL DEFAULT 0");
     this.ensureColumn('hr_players','codename',"TEXT");
-    // Warp-taint gauge (Operational Parameters, lobby-only, on by default):
-    // when off, the client's dossier drops the last-sensed-zone gauge. This
+    // Warp-taint gauge (Operational Parameters, lobby-only, off by default):
+    // when on, the client's dossier shows the last-sensed-zone gauge. This
     // is a pure display preference — the server always computes and sends
     // the zone hint privately regardless of this flag; only the client's
     // rendering of it is gated. See state()/spectate() below.
-    this.ensureColumn('hr_games','warp_taint_visible',"INTEGER NOT NULL DEFAULT 1");
+    this.ensureColumn('hr_games','warp_taint_visible',"INTEGER NOT NULL DEFAULT 0");
     // Async mode's host-chosen day-start time (minutes since midnight UTC,
     // 0-1439); unused/null for live games. See nextScheduleBoundary above.
     this.ensureColumn('hr_games','day_start_minute_utc',"INTEGER");
