@@ -365,3 +365,61 @@ test('Async mode: starting during the day window still ends Day 1 at the same ni
     assert.equal(manager.game(code).deadline,Date.parse('2026-07-26T21:00:00.000Z'),'starting mid-day still lands on the same-day night-start');
   }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('roster display order is reshuffled at start(), breaking the lobby -> game position mapping',()=>{
+  // Codenames are handed out in seat order, so a seat-ordered in-game roster
+  // used to keep every player on the row they occupied in the lobby — which
+  // handed anyone who glanced at the lobby a complete codename -> real-name
+  // mapping and defeated anonymized mode outright. It also gave whoever
+  // joined first a permanent top-of-list position in a game whose core act is
+  // voting on that list. start() now assigns a fresh random display_order.
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heresy-order-'));
+  // random:()=>0 makes every Fisher-Yates draw pick index 0, giving the
+  // deterministic rotation [1,2,3,4,0]. (A constant 0.9 would instead make
+  // every swap a self-swap and leave the order untouched.)
+  const manager=new HeresyGameManager({databasePath:path.join(dir,'game.db'),now:()=>1_000_000,random:()=>0});
+  try{
+    const {code}=manager.create({playerCode:'p0',name:'P0'});
+    for(let i=1;i<5;i++){manager.join({code,playerCode:`p${i}`,name:`P${i}`});manager.ready(code,`p${i}`,true);}
+    const lobbyOrder=manager.state(code,'p1').players.map(p=>p.playerCode);
+    assert.deepEqual(lobbyOrder,['p0','p1','p2','p3','p4'],'lobby stays in join/seat order');
+
+    manager.start(code,'p0');
+    const gameOrder=manager.state(code,'p1').players.map(p=>p.playerCode);
+    assert.notDeepEqual(gameOrder,lobbyOrder,'in-game roster is not the lobby order');
+    assert.deepEqual([...gameOrder].sort(),[...lobbyOrder].sort(),'same players, only reordered');
+
+    // Every viewer sees the one shared order, and it is stable across reads
+    // (persisted, not recomputed per request — otherwise the roster would
+    // reshuffle under players on every state push).
+    assert.deepEqual(manager.state(code,'p3').players.map(p=>p.playerCode),gameOrder,'same order for every viewer');
+    assert.deepEqual(manager.state(code,'p1').players.map(p=>p.playerCode),gameOrder,'stable across repeated reads');
+    assert.deepEqual(manager.spectate(code).players.map(p=>p.playerCode),gameOrder,'spectators see it too');
+
+    // players() stays seat-ordered — game logic (role dealing, codename
+    // assignment) is indexed by it and must not follow the display shuffle.
+    assert.deepEqual(manager.players(code).map(p=>p.player_code),['p0','p1','p2','p3','p4']);
+  }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('roster shuffle applies in non-anonymized games too, and survives a manager restart',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heresy-order2-'));
+  const dbPath=path.join(dir,'game.db');
+  let order;
+  const manager=new HeresyGameManager({databasePath:dbPath,now:()=>1_000_000,random:()=>0});
+  try{
+    const {code}=manager.create({playerCode:'p0',name:'P0'}); // anonymized OFF
+    for(let i=1;i<5;i++){manager.join({code,playerCode:`p${i}`,name:`P${i}`});manager.ready(code,`p${i}`,true);}
+    manager.start(code,'p0');
+    assert.equal(manager.game(code).anonymized,0,'this game is not anonymized');
+    order=manager.state(code,'p1').players.map(p=>p.playerCode);
+    assert.notDeepEqual(order,['p0','p1','p2','p3','p4'],'shuffled even without anonymized mode');
+    manager.close();
+
+    // Reopening the DB must yield the same roster — the order is a stored
+    // column, so a server restart mid-game doesn't rearrange the table.
+    const reopened=new HeresyGameManager({databasePath:dbPath,now:()=>1_000_000,random:()=>0});
+    try{ assert.deepEqual(reopened.state(code,'p1').players.map(p=>p.playerCode),order,'order persists across restart'); }
+    finally{ reopened.close(); }
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});

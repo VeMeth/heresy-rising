@@ -20,7 +20,7 @@
         </header>
         <ul class="player-list">
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)">
-            <span class="portrait" :data-status="portraitStatus(p)"><svg class="portrait-glyph"><use :href="portraitGlyph(p)"/></svg></span>
+            <span class="portrait" :data-status="portraitStatus(p)" :data-seal="sealFor(p.name).field" :style="sealStyle(sealFor(p.name))">{{ sealFor(p.name).initial }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small></div>
             <small v-if="p.alive&&p.crippleTier" class="tier-badge" :data-tier="p.crippleTier">T{{ p.crippleTier }}</small>
             <span v-else-if="!p.alive" class="death-badge" :class="{executed:p.crippleTier===3}" :title="p.crippleTier===3?'Lynched':'Slain'"><svg class="death-glyph" aria-hidden="true"><use :href="p.crippleTier===3?'#hr-execution':'#hr-deceased'"/></svg></span>
@@ -56,7 +56,7 @@
                   <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
                     <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span></span>
                     <template v-else>
-                      <span class="avatar mini">{{ initial(m.author) }}</span>
+                      <span class="avatar mini" :data-seal="sealFor(m.author).field" :style="sealStyle(sealFor(m.author))">{{ sealFor(m.author).initial }}</span>
                       <div>
                         <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
                         <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
@@ -69,7 +69,7 @@
             <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
               <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span></span>
               <template v-else>
-                <span class="avatar mini">{{ initial(m.author) }}</span>
+                <span class="avatar mini" :data-seal="sealFor(m.author).field" :style="sealStyle(sealFor(m.author))">{{ sealFor(m.author).initial }}</span>
                 <div>
                   <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
                   <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
@@ -188,7 +188,7 @@
                 </label>
                 <div class="targets">
                   <button v-for="p in actionTargets" :key="p.playerCode" :class="{selected:game.myAction?.kind===nightAction?.kind&&game.myAction?.targetCode===p.playerCode}" @click="act(p.playerCode)">
-                    <span class="target-avatar">{{ initial(p.name) }}</span>
+                    <span class="target-avatar" :data-seal="sealFor(p.name).field" :style="sealStyle(sealFor(p.name))">{{ sealFor(p.name).initial }}</span>
                     <span class="target-name">{{ p.name }}</span>
                   </button>
                 </div>
@@ -204,7 +204,7 @@
             <p class="dossier-text cabal-hint">Faction-wide — only one Heretic's claim lands each night. This shares your night action slot: submitting it replaces any personal directive above, and vice versa.</p>
             <div class="targets">
               <button v-for="p in bloodRitualTargets" :key="p.playerCode" :class="{selected:game.myAction?.kind==='blood-ritual'&&game.myAction?.targetCode===p.playerCode}" @click="bloodRitual(p.playerCode)">
-                <span class="target-avatar">{{ initial(p.name) }}</span>
+                <span class="target-avatar" :data-seal="sealFor(p.name).field" :style="sealStyle(sealFor(p.name))">{{ sealFor(p.name).initial }}</span>
                 <span class="target-name">{{ p.name }}</span>
               </button>
             </div>
@@ -228,6 +228,7 @@
 <script setup>
 import { computed,nextTick,onBeforeUnmount,ref,watch } from 'vue';
 import { TERM_PATTERN, lookupTerm } from '../glossary.js';
+import { buildSealMap, fallbackSeal, sealStyle } from '../seals.js';
 const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
@@ -366,7 +367,13 @@ const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.
 // isn't cleared by a skip day or by someone else being tortured in
 // between, so more than one player can carry it at once.
 function portraitStatus(p){if(!p.alive)return'deceased';if(props.game.atRiskTargets?.includes(p.playerCode))return'at-risk';return'alive';}
-function portraitGlyph(p){return !p.alive?'#hr-deceased':'#hr-alive';}
+// Operative seals. Keyed by displayed name (see seals.js for why not by
+// playerCode), so a forged Conspirator post or an Animus speaking as their
+// victim carries the seal of the name it's attributed to — which is the whole
+// point of those abilities. Authors not on the roster (the Vox's system posts)
+// fall back to a neutral plate.
+const sealMap=computed(()=>buildSealMap(players.value.map(p=>p.name)));
+function sealFor(name){return sealMap.value.get(name)||fallbackSeal(name);}
 // Classify a system-log line so the transcript is scannable — glyph + tint
 // per event type. Night kills are tagged server-side (meta.eventType —
 // see heresyGameManager.js's system() calls) rather than sniffed from the
@@ -839,14 +846,14 @@ button.ghost.wide.stand-down-leading {
 
 /* Cabal transmissions: oxblood variant of the vox frame (global
    message chrome lives in fx.css). */
+/* Cabal channel keeps its oxblood glow, but the seal still supplies the
+   tone and ink — who is speaking matters more than which channel, and the
+   bubble/header already carry the channel colour. */
 .message.faction .avatar.mini {
-  border-color: rgba(255, 107, 107, .55);
-  color: #ff8a8a;
   box-shadow:
     0 0 0 1px #0a0b09,
     0 0 10px rgba(255, 107, 107, .22),
     inset 0 1px 0 rgba(255, 138, 138, .15);
-  text-shadow: 0 0 8px rgba(255, 107, 107, .55);
 }
 
 .message.faction header strong {
@@ -1252,17 +1259,17 @@ button.ghost.wide.stand-down-leading {
 .phase-sigil { width: 26px; height: 26px; stroke: currentColor; fill: none; display: block; }
 
 /* Roster: octagonal portrait plate with a status ring, replacing the letter box */
+/* Geometry only — the tone, field and border come from the operative seal
+   ([data-seal] in style.css). Status stays on --ring, which now drives just
+   the corner pip and the at-risk glow rather than the whole plate, so
+   identity and state never fight for the same surface. */
 .player-list .portrait {
   --ring: #7d6a3f;
   position: relative;
   display: grid; place-items: center;
   flex: 0 0 34px; width: 34px; height: 34px;
-  font: 700 12px Cinzel, serif; line-height: 1;
-  color: var(--gold);
-  background: linear-gradient(160deg, #1c1710, #0d0a07);
-  border: 1px solid var(--ring);
+  font: 700 13px Cinzel, serif; line-height: 1;
   clip-path: polygon(28% 0, 72% 0, 100% 28%, 100% 72%, 72% 100%, 28% 100%, 0 72%, 0 28%);
-  text-shadow: 0 0 8px rgba(223, 194, 124, .4);
 }
 .player-list .portrait::after {
   content: ''; position: absolute; right: -1px; bottom: -1px;
@@ -1270,7 +1277,9 @@ button.ghost.wide.stand-down-leading {
   background: var(--ring); box-shadow: 0 0 8px var(--ring);
 }
 .player-list .portrait[data-status="alive"]    { --ring: #b69a5c; }
-.player-list .portrait[data-status="deceased"] { --ring: #3a2f22; color: #4a4034; filter: grayscale(1) brightness(.75); }
+/* Dead operatives desaturate but keep their field and initial, so you can
+   still tell at a glance who the body was. */
+.player-list .portrait[data-status="deceased"] { --ring: #3a2f22; filter: grayscale(1) brightness(.75); }
 /* Tiered Lynch v1.1.0: tortured yesterday — one more torture
    (as today's lynch leader) away from a free execution. Persistent, unlike
    the live vote-in-progress .lynch-leader border below. */

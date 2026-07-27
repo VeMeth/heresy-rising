@@ -490,3 +490,47 @@ button.secondary.selected {
 .system-line::after {
   background: linear-gradient(90deg, rgba(182, 154, 92, 0.3), transparent);
 }
+
+/* ============================================================
+   OPERATIVE SEALS
+   Per-player identity mark: an aged-pigment tone, a heraldic
+   division of the field, and the initial. Applied on top of the
+   existing size classes (.avatar / .avatar.mini / .portrait /
+   .target-avatar), which keep owning dimensions and clip-path —
+   these rules only paint. Driven by two custom properties set
+   inline per element (--seal, --seal-ink); see src/seals.js.
+
+   Global rather than component-scoped because the roster lives in
+   GameView/LobbyView while chat authors and night-action targets
+   are rendered elsewhere, and the same player must look identical
+   in all of them for the mark to be worth anything.
+   ============================================================ */
+/* Doubled attribute selector: raises specificity to (0,2,0) so these win
+   against `.targets button span` (0,1,2) and `.avatar` (0,1,0) without
+   reaching for !important. */
+[data-seal][data-seal] {
+  color: var(--seal-ink, var(--gold2));
+  border: 1px solid color-mix(in srgb, var(--seal, #2a2c25) 70%, #000);
+  background: linear-gradient(160deg,
+    var(--seal, #2a2c25),
+    color-mix(in srgb, var(--seal, #2a2c25) 55%, #0d0a07));
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+}
+/* Heraldic divisions. Second tone is the same pigment dropped toward
+   the plate ground, so a field reads as one weathered colour, not two. */
+[data-seal="bend"][data-seal="bend"] {
+  background: linear-gradient(135deg,
+    var(--seal) 50%, color-mix(in srgb, var(--seal) 34%, #0d0a07) 50%);
+}
+[data-seal="fess"][data-seal="fess"] {
+  background: linear-gradient(180deg,
+    var(--seal) 50%, color-mix(in srgb, var(--seal) 34%, #0d0a07) 50%);
+}
+[data-seal="pale"][data-seal="pale"] {
+  background: linear-gradient(90deg,
+    var(--seal) 50%, color-mix(in srgb, var(--seal) 34%, #0d0a07) 50%);
+}
+[data-seal="barry"][data-seal="barry"] {
+  background: repeating-linear-gradient(180deg,
+    var(--seal) 0 5px, color-mix(in srgb, var(--seal) 30%, #0d0a07) 5px 10px);
+}
