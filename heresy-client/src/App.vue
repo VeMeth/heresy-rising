@@ -159,7 +159,7 @@ async function submitFactionAction(payload) { try { const data=await command('ac
 async function retractAction() { try { const data = await command('action:retract', { code: game.value.code }); if (data?.action === null) game.value = { ...game.value, myAction: null }; } catch {} }
 async function respondTorture(response) { try { await command('torture:respond', { code: game.value.code, response }); } catch {} }
 async function askConfession(targetCode) { try { await command('confession:ask', { code: game.value.code, targetCode }); } catch {} }
-async function leaveGame() { try { if (game.value) await command('game:leave', { code: game.value.code }); } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
+async function leaveGame() { try { if (game.value) { const data = await command('game:leave', { code: game.value.code }); if (data?.disbanded) notify('You were the only one there — the conclave has been disbanded.'); } } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
 function leaveToHome() { if (!game.value || confirm('Leave this game? You can return with the same player code.')) leaveGame(); }
 function openManual(path) {
   manualMounted.value = true;

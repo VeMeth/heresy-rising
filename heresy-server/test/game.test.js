@@ -506,3 +506,76 @@ test('listPlayerGames: lists every conclave a playerCode has a seat in, active g
     assert.deepEqual(manager.listPlayerGames('ghost-code'),[],'a playerCode with no games at all returns an empty list, not an error');
   }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('game:leave — a solo lobby is disbanded outright, not left as an orphaned shell',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heresy-leave-'));
+  const manager=new HeresyGameManager({databasePath:path.join(dir,'game.db')});
+  try{
+    const {code}=manager.create({playerCode:'p0',name:'Solo'});
+    assert.ok(manager.game(code),'game exists before leaving');
+
+    const result=manager.leave(code,'p0');
+    assert.deepEqual(result,{disbanded:true});
+    assert.equal(manager.game(code),undefined,'the game row itself is gone');
+    assert.deepEqual(manager.players(code),[],'no player rows survive either');
+
+    // Fully gone, not just emptied — a second leave call on the same
+    // (now nonexistent) code must fail cleanly rather than resurrect anything.
+    assert.throws(()=>manager.leave(code,'p0'));
+  }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('game:leave — leaving a lobby with other players present only disconnects, never disbands',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heresy-leave2-'));
+  const manager=new HeresyGameManager({databasePath:path.join(dir,'game.db')});
+  try{
+    const {code}=manager.create({playerCode:'p0',name:'Host'});
+    manager.join({code,playerCode:'p1',name:'P1'});
+
+    const result=manager.leave(code,'p0');
+    assert.deepEqual(result,{disbanded:false});
+    assert.ok(manager.game(code),'game still exists — another player remains');
+    assert.equal(manager.player(code,'p0').connected,0,'the leaver is marked disconnected, not removed — this is what lets them return with the same code');
+    assert.ok(manager.player(code,'p1'),'the remaining player is untouched');
+
+    // p1 leaving too does NOT cascade into a disband, even though p0's row
+    // is now disconnected: "alone" is judged by row presence, not live
+    // connection state. The alternative (count only currently-connected
+    // rows) would mean one player's explicit leave could disband a lobby
+    // out from under someone else who is merely mid-reconnect after a
+    // network blip — worse than the gap it would close. p0's disconnected
+    // seat still means "someone else has a stake in this lobby."
+    const secondResult=manager.leave(code,'p1');
+    assert.deepEqual(secondResult,{disbanded:false},"p0's disconnected-but-present row keeps this from counting as empty");
+    assert.ok(manager.game(code),'game still exists — both rows are disconnected but neither was ever removed');
+  }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('game:leave — never disbands a started game, even if the leaver was the last one connected',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heresy-leave3-'));
+  const manager=new HeresyGameManager({databasePath:path.join(dir,'game.db')});
+  try{
+    const {code}=manager.create({playerCode:'p0',name:'Host'});
+    for(let i=1;i<5;i++){manager.join({code,playerCode:`p${i}`,name:`P${i}`});manager.ready(code,`p${i}`,true);}
+    manager.ready(code,'p0',true);
+    manager.start(code,'p0');
+
+    const result=manager.leave(code,'p0');
+    assert.deepEqual(result,{disbanded:false},'started games are never disbanded by a leave, regardless of headcount');
+    assert.ok(manager.game(code),'the game record survives');
+    assert.equal(manager.player(code,'p0').connected,0);
+  }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('game:leave — a bot left alone in the lobby after the host leaves is NOT enough to disband (only a true zero-player lobby is)',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heresy-leave4-'));
+  const manager=new HeresyGameManager({databasePath:path.join(dir,'game.db')});
+  try{
+    const {code}=manager.create({playerCode:'p0',name:'Host'});
+    manager.adminSpawnBot(code,{name:'Bot One'});
+
+    const result=manager.leave(code,'p0');
+    assert.deepEqual(result,{disbanded:false},'a bot is still a row in the lobby, so the host leaving does not zero it out');
+    assert.ok(manager.game(code));
+  }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

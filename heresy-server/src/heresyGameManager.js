@@ -299,6 +299,22 @@ export class HeresyGameManager {
   }
   join({code,playerCode,name}){const g=this.requireGame(code);let p=this.player(code,playerCode);if(!p){if(g.phase!=='lobby')throw new Error('Game already started');const count=this.players(code).length;if(count>=12)throw new Error('Game is full');this.db.prepare('INSERT INTO hr_players(game_code,player_code,name,seat,joined_at) VALUES(?,?,?,?,?)').run(code,playerCode,sanitizePlayerName(name),count,this.now());}else this.db.prepare('UPDATE hr_players SET connected=1 WHERE game_code=? AND player_code=?').run(code,playerCode);return this.state(code,playerCode);}
   disconnect(playerCode,gameCode){if(gameCode)this.db.prepare('UPDATE hr_players SET connected=0 WHERE game_code=? AND player_code=?').run(gameCode,playerCode);else this.db.prepare('UPDATE hr_players SET connected=0 WHERE player_code=?').run(playerCode);}
+  // Explicit "Leave conclave" — distinct from disconnect() (a dropped
+  // socket, reconnectable with the same player code). Still-in-lobby games
+  // keep the leaver's hr_players row on a plain leave (that row is exactly
+  // what lets them return with the same code, and it's what the conclave
+  // switcher/roster show while they're gone) — UNLESS they were the only
+  // row left, in which case there is nothing to return TO: the lobby is
+  // disbanded outright rather than orphaned as an empty shell that would
+  // otherwise sit forever in nobody's roster and nobody's switcher.
+  // Scoped to the lobby on purpose — an active or ended game keeps its
+  // record regardless of who's still connected.
+  leave(c,p){
+    const g=this.requireGame(c);
+    if(g.phase==='lobby'&&this.player(c,p)&&this.players(c).length<=1){this.adminDeleteGame(c);return{disbanded:true};}
+    this.disconnect(p,c);
+    return{disbanded:false};
+  }
 reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET connected=1 WHERE game_code=? AND player_code=?').run(c,p);return this.state(c,p);}
   kick(c,hostCode,targetCode){const g=this.requireHost(c,hostCode);const target=this.requirePlayer(c,targetCode);if(target.player_code===hostCode)throw new Error('Host cannot kick themselves');if(g.phase!=='lobby')throw new Error('Kick is only allowed in the lobby');this.db.prepare('DELETE FROM hr_players WHERE game_code=? AND player_code=?').run(c,targetCode);return this.state(c,hostCode);}
   ready(c,p,value){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET ready=? WHERE game_code=? AND player_code=?').run(value===undefined?1:+!!value,c,p);return this.state(c,p);}
