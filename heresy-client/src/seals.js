@@ -1,10 +1,19 @@
 // Operative seals — the per-player identity mark shown in the roster, in chat,
 // on night-action targets, and in the lobby.
 //
-// Three independent channels, so two operatives are never hard to tell apart:
+// Three player-selectable styles (src/settings.js persists the choice):
+//   ordinary       monochrome gold plate + a heraldic ordinary, two-letter mark
+//   coloured       12-tone palette + heraldic field, single-initial mark
+//   coloured-mono  identical plate to 'coloured', two-letter mark
+//
+// For the coloured styles, three independent channels mean two operatives are
+// never hard to tell apart:
 //   tone    an aged-pigment hue from the palette below
-//   field   a heraldic division of the plate (solid / bend / fess / pale / barry)
-//   initial the first letter of the displayed name
+//   field   a heraldic division of the plate (solid / bend / fess / pale / roundel)
+//   text    the initial (or monogram) of the displayed name
+// The gold style drops tone and field (there's only one colour, gold) and
+// leans on the ordinary (the shape of the gold band) plus the two-letter mark
+// to carry the distinction instead.
 //
 // Seeded from the DISPLAYED NAME, never from playerCode or seat. Everyone can
 // see every playerCode, including in the lobby, so a seal derived from it would
@@ -13,8 +22,31 @@
 // the shown name means the seal changes exactly when the name does.
 //
 // Assignment is by sorted position among the current roster rather than by
-// hashing the name: with 12 players and 12 tones a hash collides better than
-// nine times in ten, whereas an index cannot collide at all.
+// hashing the name: with 12 players and 12 tones (or 6 ordinaries) a hash
+// collides better than nine times in ten, whereas an index cannot collide at
+// all. The same index also drives the gold ordinary, so switching styles keeps
+// each player's relative position (and thus adjacency to same-initial names)
+// stable.
+
+export const DEFAULT_SEAL_STYLE = 'ordinary';
+
+// The bands painted onto a gold plate in src/style.css. 'plain' is deliberately
+// first (and thus the fallback pattern) since it's the least decorated.
+export const SEAL_ORDINARIES = ['plain', 'chief', 'base', 'barbell', 'bordure', 'flanks'];
+
+export const SEAL_STYLES = [ // order = display order in the settings menu
+  { id: 'ordinary', name: 'Gold ordinary', blurb: 'One plate, one colour. A heraldic mark struck in gold, plus two letters.' },
+  { id: 'coloured', name: 'Coloured seals', blurb: 'A pigment tone and a divided field, with the operative\'s initial.' },
+  { id: 'coloured-mono', name: 'Coloured + letters', blurb: 'The same coloured seals, showing two letters instead of one.' },
+];
+
+function isKnownStyle(id) {
+  return SEAL_STYLES.some(s => s.id === id);
+}
+
+function normalizeStyle(id) {
+  return isKnownStyle(id) ? id : DEFAULT_SEAL_STYLE;
+}
 
 // Ordered so that adjacent indices are far apart in hue — a 5-player game uses
 // only the first five slots, and those should look nothing like each other.
@@ -70,35 +102,79 @@ function initialOf(name) {
   return (String(name || '?').trim()[0] || '?').toUpperCase();
 }
 
+const VOWELS = new Set(['A', 'E', 'I', 'O', 'U']);
+
+// First letter plus the next non-vowel — reads as a proper monogram (SB, SV,
+// SN) rather than the first two raw characters, which for most names would
+// just be a consonant and a vowel. Must never throw and never return empty:
+// strip to A-Z0-9 first so punctuation/diacritics/emoji in a player-chosen
+// display name can't break it, then fall back step by step toward the raw
+// name if stripping leaves too little to work with.
+//   'Sabine'->'SB'  'Sevatar'->'SV'  'Sanguinius'->'SN'  'Cain'->'CN'  'Castellan'->'CS'
+function monogramOf(name) {
+  const clean = String(name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!clean) return initialOf(name);
+  if (clean.length === 1) return clean;
+  const first = clean[0];
+  const rest = clean.slice(1);
+  for (const ch of rest) {
+    if (!VOWELS.has(ch)) return first + ch;
+  }
+  // No non-vowel anywhere after the first letter (e.g. 'Ai') — just take the
+  // first two characters rather than manufacturing a letter from nothing.
+  return first + rest[0];
+}
+
+function textFor(name, styleId) {
+  // 'coloured' shows a single initial; the other two styles show a monogram.
+  return styleId === 'coloured' ? initialOf(name) : monogramOf(name);
+}
+
 /**
  * Build a name -> seal lookup for one game's roster.
  * @param {string[]} names displayed names of the current players
- * @returns {Map<string, {bg:string, ink:string, field:string, initial:string}>}
+ * @param {string} [styleId] one of SEAL_STYLES' ids
+ * @returns {Map<string, object>} see the seal shapes documented at the top of this file
  */
-export function buildSealMap(names) {
+export function buildSealMap(names, styleId = DEFAULT_SEAL_STYLE) {
+  const style = normalizeStyle(styleId);
   const roster = [...new Set((names || []).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const map = new Map();
   roster.forEach((name, i) => {
-    const bg = SEAL_PALETTE[i % SEAL_PALETTE.length];
-    map.set(name, {
-      bg,
-      ink: inkFor(bg),
-      // Cycling the field on a different modulus than the tone means two
-      // players who land on similar-looking tones still differ in field.
-      field: SEAL_FIELDS[i % SEAL_FIELDS.length],
-      initial: initialOf(name),
-    });
+    const text = textFor(name, style);
+    if (style === 'ordinary') {
+      map.set(name, { kind: 'gold', pattern: SEAL_ORDINARIES[i % SEAL_ORDINARIES.length], text });
+    } else {
+      const bg = SEAL_PALETTE[i % SEAL_PALETTE.length];
+      map.set(name, {
+        kind: 'colour',
+        // Cycling the field on a different modulus than the tone means two
+        // players who land on similar-looking tones still differ in field.
+        pattern: SEAL_FIELDS[i % SEAL_FIELDS.length],
+        text,
+        bg,
+        ink: inkFor(bg),
+      });
+    }
   });
   return map;
 }
 
 // For authors who aren't on the roster — system posts ("The Vox"), or a name
-// from scrollback belonging to someone no longer listed. Neutral plate, no tone.
-export function fallbackSeal(name) {
-  return { bg: '#2a2c25', ink: '#b8b5a7', field: 'solid', initial: initialOf(name) };
+// from scrollback belonging to someone no longer listed. Neutral plate, no
+// tone/pattern beyond the least-decorated option for the active style.
+export function fallbackSeal(name, styleId = DEFAULT_SEAL_STYLE) {
+  const style = normalizeStyle(styleId);
+  const text = textFor(name, style);
+  if (style === 'ordinary') {
+    return { kind: 'gold', pattern: 'plain', text };
+  }
+  return { kind: 'colour', pattern: 'solid', text, bg: '#2a2c25', ink: '#b8b5a7' };
 }
 
-/** Inline style for a seal element. */
-export function sealStyle(seal) {
+/** Inline style vars for a seal element — empty for 'gold' since the plate is
+ *  painted entirely from CSS (no per-player colour to pass through). */
+export function sealVars(seal) {
+  if (!seal || seal.kind !== 'colour') return {};
   return { '--seal': seal.bg, '--seal-ink': seal.ink };
 }

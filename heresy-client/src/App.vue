@@ -12,6 +12,7 @@
         <span v-if="game" class="game-code">CONCLAVE {{ game.code }}</span>
         <span class="connection" :class="connectionState"><i></i>{{ connectionLabel }}</span>
         <button v-if="game" class="ghost compact" @click="copyInvite">Copy invite</button>
+        <SettingsMenu />
       </div>
     </header>
 
@@ -55,12 +56,14 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ensureConnected, emitWithAck, getPlayerCode, setPlayerCode, socket } from './socket';
+import { loadSettings } from './settings.js';
 import AdminView from './components/AdminView.vue';
 import AnnouncementOverlay from './components/AnnouncementOverlay.vue';
 import EmberField from './components/EmberField.vue';
 import JoinView from './components/JoinView.vue';
 import LobbyView from './components/LobbyView.vue';
 import GameView from './components/GameView.vue';
+import SettingsMenu from './components/SettingsMenu.vue';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
 const showManual = ref(false); const manualMounted = ref(false); const manualUrl = ref('/docs/how-to-play');
@@ -90,7 +93,7 @@ async function joinOrSpectate(form) {
   // leaving them stuck on the join screen.
   await joinGame(form).catch(() => spectateGame(form.roomCode));
 }
-async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); notify('Identity restored'); }
+async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); loadSettings(); socket.disconnect(); await ensureConnected().catch(() => {}); notify('Identity restored'); }
 async function spectateGame(code) {
   if (!code) return;
   try {
@@ -216,7 +219,7 @@ async function maybeAutoJoin() {
   if (!target || !savedName || !savedCode) return;
   await joinOrSpectate({ name: savedName, roomCode: target });
 }
-onMounted(() => { if (isAdminRoute) return; clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
+onMounted(() => { if (isAdminRoute) return; loadSettings(); clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
 onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
 </script>
 

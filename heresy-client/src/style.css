@@ -493,12 +493,16 @@ button.secondary.selected {
 
 /* ============================================================
    OPERATIVE SEALS
-   Per-player identity mark: an aged-pigment tone, a heraldic
-   division of the field, and the initial. Applied on top of the
-   existing size classes (.avatar / .avatar.mini / .portrait /
+   Per-player identity mark, in three player-selectable styles
+   (see src/settings.js): a monochrome gold plate carrying a
+   heraldic ordinary, or a coloured plate carrying an aged-pigment
+   tone plus a heraldic division of the field. Applied on top of
+   the existing size classes (.avatar / .avatar.mini / .portrait /
    .target-avatar), which keep owning dimensions and clip-path —
-   these rules only paint. Driven by two custom properties set
-   inline per element (--seal, --seal-ink); see src/seals.js.
+   these rules only paint. The kind ("gold" vs "colour") comes in
+   as data-seal-kind, the pattern name as data-seal; the coloured
+   kind additionally carries two custom properties set inline per
+   element (--seal, --seal-ink). See src/seals.js.
 
    Global rather than component-scoped because the roster lives in
    GameView/LobbyView while chat authors and night-action targets
@@ -507,8 +511,10 @@ button.secondary.selected {
    ============================================================ */
 /* Doubled attribute selector: raises specificity to (0,2,0) so these win
    against `.targets button span` (0,1,2) and `.avatar` (0,1,0) without
-   reaching for !important. */
-[data-seal][data-seal] {
+   reaching for !important. Pattern selectors like
+   [data-seal-kind="colour"][data-seal="bend"] are already (0,2,0) on their
+   own and don't need doubling. */
+[data-seal-kind="colour"][data-seal-kind="colour"] {
   color: var(--seal-ink, var(--gold2));
   border: 1px solid color-mix(in srgb, var(--seal, #2a2c25) 70%, #000);
   background: linear-gradient(160deg,
@@ -518,22 +524,110 @@ button.secondary.selected {
 }
 /* Heraldic divisions. Second tone is the same pigment dropped toward
    the plate ground, so a field reads as one weathered colour, not two. */
-[data-seal="bend"][data-seal="bend"] {
+[data-seal-kind="colour"][data-seal="bend"] {
   background: linear-gradient(135deg,
     var(--seal) 50%, color-mix(in srgb, var(--seal) 52%, #0d0a07) 50%);
 }
-[data-seal="fess"][data-seal="fess"] {
+[data-seal-kind="colour"][data-seal="fess"] {
   background: linear-gradient(180deg,
     var(--seal) 50%, color-mix(in srgb, var(--seal) 52%, #0d0a07) 50%);
 }
-[data-seal="pale"][data-seal="pale"] {
+[data-seal-kind="colour"][data-seal="pale"] {
   background: linear-gradient(90deg,
     var(--seal) 50%, color-mix(in srgb, var(--seal) 52%, #0d0a07) 50%);
 }
 /* Roundel — a disc of the full tone on a darker ground. The letter sits on
    the disc, i.e. on the undiluted pigment the ink was contrast-checked
    against, so this is the most legible field of the five. */
-[data-seal="roundel"][data-seal="roundel"] {
+[data-seal-kind="colour"][data-seal="roundel"] {
   background: radial-gradient(circle at 50% 50%,
     var(--seal) 0 44%, color-mix(in srgb, var(--seal) 52%, #0d0a07) 44% 100%);
+}
+
+/* Gold ordinary style — no per-player tone at all. Every plate shares the
+   same dark ground and gold, and distinction comes entirely from which band
+   (the "ordinary") is struck on it plus the two-letter monogram.
+   background-color and background-image are always set as SEPARATE
+   properties below, never via the `background` shorthand: the shorthand
+   resets background-repeat back to its default (repeat), which would tile a
+   28%-tall band into a solid gold plate, and it would also silently drop
+   whichever of the two layers isn't restated in the same declaration. */
+[data-seal-kind="gold"][data-seal-kind="gold"] {
+  background-color: #17130c;
+  border: 1px solid var(--gold);
+  color: var(--gold2);
+  background-repeat: no-repeat;
+  text-shadow: 0 0 8px rgba(223, 194, 124, .3);
+}
+[data-seal-kind="gold"][data-seal="plain"] {
+  background-image: none;
+}
+[data-seal-kind="gold"][data-seal="chief"] {
+  background-image: linear-gradient(var(--gold), var(--gold));
+  background-size: 100% 28%;
+  background-position: 0 0;
+}
+[data-seal-kind="gold"][data-seal="base"] {
+  background-image: linear-gradient(var(--gold), var(--gold));
+  background-size: 100% 28%;
+  background-position: 0 100%;
+}
+[data-seal-kind="gold"][data-seal="barbell"] {
+  background-image:
+    linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold));
+  background-size: 100% 28%, 100% 28%;
+  background-position: 0 0, 0 100%;
+}
+[data-seal-kind="gold"][data-seal="flanks"] {
+  background-image:
+    linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold));
+  background-size: 26% 100%, 26% 100%;
+  background-position: 0 0, 100% 0;
+}
+[data-seal-kind="gold"][data-seal="bordure"] {
+  background-image: none;
+  box-shadow: inset 0 0 0 4px var(--gold);
+}
+
+/* .seal-mono is present whenever the seal text is two characters (always for
+   'ordinary', optionally for 'coloured-mono'). On a gold plate the bands are
+   thinned from their single-letter widths above so a centred two-letter mark
+   still has clear gold — and clear ground — on both sides, instead of the
+   letters crowding (or overrunning) a band sized for one glyph. */
+[data-seal-kind="gold"][data-seal="chief"].seal-mono,
+[data-seal-kind="gold"][data-seal="base"].seal-mono,
+[data-seal-kind="gold"][data-seal="barbell"].seal-mono {
+  background-size: 100% 22%, 100% 22%;
+}
+[data-seal-kind="gold"][data-seal="flanks"].seal-mono {
+  background-size: 19% 100%, 19% 100%;
+}
+[data-seal-kind="gold"][data-seal="bordure"].seal-mono {
+  box-shadow: inset 0 0 0 3px var(--gold);
+}
+
+/* Two Cinzel letters at the single-letter font-size would overflow every one
+   of the four plate sizes this mark is drawn at, so .seal-mono sets a
+   smaller font-size per size class and drops letter-spacing (fine for one
+   glyph, it pushes two past the edge). Doubled attribute prefix again for
+   specificity: .portrait's font-size is set by a scoped rule in
+   GameView.vue (".player-list .portrait", compiled with a Vue data-v
+   attribute to (0,3,0)) which plain classes here couldn't outrank. */
+[data-seal-kind][data-seal-kind].avatar.seal-mono {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+[data-seal-kind][data-seal-kind].avatar.mini.seal-mono {
+  font-size: 9px;
+  letter-spacing: 0;
+}
+[data-seal-kind][data-seal-kind].portrait.seal-mono {
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.targets button span[data-seal-kind][data-seal-kind].seal-mono {
+  font-size: 9px;
+  letter-spacing: 0;
 }

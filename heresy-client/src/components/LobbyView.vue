@@ -20,7 +20,7 @@
           <article v-for="m in messages" :key="m.id || (m.createdAt + '-' + m.author)" :class="['message',{system:m.kind==='system',vote:m.kind==='vote'}]">
             <span v-if="m.kind==='system'" class="system-line">{{ m.body }}</span>
             <template v-else>
-              <span class="avatar mini" :data-seal="sealFor(m.author).field" :style="sealStyle(sealFor(m.author))">{{ sealFor(m.author).initial }}</span>
+              <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
               <div>
                 <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
                 <p>{{ m.body }}</p>
@@ -43,7 +43,7 @@
         </header>
         <ul class="lobby-players compact">
           <li v-for="p in players" :key="p.playerCode" :class="{offline:liveMode && !p.connected}">
-            <span class="avatar" :data-seal="sealFor(p.name).field" :style="sealStyle(sealFor(p.name))">{{ sealFor(p.name).initial }}</span>
+            <span class="avatar" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><small>{{ p.isHost ? 'Commander' : (liveMode && p.connected === false) ? 'Vox lost' : (p.ready ? 'Ready' : 'Awaiting') }}</small></div>
             <i v-if="liveMode" class="presence" :class="{online:p.connected}" :title="p.connected ? 'Online' : 'Disconnected'"></i>
             <span class="ready" :class="{yes:p.ready}">{{ p.ready?'READY':'…' }}</span>
@@ -273,7 +273,8 @@
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue';
 import { validateComposition } from '../server-composition-validator.js';
 import { validRoles, hardRules, presetFlavor, roleThresholds } from '../compositionData.js';
-import { buildSealMap, fallbackSeal, sealStyle } from '../seals.js';
+import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
+import { settings } from '../settings.js';
 import { socket, ensureConnected, getPlayerCode } from '../socket.js';
 import SimResultsPanel from './SimResultsPanel.vue';
 
@@ -642,8 +643,10 @@ onUnmounted(() => {
 function initial(name) { return (name || '?').charAt(0).toUpperCase(); }
 // Operative seals — same mark the player carries in-game, so the roster you
 // read in the lobby is the roster you recognise once the chamber is sealed.
-const sealMap = computed(() => buildSealMap(players.value.map(p => p.name)));
-function sealFor(name) { return sealMap.value.get(name) || fallbackSeal(name); }
+const sealMap = computed(() => buildSealMap(players.value.map(p => p.name), settings.sealStyle));
+function sealFor(name) { return sealMap.value.get(name) || fallbackSeal(name, settings.sealStyle); }
+function sealAttrs(name) { const s = sealFor(name); return { 'data-seal-kind': s.kind, 'data-seal': s.pattern, class: s.text.length > 1 ? 'seal-mono' : null, style: sealVars(s) }; }
+function sealText(name) { return sealFor(name).text; }
 const liveMode = computed(() => props.game.mode !== 'async');
 const onlineCount = computed(() => liveMode.value ? players.value.filter(p => p.connected).length : 0);
 function confirmKick(p) {
