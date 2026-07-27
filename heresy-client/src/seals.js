@@ -18,22 +18,28 @@
 
 // Ordered so that adjacent indices are far apart in hue — a 5-player game uses
 // only the first five slots, and those should look nothing like each other.
+//
+// Saturation is deliberately held in a narrow band (~0.09–0.24) so no single
+// operative's plate shouts louder than the rest and the set reads as aged
+// pigment rather than as a colour picker. That flattening does mean the warm
+// tones would otherwise converge on the same tan, so gold / ochre / bronze /
+// bone are pulled apart on LIGHTNESS instead of hue.
 export const SEAL_PALETTE = [
-  '#b69a5c', // aged gold
-  '#a32a26', // oxblood
-  '#5c8a76', // verdigris
-  '#7d6a8f', // warp violet
-  '#c07840', // ochre
-  '#6f7f96', // iron blue
-  '#8f9c6a', // moss
-  '#8d5a4e', // rust
-  '#4f7d8a', // slate teal
-  '#8a6b3f', // bronze
-  '#9c8b7a', // bone grey
-  '#6b4f4a', // dried blood
+  '#a08e6a', // aged gold
+  '#7e4f4e', // oxblood
+  '#5e8d78', // verdigris
+  '#7e6991', // warp violet
+  '#816551', // ochre
+  '#6d7f97', // iron blue
+  '#889565', // moss
+  '#6b4e47', // rust
+  '#597e88', // slate teal
+  '#655743', // bronze
+  '#9b9187', // bone grey
+  '#544340', // dried blood
 ];
 
-export const SEAL_FIELDS = ['solid', 'bend', 'fess', 'pale', 'barry'];
+export const SEAL_FIELDS = ['solid', 'bend', 'fess', 'pale', 'roundel'];
 
 // WCAG relative luminance, used to pick an ink that stays legible on whichever
 // tone the plate landed on rather than hand-maintaining 12 paired values.

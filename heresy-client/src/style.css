@@ -513,24 +513,27 @@ button.secondary.selected {
   border: 1px solid color-mix(in srgb, var(--seal, #2a2c25) 70%, #000);
   background: linear-gradient(160deg,
     var(--seal, #2a2c25),
-    color-mix(in srgb, var(--seal, #2a2c25) 55%, #0d0a07));
+    color-mix(in srgb, var(--seal, #2a2c25) 68%, #0d0a07));
   text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
 }
 /* Heraldic divisions. Second tone is the same pigment dropped toward
    the plate ground, so a field reads as one weathered colour, not two. */
 [data-seal="bend"][data-seal="bend"] {
   background: linear-gradient(135deg,
-    var(--seal) 50%, color-mix(in srgb, var(--seal) 34%, #0d0a07) 50%);
+    var(--seal) 50%, color-mix(in srgb, var(--seal) 52%, #0d0a07) 50%);
 }
 [data-seal="fess"][data-seal="fess"] {
   background: linear-gradient(180deg,
-    var(--seal) 50%, color-mix(in srgb, var(--seal) 34%, #0d0a07) 50%);
+    var(--seal) 50%, color-mix(in srgb, var(--seal) 52%, #0d0a07) 50%);
 }
 [data-seal="pale"][data-seal="pale"] {
   background: linear-gradient(90deg,
-    var(--seal) 50%, color-mix(in srgb, var(--seal) 34%, #0d0a07) 50%);
+    var(--seal) 50%, color-mix(in srgb, var(--seal) 52%, #0d0a07) 50%);
 }
-[data-seal="barry"][data-seal="barry"] {
-  background: repeating-linear-gradient(180deg,
-    var(--seal) 0 5px, color-mix(in srgb, var(--seal) 30%, #0d0a07) 5px 10px);
+/* Roundel — a disc of the full tone on a darker ground. The letter sits on
+   the disc, i.e. on the undiluted pigment the ink was contrast-checked
+   against, so this is the most legible field of the five. */
+[data-seal="roundel"][data-seal="roundel"] {
+  background: radial-gradient(circle at 50% 50%,
+    var(--seal) 0 44%, color-mix(in srgb, var(--seal) 52%, #0d0a07) 44% 100%);
 }
