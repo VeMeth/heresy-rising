@@ -36,7 +36,13 @@ export const SEAL_ORDINARIES = ['plain', 'chief', 'base', 'barbell', 'bordure', 
 
 export const SEAL_STYLES = [ // order = display order in the settings menu
   { id: 'ordinary', name: 'Gold ordinary', blurb: 'One plate, one colour. A heraldic mark struck in gold, plus two letters.' },
-  { id: 'coloured', name: 'Coloured seals', blurb: 'A pigment tone and a divided field, with the operative\'s initial.' },
+  // Deactivated: superseded by 'coloured-mono', which is strictly more
+  // legible (same plate, two letters instead of one). Kept fully defined —
+  // not deleted — so it still renders correctly for anyone already on it,
+  // and re-enabling is a one-line `enabled: false` removal. SettingsMenu.vue
+  // filters this out of the picker; nothing else needs to change to flip it
+  // back on.
+  { id: 'coloured', name: 'Coloured seals', blurb: 'A pigment tone and a divided field, with the operative\'s initial.', enabled: false },
   { id: 'coloured-mono', name: 'Coloured + letters', blurb: 'The same coloured seals, showing two letters instead of one.' },
 ];
 

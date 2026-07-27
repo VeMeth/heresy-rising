@@ -33,7 +33,7 @@
         >
           <h3 class="settings-heading">Operative seal</h3>
           <ul class="seal-style-list">
-            <li v-for="style in SEAL_STYLES" :key="style.id">
+            <li v-for="style in visibleStyles" :key="style.id">
               <button
                 type="button"
                 class="seal-style-option"
@@ -62,9 +62,14 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { SEAL_STYLES, buildSealMap, sealVars } from '../seals.js';
 import { settings, setSealStyle } from '../settings.js';
+
+// Styles flagged `enabled: false` in seals.js stay fully defined (so a
+// player already on one keeps rendering correctly) but drop out of the
+// picker — this is the one place that filter is applied.
+const visibleStyles = computed(() => SEAL_STYLES.filter(s => s.enabled !== false));
 
 const open = ref(false);
 const rootEl = ref(null);
