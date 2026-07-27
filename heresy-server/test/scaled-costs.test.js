@@ -124,3 +124,74 @@ test('per-game dossier: Interrogator\'s ability text shows THIS game\'s exact co
     assert.doesNotMatch(me.role.ability, /–/, 'a live game must show an exact number, not a boot-time range');
   } finally { f.close(); }
 });
+
+test('engine: a Loyalist Priest\'s Litany self-drift scales with table size (+10 at 5p, +4 at 12p)', () => {
+  const cost5 = resolveScaledCost(loadGameConfig().drift.scaledCosts, 'priest', 'litany', 5);
+  const cost12 = resolveScaledCost(loadGameConfig().drift.scaledCosts, 'priest', 'litany', 12);
+  assert.equal(cost5, 10);
+  assert.equal(cost12, 4);
+});
+
+test('engine: a Heretic Priest\'s Warp Litany self-drift scales with table size — same formula as Interrogator/Priest (+10 at 5p, +4 at 12p)', () => {
+  const cost5 = resolveScaledCost(loadGameConfig().drift.scaledCosts, 'heretic-priest', 'warp-litany', 5);
+  const cost12 = resolveScaledCost(loadGameConfig().drift.scaledCosts, 'heretic-priest', 'warp-litany', 12);
+  assert.equal(cost5, 10);
+  assert.equal(cost12, 4);
+});
+
+test('engine: a Loyalist Priest actually pays the SCALED Litany self-drift (+10 at 5p), not the old flat selfCost of 6', () => {
+  const f = fixture(5);
+  try {
+    f.manager.start(f.code, 'p0');
+    f.manager.advance(f.code, 'p0');
+    const priest = f.manager.players(f.code).find(p => p.role_id === 'priest');
+    const target = f.manager.players(f.code).find(p => p.player_code !== priest.player_code);
+    f.manager.submitAction(f.code, priest.player_code, { targetCode: target.player_code, variant: 'litany' });
+    f.manager.resolve(f.code, true);
+    assert.equal(f.manager.player(f.code, priest.player_code).drift, 10, 'litany self-drift at 5p = 10 (50/5)');
+  } finally { f.close(); }
+});
+
+test('engine: a Heretic Priest actually pays the SCALED Warp Litany self-drift (+6 at 8p), not the old flat selfCost of 4', () => {
+  const f = fixture(8);
+  try {
+    f.manager.start(f.code, 'p0');
+    f.manager.advance(f.code, 'p0');
+    const hp = f.manager.players(f.code).find(p => p.role_id === 'heretic-priest');
+    if (!hp) return; // 8p preset may not roll a Heretic Priest every seat order; skip rather than false-fail
+    const target = f.manager.players(f.code).find(p => p.player_code !== hp.player_code);
+    f.manager.db.prepare('UPDATE hr_players SET drift=12,skip_next_night=1 WHERE game_code=? AND player_code=?').run(f.code, target.player_code);
+    f.manager.submitAction(f.code, hp.player_code, { targetCode: target.player_code, variant: 'warp-litany' });
+    f.manager.resolve(f.code, true);
+    assert.equal(f.manager.player(f.code, hp.player_code).drift, 6, 'warp-litany self-drift at 8p = 6 (50/8=6.25 rounds to 6)');
+  } finally { f.close(); }
+});
+
+test('per-game dossier: Priest\'s ability text shows THIS game\'s exact self-drift per sermon tier, not the boot-time range', () => {
+  const f = fixture(5);
+  try {
+    f.manager.start(f.code, 'p0');
+    const priest = f.manager.players(f.code).find(p => p.role_id === 'priest');
+    const state = f.manager.state(f.code, priest.player_code);
+    const me = state.players.find(p => p.playerCode === priest.player_code);
+    assert.match(me.role.ability, /\+10 self-drift/, 'litany self-drift at 5p is +10');
+    assert.doesNotMatch(me.role.ability, /–/, 'a live game must show an exact number, not a boot-time range');
+  } finally { f.close(); }
+});
+
+test('boot-time range: Priest\'s ability text shows a cheapest–priciest range across 5–12p for each sermon tier', () => {
+  const cfg = loadGameConfig();
+  const priest = cfg.roles.get('priest');
+  assert.match(priest.ability, /\+1–\+2 self-drift/, 'whisper: cheapest 1 (12p) to priciest 2 (5p)');
+  assert.match(priest.ability, /\+2–\+4 self-drift/, 'hymn: cheapest 2 (12p) to priciest 4 (5p)');
+  assert.match(priest.ability, /\+4–\+10 self-drift/, 'litany: cheapest 4 (12p) to priciest 10 (5p)');
+});
+
+test('boot-time range: Heretic Priest\'s ability text shows a cheapest–priciest range across 5–12p for each sermon tier (camelCase placeholders)', () => {
+  const cfg = loadGameConfig();
+  const hp = cfg.roles.get('heretic-priest');
+  assert.match(hp.ability, /\+1–\+2 self-drift/, 'false comfort: cheapest 1 to priciest 2');
+  assert.match(hp.ability, /\+2–\+4 self-drift/, 'twisted hymn: cheapest 2 to priciest 4');
+  assert.match(hp.ability, /\+4–\+10 self-drift/, 'warp litany: cheapest 4 to priciest 10');
+  assert.doesNotMatch(hp.ability, /\{[a-zA-Z]+\}/, 'no unfilled placeholders');
+});

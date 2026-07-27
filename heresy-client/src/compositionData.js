@@ -11,7 +11,7 @@
 // drift number typed directly into the prose, and rendered once below via
 // driftCosts.js — see that file for why this is a second, hand-kept-in-sync
 // copy of the server's numbers rather than one shared source.
-import { DRIFT, ROLE_DRIFT_WEIGHT, SERMON_TARGET, formatSigned, renderTemplate, scaledCostLabel } from './driftCosts.js';
+import { DRIFT, ROLE_DRIFT_WEIGHT, SERMON_TARGET, SCALED_COSTS, formatSigned, renderTemplate, scaledCostLabel } from './driftCosts.js';
 // hardRules / roleThresholds below are DERIVED from game_data/composition.json
 // (the server's authoritative config, read via the @game_data Vite alias —
 // see driftCosts.js for why this pattern beats hand-typing the same numbers
@@ -49,7 +49,8 @@ export const validRoles = new Map([
   ['priest', {
     id: 'priest', displayName: 'Priest (Loyalist)', faction: 'loyalist', tier: 'T0_special',
     claim: 'Priest (self)',
-    abilityTemplate: 'Each night choose a sermon tier and target. Whisper ({whisperTarget} daily), Hymn ({hymnTarget}, 2/game), Litany ({litanyTarget}, once/game) to reduce a target\'s drift.'
+    scaledCostKey: 'priest',
+    abilityTemplate: 'Each night choose a sermon tier and target. Whisper ({whisperTarget} to target, {whisperCost} self-drift, daily), Hymn ({hymnTarget} to target, {hymnCost} self-drift, 2/game), Litany ({litanyTarget} to target floored at 0, {litanyCost} self-drift, once/game) — self-drift costs scale with table size, cheaper at a big table.'
   }],
   ['sanctioned-psyker', {
     id: 'sanctioned-psyker', displayName: 'Sanctioned Psyker', faction: 'loyalist', tier: 'T2',
@@ -64,7 +65,8 @@ export const validRoles = new Map([
   ['heretic-priest', {
     id: 'heretic-priest', displayName: 'Heretic Priest', faction: 'heretic', tier: 'T0_special',
     claim: 'Priest (claims-matching with Loyalist Priest)',
-    abilityTemplate: 'Same UI as Loyalist Priest but effects are inverted: target drift rises instead of falls. Detection requires drift-delta tracking.'
+    scaledCostKey: 'heretic-priest',
+    abilityTemplate: 'Same UI as Loyalist Priest but effects are inverted: target drift rises instead of falls. False Comfort ({falseComfortCost} self-drift, looks like Whisper to target), Twisted Hymn ({twistedHymnCost} self-drift, target feels \'strengthened in faith\'), Warp Litany ({warpLitanyCost} self-drift, transcendent sermon) — self-drift costs scale with table size, cheaper at a big table. Detection requires drift-delta tracking.'
   }],
   ['conspirator', {
     id: 'conspirator', displayName: 'Conspirator', faction: 'heretic', tier: 'T1',
@@ -103,7 +105,11 @@ function costContext(id, playerCount) {
     litanyTarget: formatSigned(SERMON_TARGET.litany),
   };
   const role = validRoles.get(id);
-  if (role?.scaledCostKey) for (const tier of ['t1', 't2', 't3']) context[`${tier}Cost`] = scaledCostLabel(role.scaledCostKey, tier, playerCount);
+  if (role?.scaledCostKey) {
+    const tierKeyToPlaceholder = tier => tier.replace(/-(\w)/g, (_, c) => c.toUpperCase());
+    const tiers = Object.keys(SCALED_COSTS[role.scaledCostKey].baseValues);
+    for (const tier of tiers) context[`${tierKeyToPlaceholder(tier)}Cost`] = scaledCostLabel(role.scaledCostKey, tier, playerCount);
+  }
   return context;
 }
 

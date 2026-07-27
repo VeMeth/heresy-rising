@@ -195,8 +195,9 @@
         ],
         "onCripple": "disable-all"
       },
-      "abilityTemplate": "Each night, choose one sermon tier and target. Whisper ({whisperTarget}, daily), Hymn ({hymnTarget}, 2/game), Litany ({litanyTarget} floored at 0, once/game). Litany rescue: Priest enters Orange, target exits Red. Skilled Priests hold the conclave together; militant ones climb drift.",
-      "objective": "Cleanse drift. Keep the faithful clean. Don't burn out."
+      "abilityTemplate": "Each night, choose one sermon tier and target. Whisper ({whisperTarget} to target, {whisperCost} self-drift, daily), Hymn ({hymnTarget} to target, {hymnCost} self-drift, 2/game), Litany ({litanyTarget} to target floored at 0, {litanyCost} self-drift, once/game) — self-drift costs scale with table size, cheaper at a big table. Litany rescue: Priest enters Orange, target exits Red. Skilled Priests hold the conclave together; militant ones climb drift.",
+      "objective": "Cleanse drift. Keep the faithful clean. Don't burn out.",
+      "scaledCostKey": "priest"
     },
     {
       "id": "murderer",
@@ -260,8 +261,9 @@
         ],
         "onCripple": "disable-all"
       },
-      "abilityTemplate": "Same UI as Loyalist Priest. Effects inverted: target drift rises instead of falls. Detection requires drift-delta tracking across Priest interventions. Anti-Priest framing rejected 2026-07-06 — replaced with claim-disguise framing.",
-      "objective": "Hide in the Priest slot. Drift up the table without being seen. Conversion of max-drift players happens via Recruiter, not via sermons."
+      "abilityTemplate": "Same UI as Loyalist Priest. Effects inverted: target drift rises instead of falls. False Comfort ({falseComfortCost} self-drift, looks like Whisper to target), Twisted Hymn ({twistedHymnCost} self-drift, target feels 'strengthened in faith'), Warp Litany ({warpLitanyCost} self-drift, transcendent sermon) — self-drift costs scale with table size, cheaper at a big table. Detection requires drift-delta tracking across Priest interventions. Anti-Priest framing rejected 2026-07-06 — replaced with claim-disguise framing.",
+      "objective": "Hide in the Priest slot. Drift up the table without being seen. Conversion of max-drift players happens via Recruiter, not via sermons.",
+      "scaledCostKey": "heretic-priest"
     },
     {
       "id": "conspirator",

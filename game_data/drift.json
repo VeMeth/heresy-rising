@@ -49,6 +49,34 @@
         "11": {"t1":1, "t2":2, "t3":5},
         "12": {"t1":1, "t2":2, "t3":4}
       }
+    },
+    "priest": {
+      "baseValues": {"whisper":10,"hymn":20,"litany":50},
+      "floors":     {"whisper":1, "hymn":2, "litany":3},
+      "perPlayerCount": {
+        "5":  {"whisper":2, "hymn":4, "litany":10},
+        "6":  {"whisper":2, "hymn":3, "litany":8},
+        "7":  {"whisper":1, "hymn":3, "litany":7},
+        "8":  {"whisper":1, "hymn":3, "litany":6},
+        "9":  {"whisper":1, "hymn":2, "litany":6},
+        "10": {"whisper":1, "hymn":2, "litany":5},
+        "11": {"whisper":1, "hymn":2, "litany":5},
+        "12": {"whisper":1, "hymn":2, "litany":4}
+      }
+    },
+    "heretic-priest": {
+      "baseValues": {"false-comfort":10,"twisted-hymn":20,"warp-litany":50},
+      "floors":     {"false-comfort":1, "twisted-hymn":2, "warp-litany":3},
+      "perPlayerCount": {
+        "5":  {"false-comfort":2, "twisted-hymn":4, "warp-litany":10},
+        "6":  {"false-comfort":2, "twisted-hymn":3, "warp-litany":8},
+        "7":  {"false-comfort":1, "twisted-hymn":3, "warp-litany":7},
+        "8":  {"false-comfort":1, "twisted-hymn":3, "warp-litany":6},
+        "9":  {"false-comfort":1, "twisted-hymn":2, "warp-litany":6},
+        "10": {"false-comfort":1, "twisted-hymn":2, "warp-litany":5},
+        "11": {"false-comfort":1, "twisted-hymn":2, "warp-litany":5},
+        "12": {"false-comfort":1, "twisted-hymn":2, "warp-litany":4}
+      }
     }
   }
 }

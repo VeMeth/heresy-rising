@@ -70,9 +70,10 @@ export function buildCostContext(role, driftConfig, opts = {}) {
   if (role.scaledCostKey) {
     const scaled = driftConfig.scaledCosts?.[role.scaledCostKey];
     if (!scaled) throw new Error(`abilityText: role "${role.id}" has scaledCostKey "${role.scaledCostKey}" but drift.json's scaledCosts has no entry for it`);
+    const tierKeyToPlaceholder = tier => tier.replace(/-(\w)/g, (_, c) => c.toUpperCase());
     const tiers = Object.keys(scaled.baseValues);
     if (opts.playerCount) {
-      for (const tier of tiers) ctx[`${tier}Cost`] = formatSigned(resolveScaledCost(driftConfig.scaledCosts, role.scaledCostKey, tier, opts.playerCount));
+      for (const tier of tiers) ctx[`${tierKeyToPlaceholder(tier)}Cost`] = formatSigned(resolveScaledCost(driftConfig.scaledCosts, role.scaledCostKey, tier, opts.playerCount));
     } else {
       const counts = Object.keys(scaled.perPlayerCount).map(Number);
       const minPlayers = Math.min(...counts), maxPlayers = Math.max(...counts);
@@ -80,7 +81,7 @@ export function buildCostContext(role, driftConfig, opts = {}) {
         // Cost falls as the table grows, so cheapest = max players, priciest = min players.
         const cheapest = resolveScaledCost(driftConfig.scaledCosts, role.scaledCostKey, tier, maxPlayers);
         const priciest = resolveScaledCost(driftConfig.scaledCosts, role.scaledCostKey, tier, minPlayers);
-        ctx[`${tier}Cost`] = cheapest === priciest ? formatSigned(cheapest) : `${formatSigned(cheapest)}–${formatSigned(priciest)}`;
+        ctx[`${tierKeyToPlaceholder(tier)}Cost`] = cheapest === priciest ? formatSigned(cheapest) : `${formatSigned(cheapest)}–${formatSigned(priciest)}`;
       }
     }
   }
