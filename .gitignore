@@ -12,6 +12,7 @@ data/*
 !data/composition.json
 !data/drift.json
 !data/deathFlavor.json
+!data/driftCosts.json
 !data/scenarios/
 !data/scenarios/**
 heresy-server/data/

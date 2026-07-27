@@ -1,17 +1,12 @@
-// Client-side counterpart to heresy-server/src/mechanics/abilityText.js.
+// Client-side drift cost constants — values live in data/driftCosts.json for
+// easy balance editing, imported here and re-exported alongside rendering
+// functions.
 //
-// The client has no shared-code channel with the server package (two
-// separate npm packages, no shared workspace), so these numbers are a SECOND
-// copy of the same constants — cross-checked against data/drift.json and
-// each role's driftWeight/sermonTiers in data/roles-40k.json as of this
-// writing, not against the server's rendered prose. If either server file
-// changes, this file must be updated to match; nothing enforces that
-// automatically. A true single source would mean the client fetching this
-// from the server at runtime (a public, non-admin "role reference" endpoint)
-// instead of bundling its own copy — not done here, since it changes the
-// composition screen from an instant, network-free display into one with a
-// round trip, which is a bigger tradeoff than "don't hardcode costs in
-// prose" asked for.
+// This is a client-side copy of selector numbers from data/roles-40k.json and
+// data/drift.json (the server's source of truth). The client has no shared-code
+// channel with the server package (two separate npm packages), so edits to
+// server files must be mirrored here; nothing enforces that automatically.
+// Putting the values in a separate JSON makes that sync check a simple diff.
 //
 // This file exists so that compositionData.js and glossary.js — the two
 // places on the client that describe ability costs in prose — pull every
@@ -20,59 +15,12 @@
 // replaces this static object is what changes; the templates that consume
 // it do not.
 
-export const DRIFT = {
-  MAX: 20,
-  SLEEP_RECOVERY: -1,
-  TRAP_DRIFT: 5,
-  ZONES: {
-    green: [0, 4],
-    yellow: [5, 9],
-    orange: [10, 14],
-    red: [15, 19],
-    black: [20, 20],
-  },
-};
+import values from '../../data/driftCosts.json';
 
-// driftWeight per role, mirroring data/roles-40k.json. Only the roles whose
-// client-facing copy (compositionData.js) or a glossary tooltip actually
-// states a number need an entry here — the rest have no cost digit to
-// template in the first place.
-export const ROLE_DRIFT_WEIGHT = {
-  interrogator: 2,
-  'sanctioned-psyker': 15,
-  murderer: 15,
-  saboteur: 2,
-  recruiter: 3,
-  animus: 3,
-};
-
-// Priest's sermonTiers.<tier>.targetEffect, mirroring data/roles-40k.json.
-export const SERMON_TARGET = {
-  whisper: -2,
-  hymn: -5,
-  litany: -10,
-};
-
-// Q31 (dispatches/2026-07-27-q31-interrogator-cost.md): Interrogator's T1/T2/T3
-// self-cost now scales with table size instead of ROLE_DRIFT_WEIGHT's flat
-// number above (which is stale for this role — kept only because nothing
-// else references it). Mirrors data/drift.json's scaledCosts.interrogator.
-export const SCALED_COSTS = {
-  interrogator: {
-    baseValues: { t1: 10, t2: 20, t3: 50 },
-    floors: { t1: 1, t2: 2, t3: 3 },
-    perPlayerCount: {
-      5: { t1: 2, t2: 4, t3: 10 },
-      6: { t1: 2, t2: 3, t3: 8 },
-      7: { t1: 1, t2: 3, t3: 7 },
-      8: { t1: 1, t2: 3, t3: 6 },
-      9: { t1: 1, t2: 2, t3: 6 },
-      10: { t1: 1, t2: 2, t3: 5 },
-      11: { t1: 1, t2: 2, t3: 5 },
-      12: { t1: 1, t2: 2, t3: 4 },
-    },
-  },
-};
+export const DRIFT = values.DRIFT;
+export const ROLE_DRIFT_WEIGHT = values.ROLE_DRIFT_WEIGHT;
+export const SERMON_TARGET = values.SERMON_TARGET;
+export const SCALED_COSTS = values.SCALED_COSTS;
 
 export function scaledCostFormula(base, floor, players) {
   return Math.round(Math.max(floor, base / players));
