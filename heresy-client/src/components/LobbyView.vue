@@ -187,7 +187,7 @@
                   </div>
                   <div v-if="expandedRole===r.id" class="role-detail">
                     <p><span>Claim:</span> {{ r.claim }}</p>
-                    <p><span>Ability:</span> {{ r.ability }}</p>
+                    <p><span>Ability:</span> {{ roleAbilityForLobby(r, targetPlayerCount) }}</p>
                     <p v-if="roleThresholds[r.id]" class="threshold-note">
                       Threshold: {{ roleThresholds[r.id].label }}
                     </p>
@@ -272,7 +272,7 @@
 <script setup>
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue';
 import { validateComposition } from '../server-composition-validator.js';
-import { validRoles, hardRules, presetFlavor, roleThresholds } from '../compositionData.js';
+import { validRoles, hardRules, presetFlavor, roleThresholds, roleAbilityForLobby } from '../compositionData.js';
 import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
 import { settings } from '../settings.js';
 import { socket, ensureConnected, getPlayerCode } from '../socket.js';

@@ -27,5 +27,25 @@
     "false-comfort":{"self":2,"target":3,"limit":null},
     "twisted-hymn":{"self":2,"target":7,"limit":null},
     "warp-litany":{"self":4,"target":12,"limit":1,"target_zone_min":"orange","target_zone_min_drift":10}
+  },
+  "scaledCosts": {
+    "_schema": {
+      "costFormula": "round(max(floor, base / players))",
+      "_comment": "Player-scaled ability costs (dispatch Q31, projects/heresy-rising/dispatches/2026-07-27-q31-interrogator-cost.md). perPlayerCount is precomputed for the engine's hot path; heresy-server/src/mechanics/scaledCosts.js's validateScaledCosts() regenerates it from baseValues+floors+costFormula and must match exactly — edit baseValues/floors and regenerate, don't hand-edit perPlayerCount out of sync. Rounding uses round-half-up (JS Math.round), not banker's rounding."
+    },
+    "interrogator": {
+      "baseValues": {"t1":10,"t2":20,"t3":50},
+      "floors":     {"t1":1, "t2":2, "t3":3},
+      "perPlayerCount": {
+        "5":  {"t1":2, "t2":4, "t3":10},
+        "6":  {"t1":2, "t2":3, "t3":8},
+        "7":  {"t1":1, "t2":3, "t3":7},
+        "8":  {"t1":1, "t2":3, "t3":6},
+        "9":  {"t1":1, "t2":2, "t3":6},
+        "10": {"t1":1, "t2":2, "t3":5},
+        "11": {"t1":1, "t2":2, "t3":5},
+        "12": {"t1":1, "t2":2, "t3":4}
+      }
+    }
   }
 }

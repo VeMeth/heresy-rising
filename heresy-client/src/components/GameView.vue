@@ -130,9 +130,10 @@
             <span class="role-sigil" aria-hidden="true"><svg class="dossier-glyph"><use :href="sigilFor(role, me?.faction)"/></svg></span>
             <button class="role-name" @click="$emit('open-manual', '/docs/roles/' + (role.id || '').toLowerCase())">{{ role.displayName }}</button>
             <span class="role-faction" :class="me?.faction">{{ me?.faction === 'heretic' ? 'Heretic' : 'Loyalist' }}</span>
-            <dl v-if="game.warpTaintVisible || me?.crippleTier" class="role-meta">
+            <dl v-if="game.warpTaintVisible || me?.crippleTier || scaledCostRow" class="role-meta">
               <div v-if="game.warpTaintVisible" class="zone-row"><dt>Warp taint</dt><dd><span class="zone-gauge" role="img" :aria-label="'Last sensed drift zone: ' + knownZone"><i v-for="z in DRIFT_ZONES" :key="z" :class="[z, { lit: z === knownZone }]"></i></span><span class="zone-word" :class="knownZone">{{ knownZone }}</span></dd></div>
               <div v-if="me?.crippleTier"><dt>Torture</dt><dd>Tier {{ me.crippleTier }}</dd></div>
+              <div v-if="scaledCostRow" class="zone-row"><dt>Cost this game ({{ players.length }}p)</dt><dd class="cost-readout">{{ scaledCostRow }}</dd></div>
             </dl>
           </div>
           <section class="dossier-section">
@@ -230,6 +231,7 @@ import { computed,nextTick,onBeforeUnmount,ref,watch } from 'vue';
 import { TERM_PATTERN, lookupTerm } from '../glossary.js';
 import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
 import { settings } from '../settings.js';
+import { resolveScaledCost, formatSigned } from '../driftCosts.js';
 const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','respond','ask-confession','open-manual','leave']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
@@ -289,6 +291,12 @@ const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.
 // The gauge shows the most recent hint; everyone starts the game at green.
 const DRIFT_ZONES=['green','yellow','orange','red','black'];
 const knownZone=computed(()=>{const msgs=props.game.privateMessages||[];for(let i=msgs.length-1;i>=0;i--){const meta=msgs[i]?.meta,z=meta&&typeof meta==='object'?meta.ownZone:null;if(z&&DRIFT_ZONES.includes(z))return z;}return 'green';});
+// Q34: scaled-cost roles (Interrogator) have a per-tier drift cost that
+// depends on THIS game's player count, already baked into role.ability's
+// prose — but a player scanning past a paragraph to find "the number" is
+// exactly the failure mode a dedicated readout avoids. Computed straight
+// from driftCosts.js + the live roster size, not parsed out of the prose.
+const scaledCostRow=computed(()=>{const r=role.value;if(!r?.scaledCostKey)return null;const n=players.value.length;if(!n)return null;return ['t1','t2','t3'].map(tier=>`${tier.toUpperCase()} ${formatSigned(resolveScaledCost(r.scaledCostKey,tier,n))}`).join(' · ');});
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
 function castVote(choice){if(speakAsTarget.value&&possessedTarget.value)emit('vote-as',{choice,justification:voteJustification.value});else emit('vote',{choice,justification:voteJustification.value})}
 function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}

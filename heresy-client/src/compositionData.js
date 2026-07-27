@@ -11,7 +11,7 @@
 // drift number typed directly into the prose, and rendered once below via
 // driftCosts.js — see that file for why this is a second, hand-kept-in-sync
 // copy of the server's numbers rather than one shared source.
-import { DRIFT, ROLE_DRIFT_WEIGHT, SERMON_TARGET, formatSigned, renderTemplate } from './driftCosts.js';
+import { DRIFT, ROLE_DRIFT_WEIGHT, SERMON_TARGET, formatSigned, renderTemplate, scaledCostLabel } from './driftCosts.js';
 
 export const validRoles = new Map([
   ['imperial-citizen', {
@@ -22,7 +22,8 @@ export const validRoles = new Map([
   ['interrogator', {
     id: 'interrogator', displayName: 'Interrogator', faction: 'loyalist', tier: 'T2',
     claim: 'Interrogator (self)',
-    abilityTemplate: 'Each night interrogate one player at chosen intensity. Standard T2 confirms alignment hint; Brutal T3 confirms Heretic/Loyalist. T2+ vs Orange+ target auto-kills on sight.'
+    scaledCostKey: 'interrogator',
+    abilityTemplate: 'Each night interrogate one player at chosen intensity: T1 Soft ({t1Cost} drift), T2 Standard ({t2Cost} drift, confirms alignment hint), T3 Brutal ({t3Cost} drift, confirms Heretic/Loyalist) — costs scale with table size, cheaper at a big table. T2+ vs Orange+ target auto-kills on sight.'
   }],
   ['chirurgeon', {
     id: 'chirurgeon', displayName: 'Chirurgeon', faction: 'loyalist', tier: 'T1',
@@ -81,23 +82,42 @@ export const validRoles = new Map([
   }],
 ]);
 
+// Shared cost placeholders every role's abilityTemplate may reference,
+// keyed off nothing but the role's own id + the driftCosts.js constants.
+// playerCount omitted → scaled-cost roles get a cheapest–priciest range
+// across every valid table size (5-12p); given → that lobby's exact cost.
+function costContext(id, playerCount) {
+  const context = {
+    sleepRecovery: formatSigned(DRIFT.SLEEP_RECOVERY),
+    trapDrift: formatSigned(DRIFT.TRAP_DRIFT),
+    blackMin: DRIFT.ZONES.black[0],
+    driftWeight: formatSigned(ROLE_DRIFT_WEIGHT[id] ?? 0),
+    whisperTarget: formatSigned(SERMON_TARGET.whisper),
+    hymnTarget: formatSigned(SERMON_TARGET.hymn),
+    litanyTarget: formatSigned(SERMON_TARGET.litany),
+  };
+  const role = validRoles.get(id);
+  if (role?.scaledCostKey) for (const tier of ['t1', 't2', 't3']) context[`${tier}Cost`] = scaledCostLabel(role.scaledCostKey, tier, playerCount);
+  return context;
+}
+
 // Rendered once, here, from each entry's abilityTemplate — never a hand-typed
 // digit in the prose. Every downstream consumer (LobbyView's composition
 // picker, AdminView, SimResultsPanel) keeps reading a plain `.ability`
 // string exactly as before; nothing downstream needs to know rendering
 // happens at all.
 for (const [id, role] of validRoles) {
-  const black = DRIFT.ZONES.black[0];
-  const context = {
-    sleepRecovery: formatSigned(DRIFT.SLEEP_RECOVERY),
-    trapDrift: formatSigned(DRIFT.TRAP_DRIFT),
-    blackMin: black,
-    driftWeight: formatSigned(ROLE_DRIFT_WEIGHT[id] ?? 0),
-    whisperTarget: formatSigned(SERMON_TARGET.whisper),
-    hymnTarget: formatSigned(SERMON_TARGET.hymn),
-    litanyTarget: formatSigned(SERMON_TARGET.litany),
-  };
-  role.ability = renderTemplate(role.abilityTemplate, context);
+  role.ability = renderTemplate(role.abilityTemplate, costContext(id));
+}
+
+// Exact per-tier cost for a specific lobby's target player count. LobbyView's
+// composition "More" expander calls this (instead of reading `role.ability`
+// directly) once the host has picked a roster size, so a scaled-cost role
+// like Interrogator shows THIS lobby's number instead of the static range —
+// mirrors the server's roleForDisplay()/renderAbility(role, drift, {playerCount}).
+export function roleAbilityForLobby(role, playerCount) {
+  if (!role.scaledCostKey) return role.ability;
+  return renderTemplate(role.abilityTemplate, costContext(role.id, playerCount));
 }
 
 export const hardRules = {

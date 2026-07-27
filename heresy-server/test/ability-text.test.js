@@ -65,9 +65,24 @@ test('loadGameConfig renders every shipped role\'s ability text with no leftover
   }
 });
 
-test('Interrogator\'s rendered ability text describes a FLAT per-scan cost, matching what resolveIntel/resolveNight actually charge — not the old escalating T1/T2/T3 claim the engine never implemented', () => {
+test('Interrogator\'s boot-time (no game context) ability text shows a table-size RANGE per tier, not a fixed number — Q31 scaled costs', () => {
   const cfg = loadGameConfig();
   const interrogator = cfg.roles.get('interrogator');
-  assert.match(interrogator.ability, /every intensity costs \+2 drift/);
-  assert.doesNotMatch(interrogator.ability, /T1 Soft \(\+1 drift/, 'must not reintroduce the old per-tier cost claim the engine never applied');
+  // 5p = priciest, 12p = cheapest (data/drift.json scaledCosts.interrogator).
+  assert.match(interrogator.ability, /T1 Soft \([^)]*\+1–\+2 drift\)/);
+  assert.match(interrogator.ability, /T2 Standard \([^)]*\+2–\+4 drift\)/);
+  assert.match(interrogator.ability, /T3 Brutal \([^)]*\+4–\+10 drift\)/);
+});
+
+test('Interrogator\'s per-game ability text (roleForDisplay) shows this game\'s EXACT scaled cost, cheaper at a bigger table', () => {
+  const cfg = loadGameConfig();
+  const interrogator = cfg.roles.get('interrogator');
+  const at5p = renderAbility(interrogator, cfg.drift, { playerCount: 5 });
+  const at12p = renderAbility(interrogator, cfg.drift, { playerCount: 12 });
+  assert.match(at5p, /T1 Soft \([^)]*\+2 drift\)/);
+  assert.match(at5p, /T3 Brutal \([^)]*\+10 drift\)/);
+  assert.match(at12p, /T1 Soft \([^)]*\+1 drift\)/);
+  assert.match(at12p, /T3 Brutal \([^)]*\+4 drift\)/);
+  assert.doesNotMatch(at5p, /\{[a-zA-Z]+\}/);
+  assert.doesNotMatch(at12p, /\{[a-zA-Z]+\}/);
 });

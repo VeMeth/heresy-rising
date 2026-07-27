@@ -54,8 +54,9 @@
         ],
         "onCripple": "disable-one"
       },
-      "abilityTemplate": "Each night, interrogate one player at chosen intensity: T1 Soft ('story holds / something off / nothing'), T2 Standard (same + zone hint), T3 Brutal (confirmed Heretic or Loyalist) — every intensity costs {driftWeight} drift. Target's drift zone auto-upgrades effective tier. Effective T2+ vs Orange+ target = Execute on Sight (auto-kill, alignment revealed).",
-      "objective": "Find the heretics. Stay clean enough to be believed."
+      "abilityTemplate": "Each night, interrogate one player at chosen intensity: T1 Soft ('story holds / something off / nothing', {t1Cost} drift), T2 Standard (same + zone hint, {t2Cost} drift), T3 Brutal (confirmed Heretic or Loyalist, {t3Cost} drift) — costs scale with table size, cheaper at a big table. Target's drift zone auto-upgrades effective tier. Effective T2+ vs Orange+ target = Execute on Sight (auto-kill, alignment revealed).",
+      "objective": "Find the heretics. Stay clean enough to be believed.",
+      "scaledCostKey": "interrogator"
     },
     {
       "id": "chirurgeon",
