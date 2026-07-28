@@ -173,17 +173,14 @@
       },
       "sermonTiers": {
         "whisper": {
-          "selfCost": 1,
           "targetEffect": -2,
           "frequency": "unlimited_daily"
         },
         "hymn": {
-          "selfCost": 3,
           "targetEffect": -5,
           "frequency": "2_per_game"
         },
         "litany": {
-          "selfCost": 6,
           "targetEffect": -10,
           "effectFloor": 0,
           "frequency": "1_per_game"
@@ -240,17 +237,14 @@
       },
       "sermonTiers": {
         "false_comfort": {
-          "selfCost": 2,
           "targetEffect": 3,
           "appearance": "looks like Whisper to target"
         },
         "twisted_hymn": {
-          "selfCost": 2,
           "targetEffect": 7,
           "appearance": "target feels 'strengthened in faith'"
         },
         "warp_litany": {
-          "selfCost": 4,
           "targetEffect": 12,
           "appearance": "transcendent sermon"
         }

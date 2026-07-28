@@ -24,6 +24,7 @@
     {"id":"black","min":20,"max":20,"noise":1}
   ],
   "sermons": {
+    "_comment": "`self` here is the FLAT-COST FALLBACK, only read (heresyGameManager.js's sermon branch) when the casting role has no scaledCostKey. Every current sermon role (priest, heretic-priest) has scaledCostKey set, so `self` is currently dead weight for both of them -- their real self-drift comes from scaledCosts.priest / scaledCosts.heretic-priest via the 'standard' curve (game_data/scaledDrift). Don't edit these `self` numbers expecting a live role's cost to change; edit the scaledCosts curve instead. Kept (not deleted) because the fallback code path is genuinely live for any future sermon role added WITHOUT a scaledCostKey -- removing it would turn that role's self-drift into NaN the first time it fires. `target` and `limit` are unconditionally live for every sermon role, scaled or not.",
     "whisper":{"self":1,"target":-2,"limit":null},
     "hymn":{"self":3,"target":-5,"limit":2},
     "litany":{"self":6,"target":-10,"limit":1},
