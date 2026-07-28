@@ -1248,6 +1248,9 @@ if (authenticated.value) loadOverview();
 .checks { display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .check-inline { display: inline-flex !important; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: .03em; color: #b7b6aa; margin: 0; }
 .check-inline input { width: 13px; height: 13px; margin: 0; }
+.drift-cell { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.drift-cell input { width: 52px; text-align: right; padding: 4px 6px; }
+.drift-cell span { font-size: 11px; color: #8f9287; }
 .btn-save { padding: 5px 10px; font-size: 9px; }
 .kv-list { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
 .kv-row { display: flex; gap: 8px; padding: 5px 8px; background: #0d0f0d; border: 1px solid #2a2c25; border-radius: 2px; font-size: 11px; }
