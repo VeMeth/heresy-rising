@@ -21,7 +21,7 @@
         <ul class="player-list">
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)">
             <span class="portrait" :data-status="portraitStatus(p)" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
-            <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small></div>
+            <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.alive&&p.crippleTier" class="tortured-badge">TORTURED</small></div>
             <small v-if="p.alive&&p.crippleTier" class="tier-badge" :data-tier="p.crippleTier">T{{ p.crippleTier }}</small>
             <span v-else-if="!p.alive" class="death-badge" :class="{executed:p.crippleTier===3}" :title="p.crippleTier===3?'Lynched':'Slain'"><svg class="death-glyph" aria-hidden="true"><use :href="p.crippleTier===3?'#hr-execution':'#hr-deceased'"/></svg></span>
             <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)">{{ targetVoteCount(p.playerCode) }}</small>
@@ -648,6 +648,20 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   background: rgba(0, 0, 0, 0.35);
   color: #b79bff;
   box-shadow: 0 0 6px rgba(168, 130, 255, 0.2);
+}
+.tortured-badge {
+  display: inline-block;
+  margin-top: 4px;
+  margin-left: 4px;
+  padding: 1px 7px 2px;
+  font: 600 9px/1.4 Inter, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 140, 100, 0.6);
+  border-radius: 2px;
+  background: rgba(60, 20, 10, 0.5);
+  color: #ff9d7a;
+  box-shadow: 0 0 6px rgba(255, 140, 100, 0.2);
 }
 
 .speak-as-toggle {
