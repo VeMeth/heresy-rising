@@ -127,45 +127,44 @@
             </div>
           </section>
 
-          <div class="columns">
-            <section>
-              <h3>Actions ({{ detail.actions?.length || 0 }})</h3>
-              <div class="table-wrap compact">
-                <table>
-                  <thead><tr><th>Rd</th><th>Actor</th><th>Action</th><th>Target</th><th></th></tr></thead>
-                  <tbody>
-                    <tr v-for="action in detail.actions" :key="action.actorCode + action.round + action.kind">
-                      <td>R{{ action.round }}</td>
-                      <td><strong>{{ playerName(action.actorCode) }}</strong><code>{{ action.actorCode }}</code></td>
-                      <td><span class="tag-action">{{ ACTION_LABELS[action.kind] || action.kind }}</span></td>
-                      <td>{{ action.targetCode ? playerName(action.targetCode) : '-' }}</td>
-                      <td class="act-detail">
-                        <span v-if="action.variant" class="tag-variant">{{ action.variant }}</span>
-                        <span v-if="action.data" class="act-data"><code>{{ pretty(action.data) }}</code></span>
-                      </td>
-                    </tr>
-                    <tr v-if="!detail.actions?.length"><td colspan="5"><p class="empty">No actions.</p></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-            <section>
-              <h3>Votes ({{ detail.votes?.length || 0 }})</h3>
-              <div class="table-wrap compact">
-                <table>
-                  <thead><tr><th>Rd</th><th>Voter</th><th>Target</th></tr></thead>
-                  <tbody>
-                    <tr v-for="vote in detail.votes" :key="vote.voterCode + vote.round">
-                      <td>R{{ vote.round }}</td>
-                      <td><strong>{{ playerName(vote.voterCode) }}</strong><code>{{ vote.voterCode }}</code></td>
-                      <td><span class="vote-target" :class="{ 'vote-skip': vote.choice === 'skip' }">{{ vote.choice === 'skip' ? '⛔ skip' : playerName(vote.choice) }}</span></td>
-                    </tr>
-                    <tr v-if="!detail.votes?.length"><td colspan="3"><p class="empty">No votes.</p></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </div>
+          <section>
+            <h3>Actions ({{ detail.actions?.length || 0 }})</h3>
+            <div class="table-wrap compact">
+              <table>
+                <thead><tr><th>Rd</th><th>Actor</th><th>Action</th><th>Target</th><th></th></tr></thead>
+                <tbody>
+                  <tr v-for="action in detail.actions" :key="action.actorCode + action.round + action.kind">
+                    <td>R{{ action.round }}</td>
+                    <td><strong>{{ playerName(action.actorCode) }}</strong><code>{{ action.actorCode }}</code></td>
+                    <td><span class="tag-action">{{ ACTION_LABELS[action.kind] || action.kind }}</span></td>
+                    <td>{{ action.targetCode ? playerName(action.targetCode) : '-' }}</td>
+                    <td class="act-detail">
+                      <span v-if="action.variant" class="tag-variant">{{ action.variant }}</span>
+                      <span v-if="action.data" class="act-data"><code>{{ pretty(action.data) }}</code></span>
+                    </td>
+                  </tr>
+                  <tr v-if="!detail.actions?.length"><td colspan="5"><p class="empty">No actions.</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section>
+            <h3>Votes ({{ detail.votes?.length || 0 }})</h3>
+            <div class="table-wrap compact">
+              <table>
+                <thead><tr><th>Rd</th><th>Voter</th><th>Target</th></tr></thead>
+                <tbody>
+                  <tr v-for="vote in detail.votes" :key="vote.voterCode + vote.round">
+                    <td>R{{ vote.round }}</td>
+                    <td><strong>{{ playerName(vote.voterCode) }}</strong><code>{{ vote.voterCode }}</code></td>
+                    <td><span class="vote-target" :class="{ 'vote-skip': vote.choice === 'skip' }">{{ vote.choice === 'skip' ? '⛔ skip' : playerName(vote.choice) }}</span></td>
+                  </tr>
+                  <tr v-if="!detail.votes?.length"><td colspan="3"><p class="empty">No votes.</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           <div class="columns">
             <section>
