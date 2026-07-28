@@ -724,6 +724,7 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   adminListPlayers(){
     const rows=this.db.prepare(`
       SELECT DISTINCT p.player_code,
+        MAX(p.name) as name,
         COUNT(DISTINCT p.game_code) as game_count,
         COUNT(DISTINCT CASE WHEN g.status='ended' THEN p.game_code END) as ended_count,
         MAX(g.updated_at) as last_seen,
@@ -735,6 +736,7 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
     `).all();
     return {players:rows.map(r=>({
       playerCode:r.player_code,
+      name:r.name,
       gameCount:r.game_count,
       endedCount:r.ended_count,
       activeGames:(r.active_games||'').split(',').filter(x=>x),

@@ -298,9 +298,10 @@
           <h3>All Players ({{ players.length }})</h3>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Player Code</th><th>Total Games</th><th>Ended</th><th>Active</th><th>Last Seen</th><th></th></tr></thead>
+              <thead><tr><th>Callsign</th><th>Player Code</th><th>Total Games</th><th>Ended</th><th>Active</th><th>Last Seen</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="player in players" :key="player.playerCode" :class="{ 'has-active': player.activeGames.length > 0 }">
+                  <td><strong>{{ player.name || '(unnamed)' }}</strong></td>
                   <td><code>{{ player.playerCode }}</code></td>
                   <td><strong>{{ player.gameCount }}</strong></td>
                   <td>{{ player.endedCount }}</td>
