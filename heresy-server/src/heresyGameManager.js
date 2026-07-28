@@ -721,6 +721,78 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
     this.db.prepare('DELETE FROM hr_players WHERE game_code=? AND player_code=?').run(code,playerCode);
     return {despawned:true,playerCode,conclaveCode:code};
   }
+  adminListPlayers(){
+    const rows=this.db.prepare(`
+      SELECT DISTINCT p.player_code,
+        COUNT(DISTINCT p.game_code) as game_count,
+        COUNT(DISTINCT CASE WHEN g.status='ended' THEN p.game_code END) as ended_count,
+        MAX(g.updated_at) as last_seen,
+        GROUP_CONCAT(DISTINCT CASE WHEN g.status!='ended' THEN p.game_code END) as active_games
+      FROM hr_players p
+      JOIN hr_games g ON p.game_code = g.code
+      GROUP BY p.player_code
+      ORDER BY last_seen DESC
+    `).all();
+    return {players:rows.map(r=>({
+      playerCode:r.player_code,
+      gameCount:r.game_count,
+      endedCount:r.ended_count,
+      activeGames:(r.active_games||'').split(',').filter(x=>x),
+      lastSeen:r.last_seen
+    }))};
+  }
+  adminMergePlayer(fromPlayerCode,toPlayerCode){
+    if(!fromPlayerCode||!toPlayerCode)throw new Error('Both fromPlayerCode and toPlayerCode are required');
+    if(fromPlayerCode===toPlayerCode)throw new Error('Cannot merge a profile with itself');
+    const fromGames=this.db.prepare('SELECT DISTINCT game_code FROM hr_players WHERE player_code=?').all(fromPlayerCode);
+    const toGames=this.db.prepare('SELECT DISTINCT game_code FROM hr_players WHERE player_code=?').all(toPlayerCode);
+    const fromGameCodes=new Set(fromGames.map(r=>r.game_code));
+    const toGameCodes=new Set(toGames.map(r=>r.game_code));
+    const overlap=Array.from(fromGameCodes).filter(code=>toGameCodes.has(code));
+    if(overlap.length>0)throw new Error(`Cannot merge: both profiles have entries in ${overlap.length} game(s) (${overlap.slice(0,3).join(', ')}${overlap.length>3?'...':''})`);
+    const now=this.now();
+    this.db.exec('BEGIN TRANSACTION');
+    try{
+      this.db.prepare('UPDATE hr_players SET player_code=? WHERE player_code=?').run(toPlayerCode,fromPlayerCode);
+      this.db.prepare('UPDATE hr_actions SET actor_code=? WHERE actor_code=?').run(toPlayerCode,fromPlayerCode);
+      this.db.prepare('UPDATE hr_votes SET voter_code=? WHERE voter_code=?').run(toPlayerCode,fromPlayerCode);
+      this.db.prepare('UPDATE hr_messages SET player_code=? WHERE player_code=?').run(toPlayerCode,fromPlayerCode);
+      this.db.prepare('UPDATE hr_usage SET player_code=? WHERE player_code=?').run(toPlayerCode,fromPlayerCode);
+      const fromPrefs=this.db.prepare('SELECT prefs FROM hr_player_prefs WHERE player_code=?').get(fromPlayerCode);
+      if(fromPrefs){
+        const toPrefs=this.db.prepare('SELECT prefs FROM hr_player_prefs WHERE player_code=?').get(toPlayerCode);
+        const merged={...JSON.parse(fromPrefs.prefs),...JSON.parse(toPrefs?.prefs||'{}')};
+        this.db.prepare('INSERT INTO hr_player_prefs(player_code,prefs,updated_at) VALUES(?,?,?) ON CONFLICT(player_code) DO UPDATE SET prefs=excluded.prefs,updated_at=excluded.updated_at').run(toPlayerCode,JSON.stringify(merged),now);
+      }
+      this.db.prepare('DELETE FROM hr_player_prefs WHERE player_code=?').run(fromPlayerCode);
+      this.db.exec('COMMIT');
+      return{merged:true,fromPlayerCode,toPlayerCode,gamesAffected:fromGames.length};
+    }catch(e){
+      this.db.exec('ROLLBACK');
+      throw e;
+    }
+  }
+  adminDeletePlayer(playerCode){
+    if(!playerCode)throw new Error('playerCode is required');
+    const games=this.db.prepare('SELECT game_code FROM hr_players WHERE player_code=? GROUP BY game_code').all(playerCode);
+    const activeGames=this.db.prepare('SELECT COUNT(*) as cnt FROM hr_players p JOIN hr_games g ON p.game_code=g.code WHERE p.player_code=? AND g.status!=?').get(playerCode,'ended');
+    if(activeGames.cnt>0)throw new Error(`Cannot delete: player still has ${activeGames.cnt} active game(s)`);
+    const now=this.now();
+    this.db.exec('BEGIN TRANSACTION');
+    try{
+      this.db.prepare('DELETE FROM hr_players WHERE player_code=?').run(playerCode);
+      this.db.prepare('DELETE FROM hr_actions WHERE actor_code=?').run(playerCode);
+      this.db.prepare('DELETE FROM hr_votes WHERE voter_code=?').run(playerCode);
+      this.db.prepare('DELETE FROM hr_messages WHERE player_code=?').run(playerCode);
+      this.db.prepare('DELETE FROM hr_usage WHERE player_code=?').run(playerCode);
+      this.db.prepare('DELETE FROM hr_player_prefs WHERE player_code=?').run(playerCode);
+      this.db.exec('COMMIT');
+      return{deleted:true,playerCode,gamesAffected:games.length};
+    }catch(e){
+      this.db.exec('ROLLBACK');
+      throw e;
+    }
+  }
   botIds(c){return this.players(c).filter(p=>p.is_bot).map(p=>p.player_code);}
   botSessionInit(c,playerCode){
     const g=this.requireGame(c),p=this.requirePlayer(c,playerCode);

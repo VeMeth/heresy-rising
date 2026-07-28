@@ -36,6 +36,7 @@
       <nav class="tabs">
         <button type="button" :class="{ active: tab === 'cells' }" @click="tab = 'cells'">Conclaves</button>
         <button type="button" :class="{ active: tab === 'logs' }" @click="openLogs">Game Logs</button>
+        <button type="button" :class="{ active: tab === 'players' }" @click="openPlayers">Players</button>
         <button type="button" :class="{ active: tab === 'bots' }" @click="openBots">Bots</button>
         <button type="button" :class="{ active: tab === 'simulator' }" @click="tab = 'simulator'">Simulator</button>
       </nav>
@@ -265,6 +266,62 @@
             </section>
           </div>
         </article>
+      </section>
+
+      <section v-if="tab === 'players'" class="players">
+        <header class="detail-head">
+          <div><span>PROFILES</span><h2>Player Overview</h2></div>
+          <div class="actions">
+            <button type="button" @click="loadPlayers" :disabled="loadingPlayers">Refresh</button>
+          </div>
+        </header>
+        <p v-if="playerError" class="error">{{ playerError }}</p>
+
+        <div class="merge-form">
+          <h3>Merge Profiles</h3>
+          <p class="form-hint">Combine two profiles, keeping one as the primary. Both must have non-overlapping games.</p>
+          <div class="merge-inputs">
+            <label>Player to merge (from)
+              <input v-model="mergeForm.fromPlayerCode" type="text" placeholder="old player code" />
+            </label>
+            <label>Keep as primary (to)
+              <input v-model="mergeForm.toPlayerCode" type="text" placeholder="new player code" />
+            </label>
+            <button type="button" @click="mergeProfiles" :disabled="loadingPlayers || !mergeForm.fromPlayerCode || !mergeForm.toPlayerCode">Merge</button>
+          </div>
+          <p v-if="mergeResult" :class="{ ok: mergeResult.merged, error: !mergeResult.merged }">
+            {{ mergeResult.merged ? `✓ Merged ${mergeResult.fromPlayerCode} → ${mergeResult.toPlayerCode} (${mergeResult.gamesAffected} games)` : mergeResult.error }}
+          </p>
+        </div>
+
+        <div class="players-list">
+          <h3>All Players ({{ players.length }})</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Player Code</th><th>Total Games</th><th>Ended</th><th>Active</th><th>Last Seen</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="player in players" :key="player.playerCode" :class="{ 'has-active': player.activeGames.length > 0 }">
+                  <td><code>{{ player.playerCode }}</code></td>
+                  <td><strong>{{ player.gameCount }}</strong></td>
+                  <td>{{ player.endedCount }}</td>
+                  <td>
+                    <template v-if="player.activeGames.length">
+                      <span class="badge badge-active">{{ player.activeGames.length }}</span>
+                      <span class="game-codes">{{ player.activeGames.join(', ') }}</span>
+                    </template>
+                    <template v-else><span class="badge badge-na">0</span></template>
+                  </td>
+                  <td>{{ formatDate(player.lastSeen) }}</td>
+                  <td class="actions">
+                    <button type="button" @click="selectPlayerForMerge(player.playerCode)" title="Use as target for merge">→</button>
+                    <button type="button" class="danger" @click="deletePlayer(player)" :disabled="player.activeGames.length > 0">Delete</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-if="!players.length" class="empty">No players found.</p>
+        </div>
       </section>
 
       <section v-if="tab === 'bots'" class="bots">
@@ -591,6 +648,12 @@ const selectedCode = ref('');
 const logs = ref([]);
 const selectedLog = ref(null);
 
+const players = ref([]);
+const loadingPlayers = ref(false);
+const playerError = ref('');
+const mergeForm = ref({ fromPlayerCode: '', toPlayerCode: '' });
+const mergeResult = ref(null);
+
 const bots = ref([]);
 const botsPolling = ref(false);
 let botsPollTimer = null;
@@ -766,6 +829,66 @@ async function deleteLog(log) {
   await adminFetch(`/api/admin/game-logs/${encodeURIComponent(log.id)}`, { method: 'DELETE' });
   logs.value = logs.value.filter(item => item.id !== log.id);
   if (selectedLog.value?.id === log.id) selectedLog.value = null;
+}
+
+// ── Player Management ─────────────────────────────────────────────────────
+async function openPlayers() {
+  tab.value = 'players';
+  if (!players.value.length) await loadPlayers();
+}
+async function loadPlayers() {
+  playerError.value = '';
+  loadingPlayers.value = true;
+  try {
+    const data = await adminFetch('/api/admin/players');
+    players.value = data.players || [];
+    mergeResult.value = null;
+  } catch (err) {
+    playerError.value = err.message;
+  } finally {
+    loadingPlayers.value = false;
+  }
+}
+function selectPlayerForMerge(playerCode) {
+  mergeForm.value.toPlayerCode = playerCode;
+}
+async function mergeProfiles() {
+  const { fromPlayerCode, toPlayerCode } = mergeForm.value;
+  if (!fromPlayerCode || !toPlayerCode) return;
+  if (!confirm(`Merge ${fromPlayerCode} → ${toPlayerCode}?\n\nBoth profiles must have non-overlapping games.`)) return;
+  playerError.value = '';
+  loadingPlayers.value = true;
+  try {
+    const result = await adminFetch(`/api/admin/players/${encodeURIComponent(fromPlayerCode)}/merge`, {
+      method: 'POST',
+      body: JSON.stringify({ targetPlayerCode: toPlayerCode })
+    });
+    mergeResult.value = result;
+    mergeForm.value = { fromPlayerCode: '', toPlayerCode: '' };
+    await loadPlayers();
+  } catch (err) {
+    playerError.value = err.message;
+    mergeResult.value = { error: err.message };
+  } finally {
+    loadingPlayers.value = false;
+  }
+}
+async function deletePlayer(player) {
+  if (player.activeGames.length > 0) {
+    alert(`Cannot delete: player still has ${player.activeGames.length} active game(s).`);
+    return;
+  }
+  if (!confirm(`Permanently delete ${player.playerCode}?\n\nThis will remove ${player.gameCount} game record(s). This action cannot be undone.`)) return;
+  playerError.value = '';
+  loadingPlayers.value = true;
+  try {
+    await adminFetch(`/api/admin/players/${encodeURIComponent(player.playerCode)}`, { method: 'DELETE' });
+    players.value = players.value.filter(p => p.playerCode !== player.playerCode);
+  } catch (err) {
+    playerError.value = err.message;
+  } finally {
+    loadingPlayers.value = false;
+  }
 }
 
 // ── Heresy Bots ──────────────────────────────────────────────────────────
@@ -1073,4 +1196,19 @@ if (authenticated.value) loadOverview();
 .sim-warnings button { margin-top: 8px; }
 .sim-run { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 6px; }
 .sim-run label { width: 120px; }
+
+/* Players tab */
+.players { max-width: 1100px; }
+.merge-form { background: #171a16; border: 1px solid #34372f; padding: 18px; margin-bottom: 16px; }
+.merge-form h3 { margin: 0 0 6px; font-family: Cinzel, serif; color: #c8c0aa; font-size: 15px; }
+.form-hint { color: #8f9287; font-size: 12px; margin: 0 0 12px; }
+.merge-inputs { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: flex-end; margin-bottom: 12px; }
+.merge-inputs label { margin: 0; }
+.merge-inputs button { margin: 0; }
+.merge-form .ok { border: 1px solid #3a6d4a; background: #0d1f16; color: #74c68a; }
+.merge-form .error { border: 1px solid #70352f; background: #321916; color: #d99b95; }
+.players-list { background: #171a16; border: 1px solid #34372f; padding: 18px; }
+.players-list h3 { margin: 0 0 14px; font-family: Cinzel, serif; color: #c8c0aa; font-size: 15px; }
+.players-list tr.has-active { background: #0d0f0d; }
+.players-list .game-codes { display: block; font-size: 10px; color: #8f9287; margin-top: 2px; }
 </style>
