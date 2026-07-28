@@ -43,16 +43,16 @@
 
       <section v-if="tab === 'cells'" class="layout">
         <aside class="cell-list">
-          <button
+            <button
             v-for="game in games"
             :key="game.code"
             type="button"
             :class="{ selected: selectedCode === game.code }"
             @click="loadGame(game.code)"
           >
-            <strong>{{ game.code }}</strong>
-            <span>{{ game.status }} · {{ game.phase }}{{ game.dayStage ? `/${game.dayStage}` : '' }}</span>
-            <small>{{ game.playerCount }} players · avg drift {{ formatDrift(game.averageDrift) }} · round {{ game.round }}</small>
+            <span class="cell-code">{{ game.code }}</span>
+            <span class="cell-meta">{{ game.status }} · {{ game.phase }}{{ game.dayStage ? `/${game.dayStage}` : '' }}</span>
+            <span class="cell-stats">{{ game.playerCount }}p · drift {{ formatDrift(game.averageDrift) }} · R{{ game.round }}</span>
           </button>
           <p v-if="!games.length" class="empty">No conclaves found.</p>
         </aside>
@@ -79,12 +79,12 @@
             <span>Updated <strong>{{ formatDate(detail.game.updatedAt) }}</strong></span>
           </div>
 
-          <section>
+          <section class="drift-section">
             <h3>Drift overview</h3>
-            <div class="facts drift-overview">
-              <span>Average <strong>{{ formatDrift(averageDrift) }}</strong></span>
-              <span>Highest <strong>{{ highestDriftPlayer ? `${highestDriftPlayer.name} · ${highestDriftPlayer.drift}` : '-' }}</strong></span>
-              <span>At maximum <strong>{{ playersAtMaxDrift }}</strong></span>
+            <div class="drift-cards">
+              <div class="drift-card"><span>Average</span><strong>{{ formatDrift(averageDrift) }}</strong></div>
+              <div class="drift-card"><span>Highest</span><strong>{{ highestDriftPlayer ? `${highestDriftPlayer.name} · ${highestDriftPlayer.drift}` : '-' }}</strong></div>
+              <div class="drift-card"><span>At max</span><strong>{{ playersAtMaxDrift }}</strong></div>
             </div>
           </section>
 
@@ -115,12 +115,12 @@
                       <span>/ {{ detail.game.maxDrift }}</span>
                     </td>
                     <td class="checks">
-                      <label><input v-model="player.alive" type="checkbox"> Alive</label>
-                      <label><input v-model="player.ready" type="checkbox"> Ready</label>
-                      <label><input v-model="player.connected" type="checkbox"> Online</label>
-                      <label><input v-model="player.confessed" type="checkbox"> Confessed</label>
+                      <label class="check-inline"><input v-model="player.alive" type="checkbox"> Alive</label>
+                      <label class="check-inline"><input v-model="player.ready" type="checkbox"> Ready</label>
+                      <label class="check-inline"><input v-model="player.connected" type="checkbox"> Online</label>
+                      <label class="check-inline"><input v-model="player.confessed" type="checkbox"> Confessed</label>
                     </td>
-                    <td><button type="button" @click="savePlayer(player)">Save</button></td>
+                    <td><button type="button" class="btn-save" @click="savePlayer(player)">Save</button></td>
                   </tr>
                 </tbody>
               </table>
@@ -130,11 +130,23 @@
           <div class="columns">
             <section>
               <h3>Actions</h3>
-              <pre>{{ pretty(detail.actions) }}</pre>
+              <div class="kv-list">
+                <div v-for="(action, i) in detail.actions" :key="i" class="kv-row">
+                  <span class="kv-key">{{ action.type || action.kind || 'action' }}</span>
+                  <span class="kv-val">{{ action.target || action.targetCode || JSON.stringify(action) }}</span>
+                </div>
+                <p v-if="!detail.actions?.length" class="empty">No actions.</p>
+              </div>
             </section>
             <section>
               <h3>Votes</h3>
-              <pre>{{ pretty(detail.votes) }}</pre>
+              <div class="kv-list">
+                <div v-for="(vote, i) in detail.votes" :key="i" class="kv-row">
+                  <span class="kv-key">{{ vote.voter || vote.playerCode || '?' }}</span>
+                  <span class="kv-val">{{ vote.target || vote.vote || 'skip' }}</span>
+                </div>
+                <p v-if="!detail.votes?.length" class="empty">No votes.</p>
+              </div>
             </section>
           </div>
 
@@ -142,15 +154,22 @@
             <section>
               <h3>Messages</h3>
               <div class="scroll-list">
-                <p v-for="message in detail.messages" :key="message.id">
-                  <span>{{ formatDate(message.createdAt) }} · {{ message.channel }} · {{ message.author }}</span>
-                  {{ message.body }}
+                <p v-for="message in detail.messages" :key="message.id" class="msg-item">
+                  <span class="msg-meta">{{ formatDate(message.createdAt) }} · {{ message.channel }} · {{ message.author }}</span>
+                  <span class="msg-body">{{ message.body }}</span>
                 </p>
+                <p v-if="!detail.messages?.length" class="empty">No messages.</p>
               </div>
             </section>
             <section>
               <h3>Events</h3>
-              <pre>{{ pretty(detail.events) }}</pre>
+              <div class="kv-list">
+                <div v-for="(event, i) in detail.events" :key="i" class="kv-row">
+                  <span class="kv-key">{{ event.type || 'event' }}</span>
+                  <span class="kv-val">{{ event.message || event.reason || JSON.stringify(event.payload || event) }}</span>
+                </div>
+                <p v-if="!detail.events?.length" class="empty">No events.</p>
+              </div>
             </section>
           </div>
         </article>
@@ -1212,4 +1231,31 @@ if (authenticated.value) loadOverview();
 .players-list h3 { margin: 0 0 14px; font-family: Cinzel, serif; color: #c8c0aa; font-size: 15px; }
 .players-list tr.has-active { background: #0d0f0d; }
 .players-list .game-codes { display: block; font-size: 10px; color: #8f9287; margin-top: 2px; }
+
+/* ── Conclave (cells) tab ──────────────────────────────────────────────── */
+.cell-list button { display: grid; grid-template-columns: 1fr; gap: 3px; padding: 11px 14px; }
+.cell-code { font-size: 13px; font-weight: 700; color: #dfc27c; letter-spacing: .05em; }
+.cell-meta { font-size: 11px; color: #b7b6aa; }
+.cell-stats { font-size: 10px; color: #8f9287; }
+.detail section { margin-top: 18px; }
+.detail section:first-of-type { margin-top: 0; }
+.detail section h3 { margin: 0 0 10px; font-family: Cinzel, serif; color: #c8c0aa; font-size: 14px; letter-spacing: .03em; }
+.drift-section { margin-top: 12px; }
+.drift-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.drift-card { background: #0d0f0d; border: 1px solid #2e3029; padding: 12px; border-radius: 2px; }
+.drift-card span { display: block; color: #8f9287; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 4px; }
+.drift-card strong { font-size: 18px; color: #dfc27c; }
+.checks { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.check-inline { display: inline-flex !important; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: .03em; color: #b7b6aa; margin: 0; }
+.check-inline input { width: 13px; height: 13px; margin: 0; }
+.btn-save { padding: 5px 10px; font-size: 9px; }
+.kv-list { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
+.kv-row { display: flex; gap: 8px; padding: 5px 8px; background: #0d0f0d; border: 1px solid #2a2c25; border-radius: 2px; font-size: 11px; }
+.kv-key { color: #b69a5c; font-weight: 700; white-space: nowrap; flex-shrink: 0; min-width: 80px; }
+.kv-val { color: #e7e3d5; word-break: break-word; }
+.scroll-list { max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.msg-item { display: grid; gap: 2px; padding: 8px 10px; background: #0d0f0d; border: 1px solid #2a2c25; border-radius: 2px; margin: 0; }
+.msg-meta { font-size: 10px; color: #8f9287; }
+.msg-body { font-size: 12px; color: #e7e3d5; line-height: 1.45; }
+.empty { color: #8f9287; font-size: 11px; padding: 12px 0; text-align: center; }
 </style>
