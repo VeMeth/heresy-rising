@@ -129,23 +129,40 @@
 
           <div class="columns">
             <section>
-              <h3>Actions</h3>
-              <div class="kv-list">
-                <div v-for="(action, i) in detail.actions" :key="i" class="kv-row">
-                  <span class="kv-key">{{ action.type || action.kind || 'action' }}</span>
-                  <span class="kv-val">{{ action.target || action.targetCode || JSON.stringify(action) }}</span>
-                </div>
-                <p v-if="!detail.actions?.length" class="empty">No actions.</p>
+              <h3>Actions ({{ detail.actions?.length || 0 }})</h3>
+              <div class="table-wrap compact">
+                <table>
+                  <thead><tr><th>Rd</th><th>Actor</th><th>Action</th><th>Target</th><th></th></tr></thead>
+                  <tbody>
+                    <tr v-for="action in detail.actions" :key="action.actorCode + action.round + action.kind">
+                      <td>R{{ action.round }}</td>
+                      <td><strong>{{ playerName(action.actorCode) }}</strong><code>{{ action.actorCode }}</code></td>
+                      <td><span class="tag-action">{{ ACTION_LABELS[action.kind] || action.kind }}</span></td>
+                      <td>{{ action.targetCode ? playerName(action.targetCode) : '-' }}</td>
+                      <td class="act-detail">
+                        <span v-if="action.variant" class="tag-variant">{{ action.variant }}</span>
+                        <span v-if="action.data" class="act-data"><code>{{ pretty(action.data) }}</code></span>
+                      </td>
+                    </tr>
+                    <tr v-if="!detail.actions?.length"><td colspan="5"><p class="empty">No actions.</p></td></tr>
+                  </tbody>
+                </table>
               </div>
             </section>
             <section>
-              <h3>Votes</h3>
-              <div class="kv-list">
-                <div v-for="(vote, i) in detail.votes" :key="i" class="kv-row">
-                  <span class="kv-key">{{ vote.voter || vote.playerCode || '?' }}</span>
-                  <span class="kv-val">{{ vote.target || vote.vote || 'skip' }}</span>
-                </div>
-                <p v-if="!detail.votes?.length" class="empty">No votes.</p>
+              <h3>Votes ({{ detail.votes?.length || 0 }})</h3>
+              <div class="table-wrap compact">
+                <table>
+                  <thead><tr><th>Rd</th><th>Voter</th><th>Target</th></tr></thead>
+                  <tbody>
+                    <tr v-for="vote in detail.votes" :key="vote.voterCode + vote.round">
+                      <td>R{{ vote.round }}</td>
+                      <td><strong>{{ playerName(vote.voterCode) }}</strong><code>{{ vote.voterCode }}</code></td>
+                      <td><span class="vote-target" :class="{ 'vote-skip': vote.choice === 'skip' }">{{ vote.choice === 'skip' ? '⛔ skip' : playerName(vote.choice) }}</span></td>
+                    </tr>
+                    <tr v-if="!detail.votes?.length"><td colspan="3"><p class="empty">No votes.</p></td></tr>
+                  </tbody>
+                </table>
               </div>
             </section>
           </div>
@@ -162,11 +179,55 @@
               </div>
             </section>
             <section>
-              <h3>Events</h3>
-              <div class="kv-list">
-                <div v-for="(event, i) in detail.events" :key="i" class="kv-row">
-                  <span class="kv-key">{{ event.type || 'event' }}</span>
-                  <span class="kv-val">{{ event.message || event.reason || JSON.stringify(event.payload || event) }}</span>
+              <h3>Events ({{ detail.events?.length || 0 }})</h3>
+              <div class="events-list">
+                <div v-for="event in detail.events" :key="event.id" class="event-card" :class="'event-' + event.type">
+                  <div class="event-head">
+                    <span class="tag-event-type">{{ event.type }}</span>
+                    <span class="event-time">{{ formatDate(event.createdAt) }}</span>
+                  </div>
+
+                  <!-- drift -->
+                  <div v-if="event.type === 'drift'" class="event-body">
+                    <strong class="ev-p">{{ playerName(event.payload.playerCode) }}</strong>
+                    <span class="ev-mid">drift</span>
+                    <span class="ev-delta" :class="{ up: event.payload.delta > 0, down: event.payload.delta < 0 }">{{ event.payload.delta > 0 ? '+' : '' }}{{ event.payload.delta }}</span>
+                    <span class="ev-mid">({{ event.payload.before }} → {{ event.payload.after }})</span>
+                    <span class="ev-zone">{{ event.payload.zone }}</span>
+                    <span class="ev-reason">{{ event.payload.reason }}</span>
+                    <span v-if="event.payload.round != null" class="ev-meta">R{{ event.payload.round }} {{ event.payload.phase }}</span>
+                  </div>
+
+                  <!-- day-resolution -->
+                  <div v-else-if="event.type === 'day-resolution'" class="event-body">
+                    <span class="ev-outcome" :class="event.payload.outcome">{{ event.payload.outcome }}</span>
+                    <template v-if="event.payload.target">
+                      <span class="ev-mid">→</span>
+                      <strong class="ev-p">{{ playerName(event.payload.target) }}</strong>
+                    </template>
+                    <span v-if="event.payload.reason" class="ev-reason">{{ event.payload.reason }}</span>
+                    <span v-if="event.payload.alignmentRevealed" class="ev-align" :class="event.payload.alignmentRevealed">{{ event.payload.alignmentRevealed }}</span>
+                  </div>
+
+                  <!-- blood-ritual -->
+                  <div v-else-if="event.type === 'blood-ritual'" class="event-body">
+                    <strong class="ev-p">{{ playerName(event.payload.attacker) }}</strong>
+                    <span class="ev-mid">→</span>
+                    <strong class="ev-p">{{ playerName(event.payload.target) }}</strong>
+                    <span class="ev-outcome" :class="event.payload.outcome">{{ event.payload.outcome }}</span>
+                    <span v-if="!event.payload.landed" class="ev-blocked">blocked</span>
+                  </div>
+
+                  <!-- night-action -->
+                  <div v-else-if="event.type === 'night-action'" class="event-body">
+                    <strong class="ev-p">{{ playerName(event.payload.actor) }}</strong>
+                    <span class="ev-mid">→</span>
+                    <strong class="ev-p">{{ playerName(event.payload.target) }}</strong>
+                    <span class="ev-reason">{{ event.payload.kind }}</span>
+                  </div>
+
+                  <!-- fallback -->
+                  <div v-else class="event-body"><code>{{ pretty(event.payload) }}</code></div>
                 </div>
                 <p v-if="!detail.events?.length" class="empty">No events.</p>
               </div>
@@ -1144,6 +1205,18 @@ function formatDate(value) {
   const numeric = Number(value);
   return new Date(numeric > 10_000_000_000 ? numeric : numeric * 1000).toLocaleString();
 }
+function playerName(code) {
+  if (!code || !detail.value) return code || '-';
+  const p = detail.value.players.find(p => p.playerCode === code);
+  return p ? p.name : code;
+}
+const ACTION_LABELS = {
+  sleep:'Sleep', vote:'Vote', investigate:'Investigate', protect:'Protect',
+  watch:'Watch', shield:'Shield', kill:'Kill', sermon:'Sermon',
+  forgery:'Forgery', 'booby-trap':'Booby Trap', 'boobytrap':'Booby Trap',
+  'heretical-catalyst':'Heretical Catalyst', possess:'Possess',
+  'blood-ritual':'Blood Ritual', 'drift-hint':'Drift Hint', bodyguard:'Bodyguard'
+};
 
 // roundActionStatus tracks whether a bot has submitted its night action /
 // day vote for the CURRENT round — unlike `lastAction` (a noisy free-text
@@ -1261,4 +1334,48 @@ if (authenticated.value) loadOverview();
 .msg-meta { font-size: 10px; color: #8f9287; }
 .msg-body { font-size: 12px; color: #e7e3d5; line-height: 1.45; }
 .empty { color: #8f9287; font-size: 11px; padding: 12px 0; text-align: center; }
+
+/* ── Conclave compact tables (actions / votes) ─────────────────────────── */
+.table-wrap.compact table { font-size: 11px; }
+.table-wrap.compact th { padding: 4px 6px; font-size: 9px; letter-spacing: .1em; color: #8f9287; text-transform: uppercase; }
+.table-wrap.compact td { padding: 4px 6px; }
+.table-wrap.compact code { font-size: 9px; color: #6a6d5f; }
+.table-wrap.compact td:last-child { width: 1%; white-space: nowrap; }
+.tag-action { display: inline-block; padding: 2px 6px; background: #1a1c17; border: 1px solid #34372f; border-radius: 2px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #c8c0aa; }
+.tag-variant { color: #b69a5c; font-size: 9px; padding: 1px 5px; border: 1px solid #4a4434; border-radius: 2px; background: #1a160e; }
+.act-data { display: block; margin-top: 2px; }
+.act-data code { font-size: 9px; color: #8f9287; }
+.vote-target { font-weight: 600; color: #e7e3d5; }
+.vote-target.vote-skip { color: #8f9287; font-style: italic; }
+
+/* ── Events list ────────────────────────────────────────────────────────── */
+.events-list { display: flex; flex-direction: column; gap: 5px; max-height: 400px; overflow-y: auto; }
+.event-card { background: #0d0f0d; border: 1px solid #2a2c25; border-radius: 2px; padding: 7px 10px; }
+.event-drift { border-left: 3px solid #4a4434; }
+.event-day-resolution { border-left: 3px solid #b69a5c; }
+.event-blood-ritual { border-left: 3px solid #5a3a36; }
+.event-night-action { border-left: 3px solid #3a5a5a; }
+.event-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+.tag-event-type { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: #8f9287; }
+.event-time { font-size: 9px; color: #6a6d5f; }
+.event-body { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 7px; font-size: 11.5px; line-height: 1.5; }
+.ev-p { color: #e7e3d5; }
+.ev-mid { color: #6a6d5f; }
+.ev-reason { color: #b7b6aa; font-size: 10px; }
+.ev-zone { display: inline-block; padding: 1px 5px; background: #161813; border: 1px solid #2e3029; border-radius: 2px; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #8f9287; }
+.ev-meta { font-size: 9px; color: #6a6d5f; }
+.ev-delta { font-weight: 700; font-size: 12px; }
+.ev-delta.up { color: #d58c75; }
+.ev-delta.down { color: #74c68a; }
+.ev-outcome { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.ev-outcome.skip { color: #8f9287; border: 1px solid #3a3c34; background: #111210; }
+.ev-outcome.lynch { color: #e2a094; border: 1px solid #5a3a36; background: #1f0d0b; }
+.ev-outcome.torture { color: #c9a86c; border: 1px solid #4a3d28; background: #1a150d; }
+.ev-outcome.kill { color: #e2a094; border: 1px solid #5a3a36; background: #1f0d0b; }
+.ev-outcome.cripple { color: #c9a86c; border: 1px solid #4a3d28; background: #1a150d; }
+.ev-outcome.blocked { color: #8f9287; border: 1px solid #3a3c34; }
+.ev-blocked { color: #8f9287; font-size: 10px; font-style: italic; }
+.ev-align { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.ev-align.loyalist { color: #9fbf8a; border: 1px solid #3a5a30; background: #0d1a0a; }
+.ev-align.heretic { color: #d58c75; border: 1px solid #5a3a36; background: #1f0d0b; }
 </style>
