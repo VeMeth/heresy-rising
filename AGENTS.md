@@ -12,11 +12,12 @@ Two service packages + a shared data dir + Playwright e2e:
 |---|---|---|
 | `heresy-server/` | Express + Socket.IO API, SQLite, game rules | `src/index.js` (also `createHeresyServer()` for tests) |
 | `heresy-client/` | Vue 3 + Vite SPA | `src/main.js` → `App.vue` |
-| `data/` | Engine-readable game config (JSON), and the live SQLite DB on the host | `roles-40k.json`, `composition.json`, `drift.json`, `scenarios/` |
+| `game_data/` | Engine-readable game config (JSON) — server, sim and client all read this, server via `GAME_CONFIG_DIR`, client via the `@game_data` Vite alias | `roles-40k.json`, `composition.json`, `drift.json`, `phases.json`, `rules.json`, `deathFlavor.json`, `scenarios/` |
+| `data/` | Runtime state only — the live SQLite DB, logs, bot-sessions | n/a |
 | `tests/e2e/` | Playwright suite (auto-starts the server) | `playwright.config.js` |
 | `site/` | VitePress player manual, served by the client container at `/docs/` | n/a (built into client image) |
 
-Engine reads **only** from `data/*.json`. The spec markdown under
+Engine reads **only** from `game_data/*.json`. The spec markdown under
 `docs/specs/mechanics/` is **mirror** files of a sister project repo —
 they have a warning banner at the top and a sync rule. If you change
 game numbers, edit the JSON, not the markdown, and flag mirror drift to

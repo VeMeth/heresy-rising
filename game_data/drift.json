@@ -34,49 +34,27 @@
   "scaledCosts": {
     "_schema": {
       "costFormula": "round(max(floor, base / players))",
-      "_comment": "Player-scaled ability costs (dispatch Q31, projects/heresy-rising/dispatches/2026-07-27-q31-interrogator-cost.md). perPlayerCount is precomputed for the engine's hot path; heresy-server/src/mechanics/scaledCosts.js's validateScaledCosts() regenerates it from baseValues+floors+costFormula and must match exactly — edit baseValues/floors and regenerate, don't hand-edit perPlayerCount out of sync. Rounding uses round-half-up (JS Math.round), not banker's rounding."
+      "_comment": "Player-scaled ability costs (dispatch Q31, projects/heresy-rising/dispatches/2026-07-27-q31-interrogator-cost.md). Two entry shapes: (1) a CURVE — baseValues/floors/perPlayerCount, exactly as before; lives under _curves, keyed by a balance-descriptive name, not a role id. (2) an ALIAS — {curve, tierKeys}, where tierKeys is this role's own tier names in the SAME ORDER as the curve's baseValues keys (positional mapping, e.g. curve 't1'/'t2'/'t3' <-> role 'whisper'/'hymn'/'litany'). A role only needs its own inline curve block (shape 1, unaliased) if its costs genuinely diverge from every existing curve — reuse an existing curve via shape 2 whenever the numbers match, so N roles sharing a balance curve cost one 2-line alias each instead of N copies of the same table. perPlayerCount is precomputed for the engine's hot path; heresy-server/src/mechanics/scaledCosts.js's validateScaledCosts() regenerates every curve's table from its own baseValues+floors+costFormula and must match exactly — edit baseValues/floors and regenerate, don't hand-edit perPlayerCount out of sync. Rounding uses round-half-up (JS Math.round), not banker's rounding."
     },
-    "interrogator": {
-      "baseValues": {"t1":10,"t2":20,"t3":50},
-      "floors":     {"t1":1, "t2":2, "t3":3},
-      "perPlayerCount": {
-        "5":  {"t1":2, "t2":4, "t3":10},
-        "6":  {"t1":2, "t2":3, "t3":8},
-        "7":  {"t1":1, "t2":3, "t3":7},
-        "8":  {"t1":1, "t2":3, "t3":6},
-        "9":  {"t1":1, "t2":2, "t3":6},
-        "10": {"t1":1, "t2":2, "t3":5},
-        "11": {"t1":1, "t2":2, "t3":5},
-        "12": {"t1":1, "t2":2, "t3":4}
+    "_curves": {
+      "standard": {
+        "_comment": "Shared by every role below as of 2026-07-28 (interrogator, priest, heretic-priest all reuse this curve unmodified). If a future role needs different numbers, add a new named curve here rather than editing this one out from under the existing three.",
+        "baseValues": {"t1":10,"t2":20,"t3":50},
+        "floors":     {"t1":1, "t2":2, "t3":3},
+        "perPlayerCount": {
+          "5":  {"t1":2, "t2":4, "t3":10},
+          "6":  {"t1":2, "t2":3, "t3":8},
+          "7":  {"t1":1, "t2":3, "t3":7},
+          "8":  {"t1":1, "t2":3, "t3":6},
+          "9":  {"t1":1, "t2":2, "t3":6},
+          "10": {"t1":1, "t2":2, "t3":5},
+          "11": {"t1":1, "t2":2, "t3":5},
+          "12": {"t1":1, "t2":2, "t3":4}
+        }
       }
     },
-    "priest": {
-      "baseValues": {"whisper":10,"hymn":20,"litany":50},
-      "floors":     {"whisper":1, "hymn":2, "litany":3},
-      "perPlayerCount": {
-        "5":  {"whisper":2, "hymn":4, "litany":10},
-        "6":  {"whisper":2, "hymn":3, "litany":8},
-        "7":  {"whisper":1, "hymn":3, "litany":7},
-        "8":  {"whisper":1, "hymn":3, "litany":6},
-        "9":  {"whisper":1, "hymn":2, "litany":6},
-        "10": {"whisper":1, "hymn":2, "litany":5},
-        "11": {"whisper":1, "hymn":2, "litany":5},
-        "12": {"whisper":1, "hymn":2, "litany":4}
-      }
-    },
-    "heretic-priest": {
-      "baseValues": {"false-comfort":10,"twisted-hymn":20,"warp-litany":50},
-      "floors":     {"false-comfort":1, "twisted-hymn":2, "warp-litany":3},
-      "perPlayerCount": {
-        "5":  {"false-comfort":2, "twisted-hymn":4, "warp-litany":10},
-        "6":  {"false-comfort":2, "twisted-hymn":3, "warp-litany":8},
-        "7":  {"false-comfort":1, "twisted-hymn":3, "warp-litany":7},
-        "8":  {"false-comfort":1, "twisted-hymn":3, "warp-litany":6},
-        "9":  {"false-comfort":1, "twisted-hymn":2, "warp-litany":6},
-        "10": {"false-comfort":1, "twisted-hymn":2, "warp-litany":5},
-        "11": {"false-comfort":1, "twisted-hymn":2, "warp-litany":5},
-        "12": {"false-comfort":1, "twisted-hymn":2, "warp-litany":4}
-      }
-    }
+    "interrogator":   { "curve": "standard", "tierKeys": ["t1", "t2", "t3"] },
+    "priest":         { "curve": "standard", "tierKeys": ["whisper", "hymn", "litany"] },
+    "heretic-priest": { "curve": "standard", "tierKeys": ["false-comfort", "twisted-hymn", "warp-litany"] }
   }
 }

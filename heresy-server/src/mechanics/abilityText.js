@@ -71,11 +71,14 @@ export function buildCostContext(role, driftConfig, opts = {}) {
     const scaled = driftConfig.scaledCosts?.[role.scaledCostKey];
     if (!scaled) throw new Error(`abilityText: role "${role.id}" has scaledCostKey "${role.scaledCostKey}" but drift.json's scaledCosts has no entry for it`);
     const tierKeyToPlaceholder = tier => tier.replace(/-(\w)/g, (_, c) => c.toUpperCase());
-    const tiers = Object.keys(scaled.baseValues);
+    // Alias shape (scaled.curve set) keeps its own tier names in tierKeys;
+    // legacy inline shape has no .curve and lists tiers via baseValues.
+    const block = scaled.curve ? driftConfig.scaledCosts._curves?.[scaled.curve] : scaled;
+    const tiers = scaled.curve ? scaled.tierKeys : Object.keys(scaled.baseValues);
     if (opts.playerCount) {
       for (const tier of tiers) ctx[`${tierKeyToPlaceholder(tier)}Cost`] = formatSigned(resolveScaledCost(driftConfig.scaledCosts, role.scaledCostKey, tier, opts.playerCount));
     } else {
-      const counts = Object.keys(scaled.perPlayerCount).map(Number);
+      const counts = Object.keys(block.perPlayerCount).map(Number);
       const minPlayers = Math.min(...counts), maxPlayers = Math.max(...counts);
       for (const tier of tiers) {
         // Cost falls as the table grows, so cheapest = max players, priciest = min players.

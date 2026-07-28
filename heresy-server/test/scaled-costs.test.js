@@ -195,3 +195,47 @@ test('boot-time range: Heretic Priest\'s ability text shows a cheapest–pricies
   assert.match(hp.ability, /\+4–\+10 self-drift/, 'warp litany: cheapest 4 to priciest 10');
   assert.doesNotMatch(hp.ability, /\{[a-zA-Z]+\}/, 'no unfilled placeholders');
 });
+
+// Curve/alias refactor: interrogator, priest, and heretic-priest all now
+// point at the same shared `_curves.standard` table via a {curve, tierKeys}
+// alias instead of each carrying its own byte-identical copy. These tests
+// pin the alias indirection itself, separate from the formula tests above.
+
+test('alias indirection: resolving through an alias role gives identical results to resolving the shared curve\'s own tier directly, at several player counts', () => {
+  const scaledCosts = loadGameConfig().drift.scaledCosts;
+  for (const n of [5, 6, 8, 9, 12]) {
+    // priest 'litany' (tierKeys[2]) <-> curve 'standard' tier index 2 ('t3') <-> interrogator 't3' (tierKeys[2])
+    assert.equal(
+      resolveScaledCost(scaledCosts, 'priest', 'litany', n),
+      resolveScaledCost(scaledCosts, 'interrogator', 't3', n),
+      `priest litany and interrogator t3 must match at ${n}p (both alias to standard's 3rd tier)`
+    );
+    // heretic-priest 'false-comfort' (tierKeys[0]) <-> curve tier index 0 ('t1') <-> priest 'whisper' (tierKeys[0])
+    assert.equal(
+      resolveScaledCost(scaledCosts, 'heretic-priest', 'false-comfort', n),
+      resolveScaledCost(scaledCosts, 'priest', 'whisper', n),
+      `heretic-priest false-comfort and priest whisper must match at ${n}p (both alias to standard's 1st tier)`
+    );
+  }
+});
+
+test('validateScaledCosts: throws when an alias role\'s curve name does not exist in _curves', () => {
+  const scaledCosts = {
+    _curves: { standard: { baseValues: { t1: 10 }, floors: { t1: 1 }, perPlayerCount: {} } },
+    interrogator: { curve: 'no-such-curve', tierKeys: ['t1'] },
+  };
+  assert.throws(() => validateScaledCosts(scaledCosts), /references unknown curve "no-such-curve"/);
+});
+
+test('validateScaledCosts: throws when an alias role\'s tierKeys length does not match the curve\'s tier count', () => {
+  const scaledCosts = {
+    _curves: { standard: { baseValues: { t1: 10, t2: 20, t3: 50 }, floors: { t1: 1, t2: 2, t3: 3 }, perPlayerCount: {} } },
+    priest: { curve: 'standard', tierKeys: ['whisper', 'hymn'] }, // missing a 3rd tier name for t3
+  };
+  assert.throws(() => validateScaledCosts(scaledCosts), /tierKeys/);
+});
+
+test('resolveScaledCost: an alias role also throws "has no tier" (same wording as the legacy inline path) for an unmapped tier name', () => {
+  const scaledCosts = loadGameConfig().drift.scaledCosts;
+  assert.throws(() => resolveScaledCost(scaledCosts, 'priest', 'not-a-tier', 8), /has no tier/);
+});

@@ -107,7 +107,10 @@ function costContext(id, playerCount) {
   const role = validRoles.get(id);
   if (role?.scaledCostKey) {
     const tierKeyToPlaceholder = tier => tier.replace(/-(\w)/g, (_, c) => c.toUpperCase());
-    const tiers = Object.keys(SCALED_COSTS[role.scaledCostKey].baseValues);
+    const scaled = SCALED_COSTS[role.scaledCostKey];
+    // Alias shape (scaled.curve set) keeps its own tier names in tierKeys;
+    // legacy inline shape has no .curve and lists tiers via baseValues.
+    const tiers = scaled.curve ? scaled.tierKeys : Object.keys(scaled.baseValues);
     for (const tier of tiers) context[`${tierKeyToPlaceholder(tier)}Cost`] = scaledCostLabel(role.scaledCostKey, tier, playerCount);
   }
   return context;
