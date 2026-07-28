@@ -5,18 +5,18 @@
   "lastUpdated": "2026-07-28T00:00:00+02:00",
   "description": "Tooltip glossary terms, role aliases, and mechanic definitions. Two sources: (1) roles reuse ability text from roles-40k.json; (2) mechanics are written here. EVERYTHING IS PUBLIC KNOWLEDGE — tooltips cannot leak hidden state.",
   "roleAliases": {
-    "imperial-citizen": ["imperial citizen", "citizen", "citizens"],
-    "interrogator": ["interrogator", "interrogators", "intr", "interrogate", "interrogates", "interrogated", "interrogation"],
-    "chirurgeon": ["chirurgeon", "chirurgeons", "prot"],
-    "novice-psychic": ["novice-psychic", "novice psychic", "psychic"],
-    "arbitrator": ["arbitrator", "arbitrators"],
+    "imperial-citizen": ["imperial citizen", "citizen", "citizens", "villager", "vanilla"],
+    "interrogator": ["interrogator", "interrogators", "intr", "interrogate", "interrogates", "interrogated", "interrogation", "seer"],
+    "chirurgeon": ["chirurgeon", "chirurgeons", "prot", "chiru"],
+    "novice-psychic": ["novice-psychic", "novice psychic", "psychic", "novice"],
+    "arbitrator": ["arbitrator", "arbitrators", "arbi", "arby", "arb", "hm"],
     "priest": ["priest", "priests", "sermon", "hymn", "litany"],
-    "sanctioned-psyker": ["sanctioned psyker", "psyker", "psykers", "psy"],
-    "murderer": ["murderer", "murderers"],
+    "sanctioned-psyker": ["sanctioned psyker", "psyker", "psykers", "psy", "militia", "vilgilante"],
+    "murderer": ["murderer", "murderers", "killer"],
     "heretic-priest": ["heretic priest", "heretic-priest", "hex-priest"],
     "conspirator": ["conspirator", "conspirators", "forgery", "forged"],
-    "saboteur": ["saboteur", "saboteurs", "trap", "trapped", "booby-trap"],
-    "recruiter": ["recruiter", "recruiters"],
+    "saboteur": ["saboteur", "saboteurs", "trap", "trapped", "booby-trap", "trapper"],
+    "recruiter": ["recruiter", "recruiters", "rec"],
     "animus": ["animus", "neverborn"]
   },
   "roleGlossOverrides": {
@@ -47,7 +47,7 @@
       "label": "Drift zone",
       "kind": "Mechanic",
       "doc": "/docs/drift",
-      "aliases": ["drift zone", "drift zones", "green zone", "yellow zone", "orange zone", "red zone", "black zone"],
+      "aliases": ["drift zone", "drift zones", "green zone", "yellow zone", "orange zone", "red zone", "black zone", "zone"],
       "glossTemplate": "Where a score sits on the ladder: Green ({greenMin}–{greenMax}), Yellow ({yellowMin}–{yellowMax}), Orange ({orangeMin}–{orangeMax}), Red ({redMin}–{redMax}), Black ({blackMin}). Powers read the zone, not the number."
     },
     {
