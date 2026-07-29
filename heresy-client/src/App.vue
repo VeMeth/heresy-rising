@@ -69,6 +69,7 @@ import GameView from './components/GameView.vue';
 import SettingsMenu from './components/SettingsMenu.vue';
 import ConclaveSwitcher from './components/ConclaveSwitcher.vue';
 import newPhaseSoundUrl from './assets/new-phase.mp3';
+import newVoteSoundUrl from './assets/new-vote.mp3';
 
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]); let previousPhase = null;
 const showManual = ref(false); const manualMounted = ref(false); const manualUrl = ref('/docs/how-to-play');
@@ -219,9 +220,10 @@ async function copyText(text) {
 }
 function receiveState(data) { const state = normalize(data); if (state) { if (previousPhase && previousPhase !== state.phase) playPhaseSound(); previousPhase = state.phase; game.value = state; saveGameCode(state.code); if (state.privateMessages?.length) mergeMessages('public', state.privateMessages); } }
 function unlockAudio() { if (audioUnlocked) return; audioUnlocked = true; const dummy = new Audio(); dummy.play().catch(() => {}); }
-function playPhaseSound() { if (!audioUnlocked) return; try { const audio = new Audio(newPhaseSoundUrl); audio.volume = 0.5; audio.play().catch(err => console.error('Could not play phase sound:', err)); } catch(e) { console.error('Error playing sound:', e); } }
+function playSound(url, label) { if (!audioUnlocked) return; try { const audio = new Audio(url); audio.volume = 0.5; audio.play().catch(err => console.error(`Could not play ${label} sound:`, err)); } catch(e) { console.error(`Error playing ${label} sound:`, e); } }
+function playPhaseSound() { playSound(newPhaseSoundUrl, 'phase'); }
 function receiveMessage(payload) { const msg = payload?.message || payload; if (msg) mergeMessages(msg.channel === 'private' ? 'public' : (msg.channel || 'public'), [msg]); }
-function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...game.value, votes:data.votes }; }
+function receiveVotes(data) { if (game.value && data?.votes) { game.value = { ...game.value, votes:data.votes }; playSound(newVoteSoundUrl, 'vote'); } }
 function receiveAnnouncement(payload) {
   const a = payload?.announcement || payload;
   if (!a) return;
