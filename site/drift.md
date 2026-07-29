@@ -31,7 +31,7 @@ Per the [day-phase spec](https://github.com/VeMeth/heresy-rising/blob/master/doc
 
 | Trigger | Effect on drift | Who pays |
 |---|---|---|
-| **Wrong lynch** — accusing a Loyalist for two consecutive days | **+2** | Each voter on the losing side |
+| **Wrong lynch** — voting to lynch a Loyalist | **+2** | Each voter who voted for the Loyalist |
 | **Witnessed violence** — alive at the end of a night in which someone died | **+1** | Every living player who witnessed the kill |
 | **High-power night action** — Interrogator T2/T3, Murderer kill, Recruiter catalyst, Heretic Priest Hymn/Litany | **+1 to +3** | The actor (cost printed on each role) |
 | **Voted with the losing side** | **+1** | The minority bloc that day |
@@ -128,11 +128,11 @@ Day-phase actions move drift too:
 
 | Day action | Drift effect |
 |---|---|
-| **Interrogate** (not yet Tier 3) | +1 drift to *voters on the losing side* if the target was Loyalist (wrong-interrogation); −1 drift to *all living players* if the target was Heretic (cleansing) |
-| **Lynch** (Tier 3 escalation) | +1 drift to *all living players* who witnessed (same as witnessed violence); +2 drift to *voters on the losing side* if the target was Loyalist (wrong-lynch); +1 to the murderer/voters if the target was Heretic |
+| **Interrogate** | No drift effect from the probe itself — only the cripple tier and lost night action |
+| **Lynch** | +1 drift to *all living players* who witnessed (witnessed violence); +2 drift to *voters* if the target was Loyalist (wrong-lynch) |
 | **Stand down** (skip-majority vote) | No drift effect |
 
-Per the locked day-phase spec: "interrogate is gentler than lynch" — 70% of the lynch penalty is the rough rule of thumb.
+> **Wrong lynch** (+2) is the only voting penalty. Interrogation alone never costs drift — the cost is the night action you lose and the mark you carry. Lynch is the expensive weapon.
 
 ## Why drift exists as a mechanic
 

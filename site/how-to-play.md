@@ -39,13 +39,13 @@ The day is a vote. You pick someone to accuse. The outcome depends on how many l
 
 | Vote share | Outcome | Border |
 |---|---|---|
-| **≥60%** of living players | **Lynch** — target dies, alignment revealed | 🔴 Red |
+| **≥60%** of living players | **Lynch** — target dies, no role or alignment revealed | 🔴 Red |
 | **<60%** but still the leader | **Interrogate** — target survives but skips next night action | 🟠 Orange |
 | Everyone votes Stand down | **Skip** — no event | — |
 
 > **60% of living players**, not max players. If 5 are alive, 3 votes = 60%.
 
-The orange border is your probe. Interrogation doesn't kill — it *cripples*. The target loses their next night action. **Two interrogations on the same suspect = execution** — no matter how many days apart, no matter who got interrogated in between. The interrogation mark *persists forever* (until the marked player dies). Once a suspect picks up a mark from their first interrogation, the second orange border on them is the kill. The cabal has no defense: pivoting (interrogating different targets) doesn't reset the mark, and the marked suspect cannot clear it through any faction mechanic.
+The orange border is your probe. Interrogation doesn't kill — it marks and *cripples*. The target skips their next night action and carries an **interrogation mark**. A marked suspect who reaches the vote podium again is **automatically lynched** at any vote count — even below 60%. The mark *persists forever* until death, and the cabal has no defense: pivoting to different targets doesn't reset it. However, the **Interrogator** can spend a **T1 scan** on a clean (Green) read to clear a false mark — but a cleared mark means the next interrogation on that target escalates through the tiers instead (see below).
 
 ## Drift — what the Warp leaves on a soul
 
@@ -65,15 +65,15 @@ Drift is a value from `0` (clean) to `20` (lost). Players don't see their own nu
 
 ## Interrogation
 
-Interrogation is what you do *instead* of killing. It cripples a target one tier at a time:
+Interrogation is what you do *instead* of killing. It cripples a target and leaves an interrogation mark:
 
 | Tier | What it does to the target |
 |---|---|
-| Tier 1 | Mild. Their night action costs double next round; auto-recovers by next day. |
-| Tier 2 | Severe. They permanently lose a night-action slot. |
+| Tier 1 | Skips their next night action. The mark and cripple auto-recover by next day, but the interrogation mark persists. |
+| Tier 2 | Second interrogation on the same player **kills them and reveals their role and faction** — only reachable if the Interrogator cleared their mark. |
 | Tier 3 | Critically crippled. They must publicly confess their role on a direct ask. |
 
-A target who clears **60% of living votes** in a single day is **lynched** (killed, alignment revealed, Tier 3 cripple). A target below that threshold but still the lynch leader is **interrogated** (one cripple tier, skips next night action). **Two interrogations on the same suspect = execution** — once a suspect carries the mark, the second orange border on them kills them. The cabal has no pivot to clear it. The Loyalist's day weapon is a *tiered probe* — investigate without killing, or escalate when you're sure.
+A target who clears **60% of living votes** in a single day is **lynched** (killed, no role or alignment revealed, Tier 3 cripple). A target below that threshold but still the lynch leader is **interrogated** (Tier 1 cripple, skips next night action, marked). A suspect **carrying the interrogation mark** who becomes the vote leader on any later day is **automatically lynched** — even at less than 60% — with no role reveal. Only the Interrogator can clear a false mark (see below). The Loyalist's day weapon is a *tiered probe* — investigate without killing, or escalate when you're sure.
 
 ### Interrogator can clear a false mark
 
