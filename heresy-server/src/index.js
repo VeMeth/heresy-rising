@@ -125,7 +125,7 @@ function constantTimeEquals(a, b) {
 export function createHeresyServer({ databasePath, now } = {}) {
   const app=express(), server=http.createServer(app), allowed=config.cors.allowedOrigins;
   const corsOptions=(req,cb)=>cb(null,{origin:isRequestOriginAllowed(req,allowed),credentials:false});
-  app.disable('x-powered-by'); app.set('trust proxy',config.trustProxy?1:false); app.use(helmet({crossOriginResourcePolicy:{policy:'same-site'}})); app.use(cors(corsOptions)); app.use(express.json({limit:'32kb'})); app.use(rateLimit({...config.rateLimit,max:config.rateLimit.max||120}));
+  app.disable('x-powered-by'); app.set('trust proxy',config.trustProxy?1:false); app.use(helmet({crossOriginResourcePolicy:{policy:'same-site'}})); app.use(cors(corsOptions)); app.use(express.static('sound')); app.use(express.json({limit:'32kb'})); app.use(rateLimit({...config.rateLimit,max:config.rateLimit.max||120}));
   const gameManager=new HeresyGameManager({databasePath,now});
   gameManager.onAnnouncement((code,a)=>{broadcastAnnouncement(code,a);});
   gameManager.onBotPrompt((code,payload)=>{broadcastBotPrompt(code,payload);});
