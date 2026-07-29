@@ -13,7 +13,7 @@
         <span class="stamp-wax"></span>
         <span class="stamp-text">{{ stampLabel }}</span>
       </div>
-      <button v-if="persistent" class="announcement-dismiss" @click="emit('dismiss')">Acknowledge</button>
+      <button class="announcement-dismiss" @click="emit('dismiss')">Acknowledge</button>
     </div>
   </div>
 </template>
@@ -27,9 +27,8 @@ const props = defineProps({
 
 const emit = defineEmits(['dismiss']);
 
-// The Neverborn reveal holds the screen until the table acknowledges it —
-// it doesn't auto-dismiss like every other announcement type.
-const persistent = computed(() => props.announcement?.type === 'neverborn-reveal');
+// All announcements now require explicit acknowledgement
+const persistent = computed(() => !!props.announcement);
 
 const badgeLabels = {
   'kill': 'NIGHT SLAYING',

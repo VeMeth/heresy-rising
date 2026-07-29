@@ -228,11 +228,6 @@ function receiveAnnouncement(payload) {
   if (a.targetCode && a.targetCode !== getPlayerCode()) return;
   announcement.value = a;
   clearTimeout(announcementTimer);
-  // The Neverborn reveal is persistent — it waits for an explicit
-  // acknowledgement instead of auto-dismissing like every other type.
-  if (a.type === 'neverborn-reveal') return;
-  const duration = a.type === 'gameover' ? 8000 : 5000;
-  announcementTimer = setTimeout(() => { announcement.value = null; }, duration);
 }
 function dismissAnnouncement() { clearTimeout(announcementTimer); announcement.value = null; }
 function onConnect() { connected.value = true; reconnecting.value = false; const code=game.value?.code||readJson('heresy-rising:game');const profile=readJson('heresy-rising:profile',{});if(code){if(profile.isSpectator){spectateGame(code).catch(()=>{});}else{emitWithAck('game:state',{code,playerCode:getPlayerCode()}).then(data=>{receiveState(data);return loadHistory();}).catch(()=>{});}}}
