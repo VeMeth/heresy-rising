@@ -5,7 +5,6 @@ import path from 'node:path';
 
 const quotesPath = path.resolve(__dirname, '../quotes.txt');
 const docsSiteDir = path.resolve(__dirname, '../site/_site');
-const soundDir = path.resolve(__dirname, '../sound');
 
 function quotesAsset() {
   return {
@@ -29,25 +28,6 @@ function quotesAsset() {
         type: 'asset',
         fileName: 'quotes.txt',
         source: fs.readFileSync(quotesPath, 'utf8')
-      });
-    }
-  };
-}
-
-function soundAssets() {
-  return {
-    name: 'sound-assets',
-    configureServer(server) {
-      server.middlewares.use('/sound', (req, res, next) => {
-        const file = path.resolve(soundDir, req.url.slice('/sound'.length));
-        if (!file.startsWith(soundDir)) return next();
-        if (!fs.existsSync(file)) {
-          res.statusCode = 404;
-          res.end('Not found');
-          return;
-        }
-        res.setHeader('Content-Type', 'audio/mpeg');
-        fs.createReadStream(file).pipe(res);
       });
     }
   };
@@ -105,7 +85,7 @@ function docsDevServer() {
 }
 
 export default defineConfig({
-  plugins: [vue(), quotesAsset(), soundAssets(), docsDevServer()],
+  plugins: [vue(), quotesAsset(), docsDevServer()],
   resolve: {
     alias: {
       '@game_data': path.resolve(__dirname, '../game_data')
