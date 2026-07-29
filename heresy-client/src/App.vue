@@ -69,7 +69,7 @@ import GameView from './components/GameView.vue';
 import SettingsMenu from './components/SettingsMenu.vue';
 import ConclaveSwitcher from './components/ConclaveSwitcher.vue';
 
-const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]);
+const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]); let previousPhase = null;
 const showManual = ref(false); const manualMounted = ref(false); const manualUrl = ref('/docs/how-to-play');
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
@@ -216,7 +216,8 @@ async function copyText(text) {
     document.body.removeChild(textarea);
   }
 }
-function receiveState(data) { const state = normalize(data); if (state) { game.value = state; saveGameCode(state.code); if (state.privateMessages?.length) mergeMessages('public', state.privateMessages); } }
+function receiveState(data) { const state = normalize(data); if (state) { if (previousPhase && previousPhase !== state.phase) playPhaseSound(); previousPhase = state.phase; game.value = state; saveGameCode(state.code); if (state.privateMessages?.length) mergeMessages('public', state.privateMessages); } }
+function playPhaseSound() { const audio = new Audio('/sound/new-phase.mp3'); audio.play().catch(err => console.log('Could not play phase sound:', err)); }
 function receiveMessage(payload) { const msg = payload?.message || payload; if (msg) mergeMessages(msg.channel === 'private' ? 'public' : (msg.channel || 'public'), [msg]); }
 function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...game.value, votes:data.votes }; }
 function receiveAnnouncement(payload) {
