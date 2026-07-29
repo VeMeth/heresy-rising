@@ -54,7 +54,7 @@
                 </header>
                 <div class="day-messages" v-show="day.expanded">
                   <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
-                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span></span>
+                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time></span>
                     <template v-else>
                       <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
                       <div>
@@ -67,7 +67,7 @@
               </section>
             </div>
             <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
-              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span></span>
+              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time></span>
               <template v-else>
                 <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
                 <div>
@@ -1428,6 +1428,7 @@ button.ghost.wide.stand-down-leading {
 }
 .log-glyph { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; color: var(--tint); opacity: .85; }
 .log-text { flex: 1; }
+.log-time { font: 400 11px Inter, sans-serif; opacity: 0.65; flex: none; white-space: nowrap; }
 .log-entry::after {
   content: ''; flex: none; width: 26%; height: 1px;
   background: linear-gradient(90deg, color-mix(in srgb, var(--tint) 34%, transparent), transparent);
