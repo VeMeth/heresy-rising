@@ -144,7 +144,7 @@
             <span class="eyebrow">Objective</span>
             <p class="dossier-text objective">{{ role.objective }}</p>
           </section>
-          <div v-if="game.phase==='day' && (role.actions?.day?.kind==='forgery' || me?.crippleTier>=2 || pending)" class="order-block">
+          <div v-if="game.phase==='day' && me?.alive && (role.actions?.day?.kind==='forgery' || me?.crippleTier>=2 || pending)" class="order-block">
             <div v-if="role.actions?.day?.kind==='forgery'" class="preset">
               <span class="eyebrow">Forgery · Once today</span>
               <label>Attributed speaker
@@ -155,7 +155,7 @@
               </label>
               <button class="ghost wide" :disabled="!forgeAs||!forgeBody" @click="forge">Plant transmission</button>
             </div>
-            <label v-if="me.crippleTier>=2" class="justify-label">
+            <label v-if="me?.alive && me.crippleTier>=2" class="justify-label">
               <span class="eyebrow">Required vote justification</span>
               <textarea v-model="voteJustification" maxlength="300"></textarea>
             </label>
