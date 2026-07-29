@@ -47,7 +47,7 @@ The day is a vote. You pick someone to accuse. The outcome depends on how many l
 
 The orange border is your probe. **Torture doesn't kill — it marks.** The target skips their next night action and carries the **tortured mark**. A marked suspect who becomes the lynch leader again — *on any later day, with any vote count* — is **automatically executed**. No cabal defense: pivoting to different targets doesn't clear the mark, and skip days don't either. The mark persists until the player dies or an **Interrogator** spends a T1 scan on a clean (Green) read to absolve them (see below).
 
-The day-vote is **two strikes**. Same suspect, two day-vote tortures — *or* one torture plus a second-day leadership at any vote count — and the second time kills them. Read the full mechanic at **[Lynch & Torture](/mechanics/torture)**.
+The day-vote is **two strikes**. Same suspect, two day-vote tortures — *or* one torture plus a second-day leadership at any vote count — and the second time kills them. Read the full mechanic at **[Lynch & Torture](/torture)**.
 
 ## Drift — what the Warp leaves on a soul
 
@@ -77,7 +77,7 @@ After a **Torture** fires (orange-border day), the tortured player is given a br
 
 > **Confessing is a one-way door.** Once you confess, the table knows your role. The confession token protects you from re-torture that day, but it does not hide you — it *marks* you. Loyalists who confess publicly become immediate targets for the cabal's Night-kill. Heretics who confess publicly are immediately executed by the Conclave.
 
-The response phase does **not** fire when torture escalates straight to execution (the two-torture rule) — the body is already broken. Read the full mechanic at **[Lynch & Torture](/mechanics/torture)**.
+The response phase does **not** fire when torture escalates straight to execution (the two-torture rule) — the body is already broken. Read the full mechanic at **[Lynch & Torture](/torture)**.
 
 ### Cripple tiers
 
