@@ -217,7 +217,7 @@ async function copyText(text) {
   }
 }
 function receiveState(data) { const state = normalize(data); if (state) { if (previousPhase && previousPhase !== state.phase) playPhaseSound(); previousPhase = state.phase; game.value = state; saveGameCode(state.code); if (state.privateMessages?.length) mergeMessages('public', state.privateMessages); } }
-function playPhaseSound() { const audio = new Audio('/sound/new-phase.mp3'); audio.play().catch(err => console.log('Could not play phase sound:', err)); }
+function playPhaseSound() { try { const audio = new Audio('/sound/new-phase.mp3'); audio.volume = 0.5; audio.play().catch(err => console.error('Could not play phase sound:', err)); } catch(e) { console.error('Error playing sound:', e); } }
 function receiveMessage(payload) { const msg = payload?.message || payload; if (msg) mergeMessages(msg.channel === 'private' ? 'public' : (msg.channel || 'public'), [msg]); }
 function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...game.value, votes:data.votes }; }
 function receiveAnnouncement(payload) {
