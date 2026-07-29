@@ -283,7 +283,7 @@ const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!dead
 // otherwise (any positive count) tortures. Border color previews this
 // live during the vote so players can coordinate before it resolves.
 lynchThreshold=computed(()=>Math.ceil(alive.value.length*rules.day.EXECUTION_THRESHOLD)),
-lynchLeaderOutcome=computed(()=>{if(!lynchLeader.value)return null;return targetVoteCount(lynchLeader.value)>=lynchThreshold.value?'kill':'torture'}),
+lynchLeaderOutcome=computed(()=>{if(!lynchLeader.value)return null;const leader=players.value.find(p=>p.playerCode===lynchLeader.value);if(leader?.crippleTier===2)return'kill';return targetVoteCount(lynchLeader.value)>=lynchThreshold.value?'kill':'torture'}),
 standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 const secondsLeft=computed(()=>{if(!deadline.value)return null;return Math.max(0,Math.floor((deadline.value-props.now)/1000));});
 const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.game.nightMs:props.game.dayMs)||0;if(!total||secondsLeft.value==null)return 0;return Math.min(1,Math.max(0,1-(secondsLeft.value*1000)/total));});
