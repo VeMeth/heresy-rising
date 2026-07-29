@@ -164,6 +164,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .conclave-switcher {
+  grid-column: 2;
   display: inline-flex;
 }
 .switcher-trigger {
