@@ -62,6 +62,7 @@ export default defineConfig({
         text: 'Mechanics',
         items: [
           { text: 'Drift — the Warp\'s corruption', link: '/drift' },
+          { text: 'Lynch & Torture', link: '/mechanics/torture' },
         ],
       },
       {

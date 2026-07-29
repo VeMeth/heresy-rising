@@ -40,12 +40,14 @@ The day is a vote. You pick someone to accuse. The outcome depends on how many l
 | Vote share | Outcome | Border |
 |---|---|---|
 | **≥60%** of living players | **Lynch** — target dies, no role or alignment revealed | 🔴 Red |
-| **<60%** but still the leader | **Interrogate** — target survives but skips next night action | 🟠 Orange |
+| **<60%** but still the leader | **Torture** — target survives but skips next night action | 🟠 Orange |
 | Everyone votes Stand down | **Skip** — no event | — |
 
 > **60% of living players**, not max players. If 5 are alive, 3 votes = 60%.
 
-The orange border is your probe. Interrogation doesn't kill — it marks and *cripples*. The target skips their next night action and carries an **interrogation mark**. A marked suspect who reaches the vote podium again is **automatically lynched** at any vote count — even below 60%. The mark *persists forever* until death, and the cabal has no defense: pivoting to different targets doesn't reset it. However, the **Interrogator** can spend a **T1 scan** on a clean (Green) read to clear a false mark — but a cleared mark means the next interrogation on that target escalates through the tiers instead (see below).
+The orange border is your probe. **Torture doesn't kill — it marks.** The target skips their next night action and carries the **tortured mark**. A marked suspect who becomes the lynch leader again — *on any later day, with any vote count* — is **automatically executed**. No cabal defense: pivoting to different targets doesn't clear the mark, and skip days don't either. The mark persists until the player dies or an **Interrogator** spends a T1 scan on a clean (Green) read to absolve them (see below).
+
+The day-vote is **two strikes**. Same suspect, two day-vote tortures — *or* one torture plus a second-day leadership at any vote count — and the second time kills them. Read the full mechanic at **[Lynch & Torture](/mechanics/torture)**.
 
 ## Drift — what the Warp leaves on a soul
 
@@ -63,21 +65,36 @@ Drift is a value from `0` (clean) to `20` (lost). Players don't see their own nu
 
 > The full Drift mechanic — the four canonical triggers (wrong lynch, witnessed violence, high-power night action, voted with the losing side), the zone-noise table for the Interrogator's reads, and the *why* this is the engine of the game — is on the **[Drift — the Warp's corruption](/drift)** page. Read that before you play.
 
-## Interrogation
+## Interrogation — the response phase
 
-Interrogation is what you do *instead* of killing. It cripples a target and leaves an interrogation mark:
+After a **Torture** fires (orange-border day), the tortured player is given a brief response window — a moment to choose how they take it. Three options, each with a cost.
 
-| Tier | What it does to the target |
+| Response | Drift cost | Other effect |
+|---|---|---|
+| **Confess** | — | Role publicly revealed. Confession token issued (blocks same-day re-torture, expires at Day→Night, skips next night action). |
+| **Resist** | `+1` self-drift | No reveal. Take it on the chin. |
+| **Refuse-break** | `+2` self-drift | Cripple tier forced to **Tier 2 floor** (even if they were at Tier 1). Take the damage rather than the admission. |
+
+> **Confessing is a one-way door.** Once you confess, the table knows your role. The confession token protects you from re-torture that day, but it does not hide you — it *marks* you. Loyalists who confess publicly become immediate targets for the cabal's Night-kill. Heretics who confess publicly are immediately executed by the Conclave.
+
+The response phase does **not** fire when torture escalates straight to execution (the two-torture rule) — the body is already broken. Read the full mechanic at **[Lynch & Torture](/mechanics/torture)**.
+
+### Cripple tiers
+
+The tortured player's `cripple_tier` rises. The tier is the visible "how broken are you" measure.
+
+| Tier | Effect on the player |
 |---|---|
-| Tier 1 | Skips their next night action. The mark and cripple auto-recover by next day, but the interrogation mark persists. |
-| Tier 2 | Second interrogation on the same player **kills them and reveals their role and faction** — only reachable if the Interrogator cleared their mark. |
-| Tier 3 | Critically crippled. They must publicly confess their role on a direct ask. |
+| **0 — Clean** | No damage. Full night action, full day-vote, no justification required. |
+| **1 — Wounded** | Skip next night action. Recovers automatically at the start of the next day. |
+| **2 — Crippled** | Permanent until the mark clears. **Justify every vote in writing** (no empty accusations). Cannot act at night. |
+| **3 — Shattered** | Max tier. Cannot respond to torture normally — must be **directly asked** to confess. |
 
-A target who clears **60% of living votes** in a single day is **lynched** (killed, no role or alignment revealed, Tier 3 cripple). A target below that threshold but still the lynch leader is **interrogated** (Tier 1 cripple, skips next night action, marked). A suspect **carrying the interrogation mark** who becomes the vote leader on any later day is **automatically lynched** — even at less than 60% — with no role reveal. Only the Interrogator can clear a false mark (see below). The Loyalist's day weapon is a *tiered probe* — investigate without killing, or escalate when you're sure.
+Day-vote torture alone only escalates to Tier 2 — the second torture on the same suspect kills them outright, so the tier never gets a chance to climb past 2 from torture. Tier 3 is reached via the **refuse-break** response or via night-side damage paths.
 
-### Interrogator can clear a false mark
+### Interrogator can clear a mark
 
-If the table wrongly accuses a Loyalist and the mark lands, the **Interrogator** can spend their **T1 scan** to clear the mark — but only on **clean (Green) reads**. Noisy reads (Yellow/Orange) don't clear, because the read isn't reliable enough to make a binding call. A **Red** read *doubles* the mark — next interrogation on that target is an execution.
+If the table wrongly accuses a Loyalist and the mark lands, the **Interrogator** can spend their **T1 scan** to clear the mark — but only on **clean (Green) reads**. Noisy reads (Yellow/Orange) don't clear, because the read isn't reliable enough to make a binding call. A **Red** read *reinforces* the mark — sets it if it was unset, keeps it set if it was already there — weaponizing the scan for an execution on the next day-vote torture.
 
 The clearing is **public**: the cabal sees the Interrogator reach for that player and knows they're clean. That's the cost — the Interrogator telegraphs their suspicion. The job is to *prevent* the mark from landing on a Loyalist in the first place, not to bail out mistakes after the fact.
 
@@ -89,7 +106,7 @@ Browse the **[full role roster](/roles/)** for blurb and quick-reference on each
 
 ### Loyalists
 - **[Imperial Citizen](/roles/imperial-citizen)** — no power; sleeps nightly (silent −1 drift). Pure voter.
-- **[Interrogator](/roles/interrogator)** — interrogate at T1/T2/T3; T2+ on Orange+ target = execute on sight. **Can spend T1 scan to clear a mark on a falsely accused Loyalist** — but only on a clean/Green read. Noisy reads don't clear; Red reads double the mark. Clearing is public, so the cabal sees the Interrogator's play.
+- **[Interrogator](/roles/interrogator)** — T1 reads Clean/Tainted (70% accurate). T2/T3 reads against Orange+ drift zone = **execute on sight** (kills + reveals faction). **Can spend T1 scan to clear a mark on a falsely accused Loyalist** — but only on a clean/Green read. Noisy reads don't clear; Red reads reinforce the mark. Clearing is public, so the cabal sees the Interrogator's play.
 - **[Chirurgeon](/roles/chirurgeon)** — silently blocks a night strike (kill or cripple) on one target per night. Rotation rule: no same target 2 nights in a row (incl. self). No feedback on success.
 - **[Arbitrator](/roles/arbitrator)** — bodyguard; dies in the target's place on a strike they guarded.
 - **[Novice-Psychic](/roles/novice-psychic)** — receives one drift hint per night about a target.
@@ -109,7 +126,7 @@ Browse the **[full role roster](/roles/)** for blurb and quick-reference on each
 
 | Faction | Win condition |
 |---|---|
-| **Loyalists** | All Heretics executed. (Usually means Tier 3 interrogation + lynch.) |
+| **Loyalists** | All Heretics executed. (Usually means two-strike torture → death, or a confession → immediate execution.) |
 | **Heretics** | Living Heretics ≥ living Loyalists at any moment of evaluation. |
 
 The game ends immediately when either condition is met.
