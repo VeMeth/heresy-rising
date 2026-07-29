@@ -6,6 +6,7 @@
     <div class="announcement-card">
       <svg class="announcement-rosette" aria-hidden="true"><use href="#hr-rosette"/></svg>
       <span class="announcement-badge">{{ badgeLabel }}</span>
+      <time class="announcement-timestamp">{{ formatTime(announcement.createdAt) }}</time>
       <h1 class="announcement-title">{{ displayTitle }}</h1>
       <p class="announcement-message">{{ announcement.message }}</p>
       <div v-if="stampLabel" class="verdict-stamp" aria-hidden="true">
@@ -74,6 +75,10 @@ const animationKey = computed(() => {
   if (!a) return 'none';
   return `${a.type || 'announce'}|${a.title || ''}|${a.message || ''}|${a.round || 0}|${Date.now()}`;
 });
+
+function formatTime(t) {
+  return t ? new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+}
 </script>
 
 <style scoped>
@@ -218,6 +223,14 @@ const animationKey = computed(() => {
   opacity: 0.85;
   transform: rotate(-5deg);
   animation: stamp-in 0.55s cubic-bezier(.2, 1.3, .35, 1) 0.1s both;
+}
+
+.announcement-timestamp {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.65;
+  margin-bottom: 0.8rem;
+  animation: message-fade 0.8s ease 0.35s both;
 }
 @keyframes stamp-in {
   0%   { opacity: 0; transform: scale(2.4) rotate(-16deg); }

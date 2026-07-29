@@ -194,7 +194,7 @@ export class HeresyGameManager {
     this._chatMessageListeners = [];
   }
   onAnnouncement(fn){this._announcementListeners.push(fn);}
-  emitAnnouncement(c,a){for(const fn of this._announcementListeners)try{fn(c,a);}catch{}}
+  emitAnnouncement(c,a){a.createdAt=new Date().toISOString();for(const fn of this._announcementListeners)try{fn(c,a);}catch{}}
   onBotPrompt(fn){this._botPromptListeners.push(fn);}
   emitBotPrompt(c,payload){for(const fn of this._botPromptListeners)try{fn(c,payload);}catch{}}
   onChatMessage(fn){this._chatMessageListeners.push(fn);}
