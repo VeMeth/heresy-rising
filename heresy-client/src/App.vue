@@ -76,7 +76,7 @@ const connected = ref(false); const reconnecting = ref(false); const messagesByC
 const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
 const channel = ref('public'); const now = ref(Date.now()); let clock; let toastTimer;
 const profile = ref(readJson('heresy-rising:profile', { playerCode: getPlayerCode() }));
-const params = new URLSearchParams(location.search); const initialCode = ref((params.get('game') || params.get('room') || '').toUpperCase());
+const params = new URLSearchParams(location.search); const initialCode = ref((params.get('game') || params.get('room') || '').toUpperCase()); let audioUnlocked = false;
 const messages = computed(() => messagesByChannel.value[channel.value] || []);
 const me = computed(() => { const g = game.value; if (!g) return null; const myCode = getPlayerCode(); const found = g.players?.find(p => p.playerCode === myCode || p.isYou || (p.id != null && (p.id === g.you || p.id === g.youId))); return found || g.me || null; });
 const connectionState = computed(() => connected.value ? 'online' : reconnecting.value ? 'reconnecting' : 'offline');
@@ -217,7 +217,8 @@ async function copyText(text) {
   }
 }
 function receiveState(data) { const state = normalize(data); if (state) { if (previousPhase && previousPhase !== state.phase) playPhaseSound(); previousPhase = state.phase; game.value = state; saveGameCode(state.code); if (state.privateMessages?.length) mergeMessages('public', state.privateMessages); } }
-function playPhaseSound() { try { const audio = new Audio('/sound/new-phase.mp3'); audio.volume = 0.5; audio.play().catch(err => console.error('Could not play phase sound:', err)); } catch(e) { console.error('Error playing sound:', e); } }
+function unlockAudio() { if (audioUnlocked) return; audioUnlocked = true; const dummy = new Audio(); dummy.play().catch(() => {}); }
+function playPhaseSound() { if (!audioUnlocked) return; try { const audio = new Audio('/sound/new-phase.mp3'); audio.volume = 0.5; audio.play().catch(err => console.error('Could not play phase sound:', err)); } catch(e) { console.error('Error playing sound:', e); } }
 function receiveMessage(payload) { const msg = payload?.message || payload; if (msg) mergeMessages(msg.channel === 'private' ? 'public' : (msg.channel || 'public'), [msg]); }
 function receiveVotes(data) { if (game.value && data?.votes) game.value = { ...game.value, votes:data.votes }; }
 function receiveAnnouncement(payload) {
@@ -241,7 +242,7 @@ async function maybeAutoJoin() {
   if (!target || !savedName || !savedCode) return;
   await joinOrSpectate({ name: savedName, roomCode: target });
 }
-onMounted(() => { if (isAdminRoute) return; loadSettings(); clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
+onMounted(() => { if (isAdminRoute) return; loadSettings(); clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); window.addEventListener('click', unlockAudio, { once: true }); window.addEventListener('keydown', unlockAudio, { once: true }); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
 onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','action:state','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
 </script>
 
