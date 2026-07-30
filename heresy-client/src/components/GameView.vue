@@ -21,8 +21,8 @@
         <ul class="player-list">
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)">
             <span class="portrait" :data-status="portraitStatus(p)" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
-            <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.alive&&p.torturedBefore" class="tortured-badge" :title="tortureTooltip(p.crippleTier)">TORTURED</small></div>
-            <small v-if="p.alive&&p.crippleTier" class="tier-badge" :data-tier="p.crippleTier" :title="tortureTooltip(p.crippleTier)">T{{ p.crippleTier }}</small>
+            <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.alive&&p.torturedBefore" class="tortured-badge" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">TORTURED</small></div>
+            <small v-if="p.alive&&p.crippleTier" class="tier-badge" :data-tier="p.crippleTier" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">T{{ p.crippleTier }}</small>
             <span v-else-if="!p.alive" class="death-badge" :class="{executed:p.crippleTier===3}" :title="p.crippleTier===3?'Lynched':'Slain'"><svg class="death-glyph" aria-hidden="true"><use :href="p.crippleTier===3?'#hr-execution':'#hr-deceased'"/></svg></span>
             <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
             <i v-if="liveMode" :class="{online:p.connected}"></i>
@@ -221,7 +221,7 @@
         <span class="tip-kind" :class="tip.faction">{{ tip.kind }}</span>
         <strong class="tip-label">{{ tip.label }}</strong>
         <p class="tip-gloss">{{ tip.gloss }}</p>
-        <span class="tip-more">Click to open the manual</span>
+        <span v-if="tip.doc" class="tip-more">Click to open the manual</span>
       </div>
       <div v-if="voteTip" class="vote-tip" :class="'is-'+voteTipPos.placement" :style="voteTipStyle" role="tooltip">
         <span class="vote-tip-kind">{{ voteTip.label }}</span>
@@ -313,7 +313,8 @@ function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteC
 function castVote(choice){if(props.spectator)return;if(speakAsTarget.value&&possessedTarget.value)emit('vote-as',{choice,justification:voteJustification.value});else emit('vote',{choice,justification:voteJustification.value})}
 function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}
 function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}const liveMode = computed(() => props.game.mode !== 'async');
-function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(!liveMode.value)return'';return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function tortureTooltip(tier){if(!tier)return'Tortured once. Next vote will kill them.';if(tier===1)return'Tortured once (T1). Next vote will escalate to death.';if(tier===2)return'Tortured twice (T2). One more vote and they die.';if(tier===3)return'Dead.';return'Tortured. At risk of death.';}function targetVoteCount(choice){return voteCounts.value[choice]||0}
+function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(!liveMode.value)return'';return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function tortureTooltip(tier){if(!tier)return'Tortured once. Next vote will kill them.';if(tier===1)return'Tortured once (T1). Next vote will escalate to death.';if(tier===2)return'Tortured twice (T2). One more vote and they die.';if(tier===3)return'Dead.';return'Tortured. At risk of death.';}
+function tortureTip(p){return{kind:'TORTURE STATUS',label:p.crippleTier?`Tier ${p.crippleTier}`:'Tortured',gloss:tortureTooltip(p.crippleTier)};}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 function voterNames(choice){return (props.game.votes||[]).filter(v=>v.choice===choice).map(v=>players.value.find(p=>p.playerCode===v.voterCode)?.name||'Unknown')}
 // @mention autocomplete: player names can contain spaces ("Player 1",
 // "Priestess Vale"), so the token can't just stop at the first whitespace —
@@ -891,7 +892,9 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   font-style: italic;
   color: var(--muted);
 }
-.vote-count:focus-visible {
+.vote-count:focus-visible,
+.tier-badge:focus-visible,
+.tortured-badge:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
