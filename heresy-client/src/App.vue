@@ -132,8 +132,11 @@ async function spectateGame(code) {
       game.value = state;
       saveGameCode(state.code);
       history.replaceState({}, '', `?game=${state.code}`);
-      if (data.playerCode) setPlayerCode(data.playerCode);
-      saveProfile({ playerCode: getPlayerCode(), isSpectator: true });
+      // data.playerCode is a throwaway spec_ tag the server mints purely to
+      // filter broadcasts to this socket (index.js game:spectate handler) —
+      // nothing persists it server-side, so it must never overwrite the
+      // real identity createGame()/joinGame() read from profile.playerCode.
+      saveProfile({ isSpectator: true });
       messagesByChannel.value = { public: [], faction: [], graveyard: [] };
       hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
       await loadHistory();
