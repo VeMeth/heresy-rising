@@ -31,6 +31,11 @@
           aria-modal="false"
           aria-label="Operative seal settings"
         >
+          <h3 class="settings-heading">Sound</h3>
+          <label class="mute-toggle">
+            <input type="checkbox" :checked="settings.muted" @change="setMuted($event.target.checked)" />
+            <span>Mute sound effects</span>
+          </label>
           <h3 class="settings-heading">Operative seal</h3>
           <ul class="seal-style-list">
             <li v-for="style in visibleStyles" :key="style.id">
@@ -64,7 +69,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { SEAL_STYLES, buildSealMap, sealVars } from '../seals.js';
-import { settings, setSealStyle } from '../settings.js';
+import { settings, setSealStyle, setMuted } from '../settings.js';
 
 // Styles flagged `enabled: false` in seals.js stay fully defined (so a
 // player already on one keeps rendering correctly) but drop out of the
@@ -195,6 +200,25 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--gold2);
+}
+.settings-heading:not(:first-child) {
+  margin-top: 20px;
+}
+.mute-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #34372f;
+  background: #0d0f0d;
+  border-radius: 2px;
+  cursor: pointer;
+  color: var(--pale);
+  font-size: 12px;
+}
+.mute-toggle input {
+  accent-color: var(--gold);
+  cursor: pointer;
 }
 .seal-style-list {
   list-style: none;
