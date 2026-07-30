@@ -33,7 +33,7 @@
             <li v-for="p in dead" :key="p.playerCode" class="dead" :class="{me:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}">
               <span class="portrait" data-status="deceased" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
               <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
-              <span class="death-badge" :class="{executed:p.crippleTier===3}" :title="p.crippleTier===3?'Lynched':'Slain'"><svg class="death-glyph" aria-hidden="true"><use :href="p.crippleTier===3?'#hr-execution':'#hr-deceased'"/></svg></span>
+              <span class="death-badge" :class="{executed:['lynch','execute-on-sight'].includes(p.deathCause)}" :title="deathCauseLabel(p)"><svg class="death-glyph" aria-hidden="true"><use :href="deathGlyph(p)"/></svg></span>
               <i v-if="liveMode" :class="{online:p.connected}"></i>
             </li>
           </ul>
@@ -410,6 +410,10 @@ const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.
 // isn't cleared by a skip day or by someone else being tortured in
 // between, so more than one player can carry it at once.
 function portraitStatus(p){if(!p.alive)return'deceased';if(props.game.atRiskTargets?.includes(p.playerCode))return'at-risk';return'alive';}
+const DEATH_GLYPHS={lynch:'#hr-execution','execute-on-sight':'#hr-execution',torture:'#hr-torture'};
+const DEATH_LABELS={lynch:'Lynched','execute-on-sight':'Executed',torture:'Tortured to death','blood-ritual':'Slain (Blood Ritual)',murder:'Slain',animus:'Slain'};
+function deathGlyph(p){return DEATH_GLYPHS[p.deathCause]||'#hr-deceased';}
+function deathCauseLabel(p){return DEATH_LABELS[p.deathCause]||'Slain';}
 // Operative seals. Keyed by displayed name (see seals.js for why not by
 // playerCode), so a forged Conspirator post or an Animus speaking as their
 // victim carries the seal of the name it's attributed to — which is the whole
