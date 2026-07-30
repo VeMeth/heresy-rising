@@ -1,13 +1,15 @@
 ---
 title: Role Roster
-description: All 12 operatives in Heresy Rising. Faction, role, brief mechanical summary.
+description: All 11 operatives in Heresy Rising — split by faction, plus the cabal's shared Blood Ritual mechanic.
 ---
 
 # Role Roster
 
-> *Twelve secrets, one conclave.*
+> *Eleven secrets, one conclave — plus the one thing that isn't a role at all.*
 
-Each role below lists the faction, the night power (if any), and what to expect when the role is in play. Roles are sorted by faction — Loyalist first, Heretic second. Imperial Citizen is the fill role.
+Each role below lists the faction, the night power (if any), and what to expect when the role is in play. Roles are split into **two clear factions** — Loyalist and Heretic. Imperial Citizen is the fill role. Animus is custom-roster only.
+
+Blood Ritual is **not** a role — it's a [shared mechanic](#blood-ritual-the-cabals-shared-attack) listed at the bottom of this page.
 
 ## What "Drift cost" means
 
@@ -15,7 +17,11 @@ Every night action that touches the Warp is priced in **drift** — the same hid
 
 In short: **drift cost is the Warp's invoice for what you just did**. Every role below lists its cost. Tier 0 (T0) actions cost nothing; T1 a little; T2 a lot; T3 — the *catalyst* — almost unbearable.
 
-## Loyalist
+---
+
+## 🛡️ Loyalist Roster
+
+Seven roles. The Inquisition's defenders and instruments.
 
 | Role | Power | Drift |
 |---|---|---|
@@ -27,21 +33,37 @@ In short: **drift cost is the Warp's invoice for what you just did**. Every role
 | [Priest](/roles/priest) | Three sermon tiers | varies |
 | [Sanctioned Psyker](/roles/sanctioned-psyker) | One-shot warp-kill (1×/game) | **T2 (+15) on fire** |
 
-## Heretic
+---
+
+## ☠️ Heretic Roster
+
+Six roles. The cabal's hidden enemies within the cell.
 
 | Role | Power | Drift |
 |---|---|---|
 | [Murderer](/roles/murderer) | Kill (drift-gated) | **T3 (+15) on fire** |
-| [Blood Ritual](/roles/blood-ritual) | Faction-wide attack (any living Heretic can carry it) | **+3 per attack** |
 | [Saboteur](/roles/saboteur) | Booby-trap (+5 on actor) | **T2/night** |
 | [Heretic Priest](/roles/heretic-priest) | Counter-sermons | varies |
 | [Recruiter](/roles/recruiter) | Catalyst (convert) | T3/night |
 | [Conspirator](/roles/conspirator) | Forge messages | T1/day |
 | [Animus](/roles/animus) | One-shot possession (speculative) | **+3 on the guess, win or lose** |
 
-> **Blood Ritual is not a role** — it's a shared night action any living Heretic can carry, including the Murderer (who gives up their own kill that night to use it instead). No slot, no assignment — just whichever Heretic claims it first that night.
-
 > **Animus is custom-roster only.** It doesn't appear in any of the deterministic per-player-count compositions below — a host adds it deliberately when building a custom roster (min. 8p recommended). Every other role in this table can turn up in a standard, randomly-assigned game.
+
+---
+
+## ⚔️ Blood Ritual — the cabal's shared attack
+
+**This is a mechanic, not a role.** Any living, uncrippled Heretic can carry the attack on a given night — including the Murderer (who gives up their own kill that night to use it instead). No slot, no assignment — just whichever Heretic claims it first that night.
+
+| Action | Effect (target) | Cost (you) | Uses |
+|---|---|---|---|
+| **Attack (cripple)** | Target's cripple tier +1 | **+3 drift** | One attack per night, faction-wide |
+| **Attack (kill)** | Same target as the previous night — tier maxes to 3, target dies, alignment revealed | **+3 drift** | Requires the prior night's attack to have been a cripple (not a kill) on this exact target |
+
+Full page: [Blood Ritual](/roles/blood-ritual).
+
+---
 
 ## Composition by player count
 
@@ -55,6 +77,8 @@ Roles are not freely assignable. The conclave uses a deterministic composition p
 | 12 | 5 / 6 + 2 Citizens | Full roster |
 
 Each non-Citizen role is **unique per game**. Citizens repeat to fill the rest.
+
+---
 
 ## What's missing from this page
 
