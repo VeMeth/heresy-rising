@@ -26,3 +26,37 @@ const MURDERER_GATE_CUES = {
 export function murdererGateCue(zoneId) {
   return MURDERER_GATE_CUES[zoneId] || MURDERER_GATE_CUES.red;
 }
+
+/**
+ * Conclave Proximity Siphon (v2.6.0).
+ * For each Imperial Citizen, check their Conclave-list neighbors (left + right).
+ * For each neighbor who charged drift this night, siphon 30% (floor 1) to the citizen.
+ *
+ * @param {object[]} playerList - All players in Conclave list order (seat order).
+ * @param {Map<string,number>} nightCharges - playerCode -> total drift charge this night.
+ * @param {object} config - The proximitySiphon rules block from rules.json.
+ * @param {(playerCode:string, delta:number) => void} changeDriftFn - Callback to apply drift.
+ */
+export function applyProximitySiphon(playerList, nightCharges, config, changeDriftFn) {
+  if (!config || config.scope !== 'night_actions_only') return;
+
+  for (let i = 0; i < playerList.length; i++) {
+    const player = playerList[i];
+    if (player.role_id !== config.role) continue;
+    if (!player.alive) continue;
+
+    const neighbors = [playerList[i - 1], playerList[i + 1]].filter(Boolean);
+    let totalSiphon = 0;
+    for (const neighbor of neighbors) {
+      if (!neighbor.alive) continue;
+      const charge = nightCharges.get(neighbor.player_code);
+      if (!charge || charge <= 0) continue;
+      const siphon = Math.max(config.floor, Math.round(config.rate * charge));
+      totalSiphon += siphon;
+    }
+
+    if (totalSiphon > 0) {
+      changeDriftFn(player.player_code, totalSiphon);
+    }
+  }
+}

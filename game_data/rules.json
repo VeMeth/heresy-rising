@@ -20,6 +20,18 @@
     "PERMANENT_AT_TIER": 2
   },
 
+  "proximitySiphon": {
+    "role": "imperial-citizen",
+    "rate": 0.30,
+    "floor": 1,
+    "adjacency": "conclave_list",
+    "scope": "night_actions_only",
+    "sleepStacks": true,
+    "cap": 20,
+    "visibility": "hidden",
+    "_comment": "Conclave Proximity Siphon (v2.6.0). Imperial Citizens take 30% floored at 1 of any Conclave-list neighbor's drift-charging night action cost. See projects/heresy-rising/mechanics/drift.md v2.6.0 § Conclave Proximity Siphon."
+  },
+
   "interrogation": {
     "_comment": "Interrogator scan resolution. A scan's effective tier is min(MAX_SCAN_TIER, chosenIntensity + zoneTierUpgrade[targetZone]). Execute on Sight fires when chosenIntensity >= EXECUTE_ON_SIGHT_MIN_INTENSITY AND the target's zone upgrade >= EXECUTE_ON_SIGHT_MIN_ZONE_UPGRADE — with the table below that means T2+ against Red or Black only (Q25, locked 2026-07-25; engine synced to spec per Q-AUDIT-EoS 2026-07-30). Orange is intel-only: confirmed warp-taint, no auto-kill. T1_ACCURACY is the chance a Tier 1 Clean/Tainted read is truthful. GENTLE_ROLE_* halve the zone noise rate for low-drift-weight roles (Chirurgeon, Novice-Psychic, Arbitrator, Conspirator). NOISE_UNCLEAR_CHANCE splits a noisy result between 'unclear' and an inverted answer.",
     "MAX_SCAN_TIER": 3,
