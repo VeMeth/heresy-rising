@@ -31,11 +31,23 @@
           aria-modal="false"
           aria-label="Operative seal settings"
         >
-          <h3 class="settings-heading">Sound</h3>
-          <label class="mute-toggle">
-            <input type="checkbox" :checked="settings.muted" @change="setMuted($event.target.checked)" />
-            <span>Mute sound effects</span>
-          </label>
+          <h3 class="settings-heading">Vox channel</h3>
+          <button
+            type="button"
+            class="sound-toggle"
+            role="switch"
+            :aria-checked="!settings.muted"
+            @click="setMuted(!settings.muted)"
+          >
+            <svg class="sound-icon" aria-hidden="true"><use :href="settings.muted ? '#hr-vox-muted' : '#hr-vox'" /></svg>
+            <span class="sound-copy">
+              <strong>{{ settings.muted ? 'Silenced' : 'Sound effects' }}</strong>
+              <small>{{ settings.muted ? 'Phase and vote cues are muted.' : 'Phase changes and votes play a cue.' }}</small>
+            </span>
+            <span class="sound-switch">
+              <span class="sound-knob"></span>
+            </span>
+          </button>
           <h3 class="settings-heading">Operative seal</h3>
           <ul class="seal-style-list">
             <li v-for="style in visibleStyles" :key="style.id">
@@ -204,21 +216,91 @@ onBeforeUnmount(() => {
 .settings-heading:not(:first-child) {
   margin-top: 20px;
 }
-.mute-toggle {
+.sound-toggle {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 14px;
+  padding: 12px;
   border: 1px solid #34372f;
   background: #0d0f0d;
   border-radius: 2px;
   cursor: pointer;
+  text-align: left;
   color: var(--pale);
-  font-size: 12px;
+  font: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
-.mute-toggle input {
-  accent-color: var(--gold);
-  cursor: pointer;
+.sound-toggle:hover {
+  border-color: rgba(182, 154, 92, 0.45);
+}
+.sound-toggle:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.sound-icon {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  stroke: var(--gold2);
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.15s ease;
+}
+.sound-toggle[aria-checked="false"] .sound-icon {
+  stroke: var(--muted);
+}
+.sound-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.sound-copy strong {
+  font: 700 12px Cinzel, serif;
+  letter-spacing: 0.04em;
+  color: var(--gold2);
+}
+.sound-copy small {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.sound-switch {
+  flex: 0 0 auto;
+  position: relative;
+  width: 38px;
+  height: 20px;
+  border: 1px solid #43463d;
+  border-radius: 999px;
+  background: #171916;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.sound-toggle[aria-checked="true"] .sound-switch {
+  background: rgba(182, 154, 92, 0.25);
+  border-color: var(--gold);
+}
+.sound-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.sound-toggle[aria-checked="true"] .sound-knob {
+  transform: translateX(18px);
+  background: var(--gold2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sound-knob {
+    transition: none;
+  }
 }
 .seal-style-list {
   list-style: none;
