@@ -22,7 +22,7 @@
           <li v-for="p in players" :key="p.playerCode" :class="{dead:!p.alive,me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.alive&&p.playerCode!==me?.playerCode,unavailable:!p.alive||p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)">
             <span class="portrait" :data-status="portraitStatus(p)" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.alive&&p.torturedBefore" class="tortured-badge" :title="tortureTooltip(p.crippleTier)">TORTURED</small></div>
-            <small v-if="p.alive&&(p.crippleTier||p.torturedBefore)" class="tier-badge" :data-tier="p.crippleTier" :title="tortureTooltip(p.crippleTier)">T{{ p.crippleTier||0 }}</small>
+            <small v-if="p.alive&&p.crippleTier" class="tier-badge" :data-tier="p.crippleTier" :title="tortureTooltip(p.crippleTier)">T{{ p.crippleTier }}</small>
             <span v-else-if="!p.alive" class="death-badge" :class="{executed:p.crippleTier===3}" :title="p.crippleTier===3?'Lynched':'Slain'"><svg class="death-glyph" aria-hidden="true"><use :href="p.crippleTier===3?'#hr-execution':'#hr-deceased'"/></svg></span>
             <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)">{{ targetVoteCount(p.playerCode) }}</small>
             <i v-if="liveMode" :class="{online:p.connected}"></i>
