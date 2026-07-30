@@ -24,13 +24,13 @@
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.alive&&p.torturedBefore" class="tortured-badge" :title="tortureTooltip(p.crippleTier)">TORTURED</small></div>
             <small v-if="p.alive&&p.crippleTier" class="tier-badge" :data-tier="p.crippleTier" :title="tortureTooltip(p.crippleTier)">T{{ p.crippleTier }}</small>
             <span v-else-if="!p.alive" class="death-badge" :class="{executed:p.crippleTier===3}" :title="p.crippleTier===3?'Lynched':'Slain'"><svg class="death-glyph" aria-hidden="true"><use :href="p.crippleTier===3?'#hr-execution':'#hr-deceased'"/></svg></span>
-            <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)" :title="votersFor(p.playerCode)">{{ targetVoteCount(p.playerCode) }}</small>
+            <small v-if="votingOpen&&p.alive" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
             <i v-if="liveMode" :class="{online:p.connected}"></i>
           </li>
         </ul>
         <div v-if="votingOpen" class="verdict-block">
           <span v-if="!spectator" class="eyebrow">{{ speakAsTarget && possessedTarget ? 'Vote as ' + possessedTarget.name : 'Cast Your Verdict' }}</span>
-          <button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small :title="votersFor('skip')">{{ targetVoteCount('skip') }}</small></button>
+          <button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small @mouseenter="showVoteTip('Stand down','skip',$event)" @mouseleave="hideVoteTip">{{ targetVoteCount('skip') }}</small></button>
           <button v-if="myVote && !spectator" class="ghost wide" @click="retractMyVote">Retract vote</button>
         </div>
         <p v-else-if="me?.possessed && !spectator" class="day1-hint">Possessed — you cannot vote today.</p>
@@ -223,6 +223,13 @@
         <p class="tip-gloss">{{ tip.gloss }}</p>
         <span class="tip-more">Click to open the manual</span>
       </div>
+      <div v-if="voteTip" class="vote-tip" :class="'is-'+voteTipPos.placement" :style="voteTipStyle" role="tooltip">
+        <span class="vote-tip-kind">{{ voteTip.label }}</span>
+        <ul v-if="voteTip.names.length" class="vote-tip-names">
+          <li v-for="(name,i) in voteTip.names" :key="i">{{ name }}</li>
+        </ul>
+        <p v-else class="vote-tip-empty">No votes yet</p>
+      </div>
     </Teleport>
   </section>
 </template>
@@ -307,7 +314,7 @@ function castVote(choice){if(props.spectator)return;if(speakAsTarget.value&&poss
 function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}
 function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}const liveMode = computed(() => props.game.mode !== 'async');
 function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(!liveMode.value)return'';return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function tortureTooltip(tier){if(!tier)return'Tortured once. Next vote will kill them.';if(tier===1)return'Tortured once (T1). Next vote will escalate to death.';if(tier===2)return'Tortured twice (T2). One more vote and they die.';if(tier===3)return'Dead.';return'Tortured. At risk of death.';}function targetVoteCount(choice){return voteCounts.value[choice]||0}
-function votersFor(choice){const names=(props.game.votes||[]).filter(v=>v.choice===choice).map(v=>players.value.find(p=>p.playerCode===v.voterCode)?.name||'Unknown');return names.length?names.join(', '):'No votes yet'}
+function voterNames(choice){return (props.game.votes||[]).filter(v=>v.choice===choice).map(v=>players.value.find(p=>p.playerCode===v.voterCode)?.name||'Unknown')}
 // @mention autocomplete: player names can contain spaces ("Player 1",
 // "Priestess Vale"), so the token can't just stop at the first whitespace —
 // findMentionQuery instead scans left from the caret for the nearest '@'
@@ -372,6 +379,15 @@ const tipStyle=computed(()=>({left:tipPos.value.left+'px',top:tipPos.value.top+'
 // Any scroll moves the anchor out from under a fixed-position tooltip, so drop
 // it rather than let it float detached. Capture phase catches the inner feed.
 if(typeof window!=='undefined'){window.addEventListener('scroll',hideTip,true);onBeforeUnmount(()=>window.removeEventListener('scroll',hideTip,true));}
+// ── Vote tally tooltip ────────────────────────────────────────────────────
+// Same teleported-popover approach as the glossary tip above, just narrower
+// content (a label plus the list of voters for that choice).
+const voteTip=ref(null),voteTipPos=ref({left:0,top:0,placement:'above'});
+const VOTE_TIP_W=200;
+function showVoteTip(label,choice,ev){const r=ev.currentTarget.getBoundingClientRect();const above=r.top>190;const left=Math.min(Math.max(10,r.left+r.width/2-VOTE_TIP_W/2),window.innerWidth-VOTE_TIP_W-10);voteTipPos.value={left,top:above?r.top-10:r.bottom+10,placement:above?'above':'below'};voteTip.value={label,names:voterNames(choice)};}
+function hideVoteTip(){voteTip.value=null;}
+const voteTipStyle=computed(()=>({left:voteTipPos.value.left+'px',top:voteTipPos.value.top+'px',width:VOTE_TIP_W+'px',transform:voteTipPos.value.placement==='above'?'translateY(-100%)':'none'}));
+if(typeof window!=='undefined'){window.addEventListener('scroll',hideVoteTip,true);onBeforeUnmount(()=>window.removeEventListener('scroll',hideVoteTip,true));}
 // ── Generated sigil assets (heresy-sigils.svg, inlined in index.html) ─────
 const ROLE_SIGILS={priest:'hr-priest',murderer:'hr-murderer',interrogator:'hr-interrogator',chirurgeon:'hr-chirurgeon','imperial-citizen':'hr-citizen',arbitrator:'hr-arbitrator','novice-psychic':'hr-novice-psychic','sanctioned-psyker':'hr-sanctioned-psyker',saboteur:'hr-saboteur','heretic-priest':'hr-heretic-priest',recruiter:'hr-recruiter',conspirator:'hr-conspirator',animus:'hr-animus'};
 function sigilFor(r,faction){const id=r?.id;if(id&&ROLE_SIGILS[id])return '#'+ROLE_SIGILS[id];if(!id&&!faction)return '#hr-unknown';return (faction||r?.faction)==='heretic'?'#hr-murderer':'#hr-citizen';}
@@ -834,6 +850,50 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+/* Vote tally tooltip — same teleported/positioned popover approach as the
+   glossary tip, narrower and without the "click to open" affordance since
+   it's purely informational. */
+.vote-tip {
+  position: fixed;
+  z-index: 1200;
+  padding: 10px 12px;
+  background: linear-gradient(160deg, rgba(24, 26, 21, .99), rgba(13, 15, 13, .99));
+  border: 1px solid var(--gold);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .75), inset 0 0 14px rgba(182, 154, 92, .05);
+  pointer-events: none;
+  animation: tipIn .13s ease;
+}
+.vote-tip-kind {
+  display: block;
+  font: 700 8px Inter, sans-serif;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+.vote-tip-names {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vote-tip-names li {
+  font: 500 12px Georgia, serif;
+  color: var(--pale);
+}
+.vote-tip-empty {
+  margin: 0;
+  font: 400 11.5px Georgia, serif;
+  font-style: italic;
+  color: var(--muted);
+}
+.vote-count:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 
 .message.mentions-me p {
