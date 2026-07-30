@@ -384,10 +384,25 @@ body::before {
   text-transform: uppercase;
 }
 
-.dark .VPSidebarItem.level-1 > .item > .link > .text {
+.dark .VPSidebarItem.level-1 > .item > .link > .text,
+.dark .VPSidebarItem.level-2 > .item > .link > .text {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Faction roster headings (Loyalist / Heretic) — a rank below the level-0
+   section eyebrows: gold, hairline-ruled, and never interactive. */
+.dark .VPSidebarItem.level-1 > .item > .text {
+  display: block;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #2c3028;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -807,8 +822,21 @@ body::after {
   vertical-align: -2px;
   opacity: 0.75;
 }
+/* Hanging indent so a label that wraps (e.g. "Drift — the Warp's
+   corruption") aligns under itself instead of under its sigil. */
+.VPSidebarItem > .item > .link > .text,
+.VPSidebarItem.level-1 > .item > .text {
+  display: block;
+  padding-left: 23px;
+  text-indent: -23px;
+}
 .VPSidebarItem .is-active .role-sigil,
 .VPSidebarItem .link:hover .role-sigil {
+  opacity: 1;
+}
+/* Faction sigils head a group rather than a link, so nothing ever lights
+   them on hover — carry them at full strength from the start. */
+.VPSidebarItem.level-1 > .item > .text .role-sigil {
   opacity: 1;
 }
 

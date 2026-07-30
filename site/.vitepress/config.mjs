@@ -20,14 +20,23 @@ const SIGIL_PATHS = {
   'conspirator': `<rect x="8.6" y="3.2" width="11.8" height="8" stroke-dasharray="3 2.4" stroke-width="1"/><path d="M3.6 8.2h11.8v8H8.2l-3 3.2V16.2H3.6z"/><path d="M6.2 11h7M6.2 13.6h4.4" stroke-width="1"/>`,
   'animus': `<path d="M6.8 1.6v3.4M12 1.4v3M17.2 1.6v3.4"/><path d="M6 5.6h12v5.8c0 4.4-2.5 6.8-6 9-3.5-2.2-6-4.6-6-9z"/><path d="m8.8 9.6 2.6 1M15.2 9.6l-2.6 1"/><path d="M9.8 15.2h4.4"/><path d="M11 14.4v1.6M13 14.4v1.6" stroke-width="1"/>`,
   'roster': `<circle cx="12" cy="12" r="4.2" stroke-width="1"/><circle cx="12" cy="3.6" r="1.9"/><circle cx="19.4" cy="8.2" r="1.9"/><circle cx="16.6" cy="18.4" r="1.9"/><circle cx="7.4" cy="18.4" r="1.9"/><circle cx="4.6" cy="8.2" r="1.9"/>`,
+  // Non-role sigils: manual sections and the two faction rosters.
+  'how-to-play': `<path d="M12 6.6C10.1 5 7.5 4.4 4.4 4.6v12.8c3.1-.2 5.7.4 7.6 2 1.9-1.6 4.5-2.2 7.6-2V4.6c-3.1-.2-5.7.4-7.6 2z"/><path d="M12 6.6v12.8"/><path d="M7 9.2h2.6M7 12h2.6" stroke-width="1"/><path d="M14.4 9.2H17M14.4 12H17" stroke-width="1"/>`,
+  'drift': `<path d="M12 3.4A8.6 8.6 0 0 1 20.6 12 7.8 7.8 0 0 1 12 19.8 6.6 6.6 0 0 1 5.4 12 5.4 5.4 0 0 1 12 6.8 4 4 0 0 1 15.6 12 2.8 2.8 0 0 1 12 14.4"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>`,
+  'torture': `<path d="M5.6 21.2V3.4h9.4"/><path d="M5.6 6.8 9 3.4" stroke-width="1"/><path d="M15 3.4v5.2"/><ellipse cx="15" cy="15" rx="3.4" ry="4.4"/><path d="M13 9.6h4M13.2 11h3.6" stroke-width="1"/>`,
+  'loyalist': `<path d="M12 9v7"/><path d="m10.3 20 1.7-4 1.7 4-1.7-1z"/><path d="M11.3 10.6C8.2 9 4.6 9.2 1.8 11c2.8 2 6.2 2.6 9 2"/><path d="M12.7 10.6c3.1-1.6 6.7-1.4 9.5.4-2.8 2-6.2 2.6-9 2"/><path d="M11.5 9.2 10.4 7l-2 .9M12.5 9.2 13.6 7l2 .9"/><path d="m6.4 10.6.8 2.2M17.6 10.6l-.8 2.2" stroke-width="1"/>`,
+  'heretic': `<path d="M12 2.4v19.2M2.4 12h19.2"/><path d="M7.2 7.2 16.8 16.8M16.8 7.2 7.2 16.8" stroke-width="1"/><path d="m9.8 5.6 2.2-3.2 2.2 3.2M9.8 18.4l2.2 3.2 2.2-3.2M5.6 9.8 2.4 12l3.2 2.2M18.4 9.8l3.2 2.2-3.2 2.2" stroke-width="1"/><circle cx="12" cy="12" r="1.9"/>`,
+}
+
+function sigil(id) {
+  const paths = SIGIL_PATHS[id]
+  return paths
+    ? `<svg class="role-sigil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
+    : ''
 }
 
 function roleItem(id, text, link) {
-  const paths = SIGIL_PATHS[id]
-  const svg = paths
-    ? `<svg class="role-sigil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
-    : ''
-  return { text: `${svg}${text}`, link }
+  return { text: `${sigil(id)}${text}`, link }
 }
 
 export default defineConfig({
@@ -55,14 +64,14 @@ export default defineConfig({
       {
         text: 'Get Started',
         items: [
-          { text: 'How to Play', link: '/how-to-play' },
+          roleItem('how-to-play', 'How to Play', '/how-to-play'),
         ],
       },
       {
         text: 'Mechanics',
         items: [
-          { text: 'Drift — the Warp\'s corruption', link: '/drift' },
-          { text: 'Lynch & Torture', link: '/torture' },
+          roleItem('drift', 'Drift — the Warp\'s corruption', '/drift'),
+          roleItem('torture', 'Lynch &amp; Torture', '/torture'),
           roleItem('blood-ritual', 'Blood Ritual', '/roles/blood-ritual'),
         ],
       },
@@ -71,7 +80,7 @@ export default defineConfig({
         items: [
           roleItem('roster', 'Roster Index', '/roles/'),
           {
-            text: '🛡️ Loyalist Roster',
+            text: `${sigil('loyalist')}Loyalist Roster`,
             items: [
               roleItem('imperial-citizen', 'Imperial Citizen', '/roles/imperial-citizen'),
               roleItem('interrogator', 'Interrogator', '/roles/interrogator'),
@@ -83,7 +92,7 @@ export default defineConfig({
             ],
           },
           {
-            text: '☠️ Heretic Roster',
+            text: `${sigil('heretic')}Heretic Roster`,
             items: [
               roleItem('murderer', 'Murderer', '/roles/murderer'),
               roleItem('saboteur', 'Saboteur', '/roles/saboteur'),
