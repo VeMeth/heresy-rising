@@ -43,7 +43,7 @@ Log entry types: `accusation`, `vote`, `execution`, `death`, `phase`,
 `hr-saboteur` `hr-heretic-priest` `hr-recruiter` `hr-conspirator`
 `hr-animus` · `hr-alive` `hr-deceased` `hr-observing` `hr-sealed` ·
 `hr-day` `hr-night` · `hr-accusation` `hr-vote` `hr-verdict` `hr-execution`
-`hr-torture` `hr-vox` `hr-conclave` · `hr-mark` (logo / favicon)
+`hr-lynch` `hr-torture` `hr-vox` `hr-conclave` · `hr-mark` (logo / favicon)
 
 ## Notes
 

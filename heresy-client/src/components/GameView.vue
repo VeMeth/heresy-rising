@@ -410,7 +410,7 @@ const phaseSigil=computed(()=>props.game.phase==='night'?'#hr-night':props.game.
 // isn't cleared by a skip day or by someone else being tortured in
 // between, so more than one player can carry it at once.
 function portraitStatus(p){if(!p.alive)return'deceased';if(props.game.atRiskTargets?.includes(p.playerCode))return'at-risk';return'alive';}
-const DEATH_GLYPHS={lynch:'#hr-execution','execute-on-sight':'#hr-execution',torture:'#hr-torture'};
+const DEATH_GLYPHS={lynch:'#hr-lynch',torture:'#hr-torture','blood-ritual':'#hr-execution',murder:'#hr-execution','execute-on-sight':'#hr-execution'};
 const DEATH_LABELS={lynch:'Lynched','execute-on-sight':'Executed',torture:'Tortured to death','blood-ritual':'Slain (Blood Ritual)',murder:'Slain',animus:'Slain'};
 function deathGlyph(p){return DEATH_GLYPHS[p.deathCause]||'#hr-deceased';}
 function deathCauseLabel(p){return DEATH_LABELS[p.deathCause]||'Slain';}
