@@ -28,10 +28,10 @@
             <i v-if="liveMode" :class="{online:p.connected}"></i>
           </li>
         </ul>
-        <div v-if="votingOpen && !spectator" class="verdict-block">
-          <span class="eyebrow">{{ speakAsTarget && possessedTarget ? 'Vote as ' + possessedTarget.name : 'Cast Your Verdict' }}</span>
-          <button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small>{{ targetVoteCount('skip') }}</small></button>
-          <button v-if="myVote" class="ghost wide" @click="retractMyVote">Retract vote</button>
+        <div v-if="votingOpen" class="verdict-block">
+          <span v-if="!spectator" class="eyebrow">{{ speakAsTarget && possessedTarget ? 'Vote as ' + possessedTarget.name : 'Cast Your Verdict' }}</span>
+          <button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" :disabled="spectator" @click="castVote('skip')">Stand down <small>{{ targetVoteCount('skip') }}</small></button>
+          <button v-if="myVote && !spectator" class="ghost wide" @click="retractMyVote">Retract vote</button>
         </div>
         <p v-else-if="me?.possessed && !spectator" class="day1-hint">Possessed — you cannot vote today.</p>
         <p v-else-if="game.phase==='day' && game.round===1 && !spectator" class="day1-hint">Day 1 — no vote. Introduce yourself and observe.</p>
