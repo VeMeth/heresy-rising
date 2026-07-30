@@ -21,7 +21,7 @@
   },
 
   "interrogation": {
-    "_comment": "Interrogator scan resolution. A scan's effective tier is min(MAX_SCAN_TIER, chosenIntensity + zoneTierUpgrade[targetZone]). Execute on Sight fires when chosenIntensity >= EXECUTE_ON_SIGHT_MIN_INTENSITY AND the target's zone upgrade >= EXECUTE_ON_SIGHT_MIN_ZONE_UPGRADE — with the table below that currently means T2+ against Orange or worse. NOTE: docs/specs/mechanics/drift.md records Q25 as locked at Red+, which this table does not implement; changing 'orange' to 1 here is the one-line fix if that lock is confirmed. T1_ACCURACY is the chance a Tier 1 Clean/Tainted read is truthful. GENTLE_ROLE_* halve the zone noise rate for low-drift-weight roles (Chirurgeon, Novice-Psychic, Arbitrator, Conspirator). NOISE_UNCLEAR_CHANCE splits a noisy result between 'unclear' and an inverted answer.",
+    "_comment": "Interrogator scan resolution. A scan's effective tier is min(MAX_SCAN_TIER, chosenIntensity + zoneTierUpgrade[targetZone]). Execute on Sight fires when chosenIntensity >= EXECUTE_ON_SIGHT_MIN_INTENSITY AND the target's zone upgrade >= EXECUTE_ON_SIGHT_MIN_ZONE_UPGRADE — with the table below that means T2+ against Red or Black only (Q25, locked 2026-07-25; engine synced to spec per Q-AUDIT-EoS 2026-07-30). Orange is intel-only: confirmed warp-taint, no auto-kill. T1_ACCURACY is the chance a Tier 1 Clean/Tainted read is truthful. GENTLE_ROLE_* halve the zone noise rate for low-drift-weight roles (Chirurgeon, Novice-Psychic, Arbitrator, Conspirator). NOISE_UNCLEAR_CHANCE splits a noisy result between 'unclear' and an inverted answer.",
     "MAX_SCAN_TIER": 3,
     "T1_ACCURACY": 0.7,
     "GENTLE_ROLE_DRIFT_WEIGHT": 1,
@@ -32,7 +32,7 @@
     "zoneTierUpgrade": {
       "green": 0,
       "yellow": 1,
-      "orange": 2,
+      "orange": 1,
       "red": 2,
       "black": 2
     }
