@@ -206,7 +206,7 @@ export function runSingleGame(options = {}) {
             manager.advance(code, hostCode);
           } else {
             // Normal voting stage
-            collectDayVotes(manager, code, agents, verbose);
+            collectDayVotes(manager, code, agents, verbose, lastDayVoteTally);
             lastDayVoteTally = manager.state(code, hostCode).votes;
             // Advance to resolve day
             manager.advance(code, hostCode);
@@ -249,6 +249,7 @@ export function runSingleGame(options = {}) {
         alive: !!p.alive,
         drift: p.drift,
         crippleTier: p.cripple_tier,
+        deathCause: p.death_cause,
         confessed: !!p.confessed,
       })),
       seed,

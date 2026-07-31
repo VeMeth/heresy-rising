@@ -56,7 +56,7 @@ export function aggregateResults(games) {
       roleStats[roleId].games++;
       roleStats[roleId].totalDrift += player.drift || 0;
       if (player.alive) roleStats[roleId].survivedToEnd++;
-      if (!player.alive && player.crippleTier >= 3) roleStats[roleId].lynched++;
+      if (!player.alive && player.deathCause === 'lynch') roleStats[roleId].lynched++;
     }
   }
 
@@ -202,7 +202,7 @@ export function buildResultsJSON(meta, games, elapsed) {
         faction: p.faction,
         alive: p.alive,
         drift: p.drift,
-        lynched: !p.alive && p.crippleTier >= 3,
+        lynched: !p.alive && p.deathCause === 'lynch',
       })),
     })),
   };

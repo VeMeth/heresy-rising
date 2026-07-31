@@ -93,8 +93,14 @@ export function buildAgentState(manager, code, playerCode, lastDayVoteTally = []
   // Vote options: all alive players except self + 'skip'
   const voteOptions = ['skip', ...legalTargets];
 
-  // Votes from state (use last day's tally during night phases)
-  const voteTally = game.phase === 'day' ? (state.votes || []) : lastDayVoteTally;
+  // Votes from state. The live tally (state.votes) is only non-empty once
+  // votes have actually been submitted this round — during night phases,
+  // and during the day-vote collection pass (which builds every agent's
+  // state before anyone has voted, to avoid a same-round bandwagon), it's
+  // always empty. Fall back to the last completed day's tally so heuristics
+  // still have a "who got suspected last time" signal instead of always
+  // seeing nothing and defaulting to skip.
+  const voteTally = (state.votes && state.votes.length > 0) ? state.votes : lastDayVoteTally;
 
   // Fetch role data for other state fields
   const roleData = me?.role_id ? manager.role(me.role_id) : null;
@@ -145,6 +151,7 @@ export function buildAgentState(manager, code, playerCode, lastDayVoteTally = []
     myAction: state.myAction,
     pendingTorture: state.pendingTorture || null,
     privateMessages: state.privateMessages,
+    atRiskTargets: state.atRiskTargets || [],
     maxDrift: game.max_drift,
     lastTorturedTarget: game.last_tortured_target || null,
     scaledCosts,
@@ -213,9 +220,10 @@ export function collectNightActions(manager, code, agents, verbose = false, last
  * @param {string} code
  * @param {Map<string, Agent>} agents - Map of playerCode -> agent
  * @param {boolean} [verbose=false]
+ * @param {Array} [lastDayVoteTally=[]] - Tally from the last completed day vote
  * @returns {Array} Submitted votes
  */
-export function collectDayVotes(manager, code, agents, verbose = false) {
+export function collectDayVotes(manager, code, agents, verbose = false, lastDayVoteTally = []) {
   const game = manager.game(code);
   if (game.round === 1) return []; // Day 1 has no vote (Q28)
 
@@ -228,7 +236,7 @@ export function collectDayVotes(manager, code, agents, verbose = false) {
     const agent = agents.get(player.player_code);
     if (!agent) continue;
 
-    const agentState = buildAgentState(manager, code, player.player_code);
+    const agentState = buildAgentState(manager, code, player.player_code, lastDayVoteTally);
 
     try {
       const choice = agent.dayVote(agentState);

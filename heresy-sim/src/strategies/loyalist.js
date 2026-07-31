@@ -4,7 +4,7 @@
  * All decisions are deterministic from state (no Math.random()) so same seed → same outcome.
  */
 
-import { pickRandom } from '../util.js';
+import { pickRandom, fallbackVoteTarget } from '../util.js';
 
 // ── L1 — Imperial Citizen ──────────────────────────────────────────────────
 
@@ -25,10 +25,10 @@ export function createL1Citizen(id) {
       // Follow the crowd: vote for the player with most votes already
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
-      // Fallback: vote skip
-      return 'skip';
+      // Fallback: deterministic rotation
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return loyalistRespondTorture(s); }
   };
 }
 
@@ -40,8 +40,16 @@ export function createL2Interrogator(id) {
     label: `l2-interrogator-${id}`,
     nightAction(s) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
-      // Target the player who received the most votes last day but wasn't killed
-      const target = getMostVoted(s) || pickRandom(s.legalTargets);
+      // Prefer scanning targets not yet interrogated (independent detection)
+      const tested = new Set(
+        (s.privateMessages || [])
+          .filter(m => m.meta?.intelKind === 'interrogate' && m.meta.target)
+          .map(m => m.meta.target)
+      );
+      const untested = s.legalTargets.filter(t => !tested.has(t));
+      const target = pickRandom(untested.length > 0 ? untested : s.legalTargets)
+        || getMostVoted(s)
+        || s.legalTargets[0];
       // Choose intensity based on scaled costs: prefer highest tier it can afford
       // without spending more than roughly a third of maxDrift in one shot
       const myDrift = s.me?.drift || 0;
@@ -59,12 +67,29 @@ export function createL2Interrogator(id) {
     },
     dayVote(s) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
+      // Check own intel from interrogations
+      if (s.privateMessages && Array.isArray(s.privateMessages)) {
+        // Find most recent interrogation result (iterate from end)
+        for (let i = s.privateMessages.length - 1; i >= 0; i--) {
+          const msg = s.privateMessages[i];
+          if (msg.meta?.intelKind === 'interrogate') {
+            // Confirmed hit: faction is ground truth
+            if (msg.meta.faction === 'heretic' && msg.meta.target && s.voteOptions.includes(msg.meta.target)) {
+              return msg.meta.target;
+            }
+            // Noisy hit: factionHint is weaker signal
+            if (msg.meta.factionHint === 'heretic' && msg.meta.target && s.voteOptions.includes(msg.meta.target)) {
+              return msg.meta.target;
+            }
+          }
+        }
+      }
       // Vote for a different high-vote target
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return loyalistRespondTorture(s); }
   };
 }
 
@@ -83,10 +108,11 @@ export function createL3Chirurgeon(id) {
         lastProtectedTarget = s.me?.playerCode;
         return { targetCode: s.me?.playerCode };
       }
-      // Protect someone different from last
+      // Protect someone different from last — prefer whoever the table is worried about
       const candidates = s.legalTargets.filter(t => t !== lastProtectedTarget);
       if (candidates.length === 0) return { targetCode: pickRandom(s.legalTargets) };
-      const target = candidates[0];
+      const suspected = getMostVoted(s);
+      const target = (suspected && candidates.includes(suspected)) ? suspected : candidates[0];
       lastProtectedTarget = target;
       return { targetCode: target };
     },
@@ -94,9 +120,9 @@ export function createL3Chirurgeon(id) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return loyalistRespondTorture(s); }
   };
 }
 
@@ -124,11 +150,14 @@ export function createL4NovicePsychic(id) {
     },
     dayVote(s) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
+      // Prefer voting for publicly tortured targets (safe, always-available signal)
+      const atRiskVote = s.atRiskTargets?.find(t => s.voteOptions.includes(t));
+      if (atRiskVote) return atRiskVote;
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return loyalistRespondTorture(s); }
   };
 }
 
@@ -149,9 +178,9 @@ export function createL5Arbitrator(id) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return loyalistRespondTorture(s); }
   };
 }
 
@@ -176,9 +205,9 @@ export function createL6Priest(id) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return loyalistRespondTorture(s); }
   };
 }
 
@@ -210,13 +239,28 @@ export function createL7SanctionedPsyker(id) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return loyalistRespondTorture(s); }
   };
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Loyalists mostly resist (silent, cheap). Confess only when already under
+ * real drift pressure — it's free but reveals the exact role, so it's only
+ * worth it once staying quiet stops paying off. Note: cripple tier is NOT a
+ * useful signal here — anyone being asked to respond is already at tier 1
+ * by definition (the engine sets it as part of opening the response window
+ * itself), so checking it would make this always return 'confess'.
+ */
+function loyalistRespondTorture(s) {
+  const drift = s.me?.drift || 0;
+  const driftRatio = s.maxDrift ? drift / s.maxDrift : 0;
+  if (driftRatio >= 0.6) return 'confess';
+  return 'resist';
+}
 
 function getMostVoted(s) {
   const counts = new Map();

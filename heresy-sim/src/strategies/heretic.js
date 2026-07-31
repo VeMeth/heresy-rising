@@ -5,6 +5,8 @@
  * All decisions are deterministic from state (no Math.random()).
  */
 
+import { fallbackVoteTarget } from '../util.js';
+
 // ── Blood Ritual coordination ────────────────────────────────────────────
 // Blood Ritual (blood-ritual.md v1.0.0) is a faction-wide night action: any
 // living, uncrippled Heretic can submit it, but only one claim per night
@@ -140,9 +142,9 @@ export function createH1Murderer(id, factionState) {
       }
       const cleanTargets = s.voteOptions.filter(t => !counts.has(t));
       if (cleanTargets.length > 0) return cleanTargets[0];
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; },
+    respondTorture(s) { return heresyRespondTorture(s); },
     onNightActionCommitted(action) {
       if (action.factionAction) return; // blood-ritual path handles its own bookkeeping separately
       recentTargets.push(action.targetCode);
@@ -182,9 +184,9 @@ export function createH2HereticPriest(id, factionState) {
       if (lastKill && s.voteOptions.includes(lastKill)) return lastKill;
       const consensus = factionState?.get('consensusVoteTarget');
       if (consensus && s.voteOptions.includes(consensus)) return consensus;
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return heresyRespondTorture(s); }
   };
 }
 
@@ -192,7 +194,6 @@ export function createH2HereticPriest(id, factionState) {
 
 export function createH3Conspirator(id, factionState) {
   registerHereticRole(factionState, id, 'conspirator');
-  let knownInterrogator = null;
   return {
     id,
     label: `h3-conspirator-${id}`,
@@ -205,31 +206,41 @@ export function createH3Conspirator(id, factionState) {
     },
     dayVote(s) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
-      if (!knownInterrogator) {
-        // Track the most active voter as the suspected Interrogator
-        const voterCount = new Map();
-        for (const v of (s.voteTally || [])) {
-          if (v.choice !== 'skip') {
-            voterCount.set(v.voterCode, (voterCount.get(v.voterCode) || 0) + 1);
-          }
-        }
-        if (voterCount.size > 0) {
-          let maxVoter = null, maxCount = 0;
-          for (const [vc, c] of voterCount) {
-            if (c > maxCount) { maxCount = c; maxVoter = vc; }
-          }
-          if (maxVoter) {
-            knownInterrogator = maxVoter;
-            factionState?.set('knownInterrogator', maxVoter);
-            factionState?.set('consensusVoteTarget', maxVoter);
-          }
+      // Re-evaluate the suspected Interrogator every round (most active voter),
+      // requiring 2 consecutive rounds of the same top-voter before publishing
+      // it as the faction's consensus target — avoids both permanently locking
+      // onto a bad first guess and thrashing on every single round's noise.
+      const voterCount = new Map();
+      for (const v of (s.voteTally || [])) {
+        if (v.choice !== 'skip') {
+          voterCount.set(v.voterCode, (voterCount.get(v.voterCode) || 0) + 1);
         }
       }
+      let maxVoter = null, maxCount = 0;
+      for (const [vc, c] of voterCount) {
+        if (c > maxCount) { maxCount = c; maxVoter = vc; }
+      }
+      const stillLiving = maxVoter && (s.living || []).some(p => p.playerCode === maxVoter);
+      if (stillLiving) {
+        const prevCandidate = factionState?.get('candidateInterrogator');
+        const streak = maxVoter === prevCandidate ? (factionState?.get('candidateStreak') || 0) + 1 : 1;
+        factionState?.set('candidateInterrogator', maxVoter);
+        factionState?.set('candidateStreak', streak);
+        if (streak >= 2) {
+          factionState?.set('knownInterrogator', maxVoter);
+          factionState?.set('consensusVoteTarget', maxVoter);
+        }
+      }
+      // Clear a stale consensus target if it died
       const consensus = factionState?.get('consensusVoteTarget');
-      if (consensus && s.voteOptions.includes(consensus)) return consensus;
-      return s.voteOptions[0];
+      if (consensus && !(s.living || []).some(p => p.playerCode === consensus)) {
+        factionState?.delete('consensusVoteTarget');
+      }
+      const target = factionState?.get('consensusVoteTarget');
+      if (target && s.voteOptions.includes(target)) return target;
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return heresyRespondTorture(s); }
   };
 }
 
@@ -244,6 +255,11 @@ export function createH4Saboteur(id, factionState) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
       if (isBloodRitualDuty(id, s, factionState)) return bloodRitualNightAction(s, factionState);
       // Trap the most voted player (likely Interrogator target)
+      const hereticCodes = new Set(
+        s.living?.filter(p => p.faction === 'heretic').map(p => p.playerCode) || []
+      );
+      const candidates = s.legalTargets.filter(t => !hereticCodes.has(t));
+      if (candidates.length === 0) return null;
       const counts = new Map();
       for (const v of (s.voteTally || [])) {
         if (v.choice !== 'skip') counts.set(v.choice, (counts.get(v.choice) || 0) + 1);
@@ -251,19 +267,19 @@ export function createH4Saboteur(id, factionState) {
       if (counts.size > 0) {
         let maxTarget = null, maxCount = 0;
         for (const [t, c] of counts) {
-          if (c > maxCount && s.legalTargets.includes(t)) { maxCount = c; maxTarget = t; }
+          if (c > maxCount && candidates.includes(t)) { maxCount = c; maxTarget = t; }
         }
         if (maxTarget) return { targetCode: maxTarget };
       }
-      return { targetCode: s.legalTargets[0] };
+      return { targetCode: candidates[0] };
     },
     dayVote(s) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
       const consensus = factionState?.get('consensusVoteTarget');
       if (consensus && s.voteOptions.includes(consensus)) return consensus;
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; }
+    respondTorture(s) { return heresyRespondTorture(s); }
   };
 }
 
@@ -279,11 +295,16 @@ export function createH5Recruiter(id, factionState) {
     label: `h5-recruiter-${id}`,
     nightAction(s) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
+      const hereticCodes = new Set(
+        s.living?.filter(p => p.faction === 'heretic').map(p => p.playerCode) || []
+      );
+      const nonHereticTargets = s.legalTargets.filter(t => !hereticCodes.has(t));
+      if (nonHereticTargets.length === 0) return null;
       const target = getMostVotedFromTally(s);
-      const candidates = s.legalTargets.filter(t => !recentTargets.includes(t));
-      const chosen = (target && s.legalTargets.includes(target) && !recentTargets.includes(target))
+      const candidates = nonHereticTargets.filter(t => !recentTargets.includes(t));
+      const chosen = (target && nonHereticTargets.includes(target) && !recentTargets.includes(target))
         ? target
-        : (candidates[0] || s.legalTargets[0]);
+        : (candidates[0] || nonHereticTargets[0]);
       return { targetCode: chosen };
     },
     dayVote(s) {
@@ -291,9 +312,9 @@ export function createH5Recruiter(id, factionState) {
       // Vote for most voted target (push to Black)
       const target = getMostVotedFromTally(s);
       if (target && s.voteOptions.includes(target)) return target;
-      return s.voteOptions[0];
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture() { return 'resist'; },
+    respondTorture(s) { return heresyRespondTorture(s); },
     onNightActionCommitted(action) {
       recentTargets.push(action.targetCode);
       if (recentTargets.length > 3) recentTargets.shift();
@@ -301,7 +322,47 @@ export function createH5Recruiter(id, factionState) {
   };
 }
 
+// ── H6 — Animus ────────────────────────────────────────────────────────────
+// Deliberately never takes Blood Ritual duty — possession is a distinct win
+// path that doesn't require faction coordination, so keeping its priority
+// undiluted preserves this solo-viable secondary objective.
+
+export function createH6Animus(id, factionState) {
+  let hasPossessed = false;
+  return {
+    id,
+    label: `h6-animus-${id}`,
+    nightAction(s) {
+      if (!s.legalTargets || s.legalTargets.length === 0 || hasPossessed) return null;
+      const hereticCodes = new Set(
+        s.living?.filter(p => p.faction === 'heretic').map(p => p.playerCode) || []
+      );
+      const loyalCandidates = s.legalTargets.filter(t => !hereticCodes.has(t));
+      if (loyalCandidates.length === 0) return null;
+      // Prefer a publicly-tortured target (proxy for elevated drift), else the most-voted target, else the first legal candidate.
+      const tortured = (s.atRiskTargets || []).find(t => loyalCandidates.includes(t));
+      if (tortured) return { targetCode: tortured };
+      const voted = getMostVotedFromTally(s);
+      if (voted && loyalCandidates.includes(voted)) return { targetCode: voted };
+      return { targetCode: loyalCandidates[0] };
+    },
+    dayVote(s) {
+      if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
+      const consensus = factionState?.get('consensusVoteTarget');
+      if (consensus && s.voteOptions.includes(consensus)) return consensus;
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
+    },
+    respondTorture(s) { return heresyRespondTorture(s); },
+    onNightActionCommitted() { hasPossessed = true; }
+  };
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/** Heretics always resist — confessing reveals their faction (fatal), refuse-break is strictly worse than resist with no upside. */
+function heresyRespondTorture() {
+  return 'resist';
+}
 
 function getMostVotedFromTally(s) {
   const counts = new Map();
@@ -326,6 +387,7 @@ const HERETIC_ROLE_MAP = {
   'conspirator': createH3Conspirator,
   'saboteur': createH4Saboteur,
   'recruiter': createH5Recruiter,
+  'animus': createH6Animus,
 };
 
 export function getHereticHeuristic(roleId) {

@@ -200,7 +200,7 @@ heresy-sim/
 │   └── strategies/
 │       ├── random.js         # createRandomAgent(id) → uniform-legal picks
 │       ├── loyalist.js       # L1-L7 heuristics (Citizen → Sanctioned Psyker)
-│       └── heretic.js        # H1-H5 heuristics (Murderer → Recruiter)
+│       └── heretic.js        # H1-H6 heuristics (Murderer → Animus)
 │                               with shared factionState coordination
 ├── package.json
 └── README.md (this file)
@@ -215,7 +215,7 @@ type Agent = {
   id: string;         // player code
   nightAction(state: AgentState): { targetCode: string, variant?: string } | null;
   dayVote(state: AgentState): string;    // playerCode | 'skip'
-  respondInterrogation(state: AgentState): 'confess' | 'resist' | 'refuse-break';
+  respondTorture(state: AgentState): 'confess' | 'resist' | 'refuse-break';
 };
 ```
 
@@ -224,6 +224,16 @@ contains exactly the information that player would see in the real game:
 their own role/faction/drift, living player counts, vote tally, pending
 interrogation status, and (for faction-mates) faction identity of allies.
 No hidden state is leaked.
+
+**Intentional omissions:** Other players' raw `drift` value and drift `zone` are
+deliberately excluded from `AgentState.living` and `.dead`. A real player never
+sees this either — the engine's `state()` method enforces fog of war and never
+returns other players' drift. Heuristics that need a "who's about to explode"
+signal must use legitimate public proxies instead: the day-phase vote tally
+(also usable at night via `lastDayVoteTally`), `atRiskTargets` (players with
+public torture history), and a role's own `privateMessages` (e.g., an Interrogator's
+past scan results, which do carry zone hints). This prevents future contributors
+from "fixing" the missing drift data by adding an omniscient field.
 
 ### Strategy types
 
@@ -242,24 +252,25 @@ Each strategy is ~20–50 lines of deterministic rules. They are intentionally
 | Role | ID | Key behavior |
 |------|-----|-------------|
 | Imperial Citizen | `imperial-citizen` | Sleeps (auto). Votes with crowd or skips (30%). |
-| Interrogator | `interrogator` | Scans the player who got most votes last round. T2 default, T3 if target Orange+. |
-| Chirurgeon | `chirurgeon` | Protects the player who spoke most or the Interrogator. Rotates targets. |
+| Interrogator | `interrogator` | Scans the player who got most votes last round. Variant choice (T1/T2/T3) based on real scaled drift costs (`state.scaledCosts`) and a drift budget — picks the highest tier affordable without spending >1/3 of `maxDrift` in one action. |
+| Chirurgeon | `chirurgeon` | Rotates protection targets: self-protects when own drift ≥ 5 and didn't self-protect last round; otherwise round-robins other living players in fixed order. No targeting signal beyond rotation. |
 | Novice-Psychic | `novice-psychic` | Scans the most recently interrogated player. Votes against Yellow+ drift. |
 | Arbitrator | `arbitrator` | Proxies the Interrogator or Priest. |
 | Priest | `priest` | Whisper on highest-drift Loyalist. Hymn on Orange. Litany saves Red. |
-| Sanctioned Psyker | `sanctioned-psyker` | Holds kill until a near-certain Heretic target exists. Sleeps otherwise. |
+| Sanctioned Psyker | `sanctioned-psyker` | Holds kill until a near-certain Heretic target exists (late game or Heretic parity). Sleeps otherwise. One-shot state only marked used after the engine confirms the night action submitted successfully. |
 
-### Heretic (H1–H5)
+### Heretic (H1–H6)
 
 Heretics share a `factionState` Map for coordination (approximates faction chat).
 
 | Role | ID | Key behavior |
 |------|-----|-------------|
-| Murderer | `murderer` | Kills Loyalists avoiding recent repeats. Sleeps instead of attacking once the drift-gate would block the kill (drift + 15 > maxDrift), to recover via passive sleep drift and stay able to kill again later — unless no other living Heretic has Blood Ritual duty (see below), in which case it uses that instead of sleeping. Buses Heretics in votes. |
+| Murderer | `murderer` | Kills Loyalists avoiding recent repeats (via rotation memory). Sleeps instead of attacking once the drift-gate would block the kill (drift + 15 > maxDrift), to recover via passive sleep drift and stay able to kill again later — unless no other living Heretic has Blood Ritual duty (see below), in which case it uses that instead of sleeping. Uses `onNightActionCommitted()` to track recent targets only after the kill action succeeds. Buses Heretics in votes. |
 | Heretic Priest | `heretic-priest` | Takes Blood Ritual duty if no higher-priority Heretic can. Otherwise targets lowest-drift Loyalist with a sermon, escalating tier with target zone. |
-| Conspirator | `conspirator` | Takes Blood Ritual duty whenever alive and uncrippled (its own kit, forge(), is day-only and not yet modeled here — see below). Votes track the suspected Interrogator. |
+| Conspirator | `conspirator` | Takes Blood Ritual duty whenever alive and uncrippled (its own kit, forge(), is day-only and not yet modeled here — see below). Actively publishes its suspected-Interrogator guess (highest-activity voter) as `consensusVoteTarget` in faction state — the coordinated target other Heretic roles read and follow. |
 | Saboteur | `saboteur` | Takes Blood Ritual duty if no higher-priority Heretic can. Otherwise traps the player most likely scanned by Interrogator. |
-| Recruiter | `recruiter` | Catalyzes Black-zone targets. Sleeps if no target at drift 20. Never takes Blood Ritual duty — keeps the conversion win path undiluted. |
+| Recruiter | `recruiter` | Targets non-Heretics, avoiding repeat-targeting across consecutive nights (via rotation memory). Never takes Blood Ritual duty — keeps the conversion win path undiluted. |
+| Animus | `animus` | One-shot ability: targets a living non-Heretic using the best available public proxy for high drift (a publicly-tortured target from `atRiskTargets` if one exists, else the most-voted player, else the first legal target). Never confirmed correct or incorrect from the sim's perspective; mirrors the real ability's "wastes silently on a wrong guess" design. Never takes Blood Ritual duty — keeps the possession win path undiluted. |
 
 #### Blood Ritual coordination
 
@@ -352,7 +363,7 @@ node src/index.js run --games 3 --players 8 --seed 42 2>&1 | grep Loyalist
        id,
        nightAction(state) { /* pick target from state.legalTargets */ },
        dayVote(state) { /* return a playerCode from state.voteOptions or 'skip' */ },
-       respondInterrogation(state) { return 'resist'; },
+       respondTorture(state) { return 'resist'; },
      };
    }
    ```

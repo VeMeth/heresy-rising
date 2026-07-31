@@ -45,3 +45,20 @@ export function formatDuration(ms) {
   const s = seconds % 60;
   return `${m}m${s}s`;
 }
+
+/**
+ * A non-skip vote when no other signal is available. Uses the seeded RNG
+ * (via pickRandom's default param, which picks up runner.js's per-game
+ * Math.random patch) so different agents land on different targets instead
+ * of a shared deterministic pick — the old round-index rotation caused
+ * same-seat-position blocs to vote in lockstep with zero faction awareness,
+ * frequently lynching same-faction players by pure seat coincidence.
+ * Weights toward atRiskTargets (players with a public torture history) as
+ * a mild positive-suspicion signal when any are still legal targets.
+ */
+export function fallbackVoteTarget(voteOptions, atRiskTargets = [], rng = Math.random) {
+  const targets = (voteOptions || []).filter(t => t !== 'skip');
+  if (targets.length === 0) return 'skip';
+  const suspects = targets.filter(t => (atRiskTargets || []).includes(t));
+  return pickRandom(suspects.length > 0 ? suspects : targets, rng);
+}
