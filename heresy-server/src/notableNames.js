@@ -1,105 +1,13 @@
-// Mirrors heresy-client/src/botNames.js — keep the two lists in sync. Used
-// server-side to assign per-game codenames when a lobby's "Anonymized mode"
-// operational parameter is on (see HeresyGameManager#start / #displayName).
-export const NOTABLE_NAMES = [
-  // Loyalist Primarchs
-  'Guilliman',
-  'Dorn',
-  'Vulkan',
-  'Sanguinius',
-  'Russ',
-  'Khan',
-  'Corax',
-  'Ferrus Manus',
-  // Traitor Primarchs
-  'Lorgar',
-  'Angron',
-  'Mortarion',
-  'Fulgrim',
-  'Magnus',
-  'Perturabo',
-  'Alpharius',
-  'Curze',
-  'Horus',
-  // Chaos Lords
-  'Abaddon',
-  'Kharn',
-  'Typhus',
-  'Ahriman',
-  'Huron',
-  'Lucius',
-  'Fabius',
-  'Haarken',
-  'Erebus',
-  'Kor Phaeron',
-  // Imperial Heroes
-  'Grimaldus',
-  'Cid',
-  'Calgar',
-  'Dante',
-  'Helbrecht',
-  'Kyras',
-  'Titus',
-  'Leandros',
-  'Tigurius',
-  // Renowned Marines
-  'Talos',
-  'Xarl',
-  'Sevatar',
-  // Imperial Guard
-  'Cain',
-  'Gaunt',
-  'Straken',
-  // Inquisition
-  'Eisenhorn',
-  'Ravenor',
-  'Coteaz',
-  'Drago',
-  'Kryptman',
-  // Horus Heresy
-  'Malcador',
-  'Valdor',
-  'Sejanus',
-  'Erda',
-  'Sindermann',
-  'Keeler',
-  'Loken',
-  'Aximand',
-  'Torgaddon',
-  // Chapter Masters
-  'Azrael',
-  'Asmodai',
-  'Belial',
-  'Cypher',
-  'Bjorn',
-  'Grimnar',
-  'Shrike',
-  'Lemartes',
-  'Mephiston',
-  'Seth',
-  'Lysander',
-  // Traitor Champions
-  'Skarbrand',
-  'Nemeroth',
-  'Honsou',
-  'Tarvitz',
-  'Moloc',
-  'Typhon',
-  'Dynat',
-  // Custodes
-  'Ra',
-  // Mechanicus
-  'Cawl',
-  // Sororitas
-  'Vahl',
-  // Minotaurs
-  'Asterion',
-  // Foul Champions
-  'Madox',
-  // Others
-  'Cadian',
-  'Catachan',
-  'Skitarius',
-  'Magos',
-  'Secutor',
-];
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Loaded from game_data/notableNames.json (single source of truth, mirrored to
+// client via Vite alias). Used server-side to assign per-game codenames when
+// a lobby's "Anonymized mode" operational parameter is on (see
+// HeresyGameManager#start / #displayName).
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const configRoot = process.env.GAME_CONFIG_DIR || path.join(root, 'game_data');
+const data = JSON.parse(fs.readFileSync(path.join(configRoot, 'notableNames.json'), 'utf8'));
+
+export const NOTABLE_NAMES = data.names;

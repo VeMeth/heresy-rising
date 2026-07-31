@@ -22,22 +22,6 @@ export function shuffle(array) {
   return copy;
 }
 
-export function selectRandomItems(source, count) {
-  if (count >= source.length) {
-    return shuffle(source).slice(0, count);
-  }
-  const selection = [];
-  const taken = new Set();
-  while (selection.length < count) {
-    const index = Math.floor(Math.random() * source.length);
-    if (!taken.has(index)) {
-      taken.add(index);
-      selection.push(source[index]);
-    }
-  }
-  return selection;
-}
-
 export function sanitizePlayerName(raw, fallback = 'Player') {
   if (!raw) return fallback;
   const trimmed = raw.trim().slice(0, MAX_NAME_LENGTH);
@@ -66,20 +50,4 @@ export function normalizeRoomCode(raw) {
     .toUpperCase()
     .replace(/[^A-Z]/g, '')
     .slice(0, MAX_ROOM_CODE_LENGTH);
-}
-
-export function deepClone(obj) {
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
-  if (Array.isArray(obj)) {
-    return obj.map(item => deepClone(item));
-  }
-  const cloned = {};
-  for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      cloned[key] = deepClone(obj[key]);
-    }
-  }
-  return cloned;
 }

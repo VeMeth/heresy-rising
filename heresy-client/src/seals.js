@@ -32,7 +32,7 @@ export const DEFAULT_SEAL_STYLE = 'ordinary';
 
 // The bands painted onto a gold plate in src/style.css. 'plain' is deliberately
 // first (and thus the fallback pattern) since it's the least decorated.
-export const SEAL_ORDINARIES = ['plain', 'chief', 'base', 'barbell', 'bordure', 'flanks'];
+const SEAL_ORDINARIES = ['plain', 'chief', 'base', 'barbell', 'bordure', 'flanks'];
 
 export const SEAL_STYLES = [ // order = display order in the settings menu
   { id: 'ordinary', name: 'Gold ordinary', blurb: 'One plate, one colour. A heraldic mark struck in gold, plus two letters.' },
@@ -62,7 +62,7 @@ function normalizeStyle(id) {
 // pigment rather than as a colour picker. That flattening does mean the warm
 // tones would otherwise converge on the same tan, so gold / ochre / bronze /
 // bone are pulled apart on LIGHTNESS instead of hue.
-export const SEAL_PALETTE = [
+const SEAL_PALETTE = [
   '#a08e6a', // aged gold
   '#7e4f4e', // oxblood
   '#5e8d78', // verdigris
@@ -77,7 +77,7 @@ export const SEAL_PALETTE = [
   '#544340', // dried blood
 ];
 
-export const SEAL_FIELDS = ['solid', 'bend', 'fess', 'pale', 'roundel'];
+const SEAL_FIELDS = ['solid', 'bend', 'fess', 'pale', 'roundel'];
 
 // WCAG relative luminance, used to pick an ink that stays legible on whichever
 // tone the plate landed on rather than hand-maintaining 12 paired values.
@@ -100,7 +100,7 @@ function contrast(a, b) {
 // Measured against the undiluted tone, which is the lightest part of the plate
 // (the field gradients only ever darken from there), so the letter stays
 // legible at the plate's worst case rather than on average.
-export function inkFor(hex) {
+function inkFor(hex) {
   return contrast(hex, DARK_INK) >= contrast(hex, LIGHT_INK) ? DARK_INK : LIGHT_INK;
 }
 

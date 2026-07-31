@@ -56,7 +56,7 @@ const mechanicTerms = glossaryConfig.mechanics.map(term => {
   return rendered;
 });
 
-export const GLOSSARY_TERMS = [...roleTerms, ...mechanicTerms];
+const GLOSSARY_TERMS = [...roleTerms, ...mechanicTerms];
 
 // alias (lowercased) -> term
 const ALIAS_MAP = new Map();

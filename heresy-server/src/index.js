@@ -246,14 +246,19 @@ export function createHeresyServer({ databasePath, now } = {}) {
   // conclave switcher makes hopping between such games routine — so a
   // connection-wide boolean gave every OTHER room that socket is in the
   // same (wrong) spectator verdict the moment it ever spectated anything.
-  function broadcast(code,event='game:state'){for(const socket of io.sockets.sockets.values()){if(!socket.rooms.has(code))continue;const isSpectator=!socket.data.playerCode&&socket.data.spectatorCode;if(!socket.data.playerCode&&!isSpectator)continue;try{const state=socket.data.playerCode?gameManager.state(code,socket.data.playerCode):gameManager.spectate(code);socket.emit(event,{state});if(state.status==='ended')socket.emit('game:ended',{state});}catch{}}}
-  function broadcastMessage(code,message){for(const client of io.sockets.sockets.values()){try{if(!client.rooms.has(code))continue;const isSpectator=!client.data.playerCode&&client.data.spectatorCode;if(!client.data.playerCode&&!isSpectator)continue;const player=client.data.playerCode?gameManager.player(code,client.data.playerCode):null;if(!player){if(message.channel==='public')client.emit('chat:message',{message});continue;}if(message.channel==='public'||(message.channel==='faction'&&player.faction==='heretic')||(message.channel==='graveyard'&&!player.alive)||(message.channel==='private'&&message.recipient_code===client.data.playerCode))client.emit('chat:message',{message});}catch{}}}
+  // Room-scoped socket lookup: these fan-out functions run on nearly every
+  // socket event, so they must only touch sockets actually in `code`'s room
+  // instead of scanning every socket connected to the server across all
+  // concurrent games.
+  function socketsInRoom(code){const ids=io.sockets.adapter.rooms.get(code);if(!ids)return[];const out=[];for(const id of ids){const s=io.sockets.sockets.get(id);if(s)out.push(s);}return out;}
+  function broadcast(code,event='game:state'){for(const socket of socketsInRoom(code)){const isSpectator=!socket.data.playerCode&&socket.data.spectatorCode;if(!socket.data.playerCode&&!isSpectator)continue;try{const state=socket.data.playerCode?gameManager.state(code,socket.data.playerCode):gameManager.spectate(code);socket.emit(event,{state});if(state.status==='ended')socket.emit('game:ended',{state});}catch{}}}
+  function broadcastMessage(code,message){for(const client of socketsInRoom(code)){try{const isSpectator=!client.data.playerCode&&client.data.spectatorCode;if(!client.data.playerCode&&!isSpectator)continue;const player=client.data.playerCode?gameManager.player(code,client.data.playerCode):null;if(!player){if(message.channel==='public')client.emit('chat:message',{message});continue;}if(message.channel==='public'||(message.channel==='faction'&&player.faction==='heretic')||(message.channel==='graveyard'&&!player.alive)||(message.channel==='private'&&message.recipient_code===client.data.playerCode))client.emit('chat:message',{message});}catch{}}}
   function broadcastAnnouncement(code,announcement){
     // Targeted announcements (role-reveal per-player) must never be
     // broadcast to the whole room — deliver only to the intended socket.
     if (announcement.targetCode) {
-      for (const s of io.sockets.sockets.values()) {
-        if (s.rooms.has(code) && s.data.playerCode === announcement.targetCode) {
+      for (const s of socketsInRoom(code)) {
+        if (s.data.playerCode === announcement.targetCode) {
           s.emit('game:announcement',{announcement});
           return;
         }
@@ -263,10 +268,10 @@ export function createHeresyServer({ databasePath, now } = {}) {
     io.to(code).emit('game:announcement',{announcement});
   }
   // Targeted delivery to a single bot socket (identified by payload.playerCode).
-  function broadcastBotPrompt(code,payload){const evt=payload.kind;for(const s of io.sockets.sockets.values()){if(!s.rooms.has(code)||!s.data.playerCode||s.data.playerCode!==payload.playerCode)continue;s.emit(evt,payload);}}
+  function broadcastBotPrompt(code,payload){const evt=payload.kind;for(const s of socketsInRoom(code)){if(!s.data.playerCode||s.data.playerCode!==payload.playerCode)continue;s.emit(evt,payload);}}
   // Fan-out to every bot socket joined to `code`. `payloadFor(botPlayer)` builds
   // the per-bot payload (so we can stamp botId/role per recipient).
-  function broadcastBots(code,event,payloadFor){for(const s of io.sockets.sockets.values()){if(!s.rooms.has(code)||!s.data.playerCode)continue;try{const player=gameManager.player(code,s.data.playerCode);if(!player||!player.is_bot)continue;s.emit(event,payloadFor(player));}catch{}}}
+  function broadcastBots(code,event,payloadFor){for(const s of socketsInRoom(code)){if(!s.data.playerCode)continue;try{const player=gameManager.player(code,s.data.playerCode);if(!player||!player.is_bot)continue;s.emit(event,payloadFor(player));}catch{}}}
   io.on('connection',socket=>{
     // Player preferences (seal style, etc.) — not tied to any specific game.
     ackWrap(socket,'player:prefs:get',p=>({prefs:gameManager.getPlayerPrefs(auth(socket,p))}));
