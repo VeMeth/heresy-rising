@@ -7,6 +7,7 @@ import { createL1Citizen, createL2Interrogator, createL3Chirurgeon,
   createL4NovicePsychic, createL5Arbitrator, createL6Priest,
   createL7SanctionedPsyker } from './strategies/loyalist.js';
 import { getHereticHeuristic } from './strategies/heretic.js';
+import { resolveScaledCost } from '../../heresy-server/src/mechanics/scaledCosts.js';
 
 /** @typedef {import('./strategies/random.js').Agent} Agent */
 
@@ -26,6 +27,7 @@ import { getHereticHeuristic } from './strategies/heretic.js';
  * @property {number} maxDrift - Maximum drift for this game
  * @property {string|null} lastTorturedTarget - Last day's tortured target
  * @property {string[]} availableVariants - Legal night-action variants for the viewer's role (e.g. T1/T2/T3)
+ * @property {Object|null} scaledCosts - Scaled costs for viewer's role (e.g. {T1: 6, T2: 8, T3: 10}), null if role has no scaled-cost actions
  */
 
 // ── Loyalist role-to-heuristic map ─────────────────────────────────────────
@@ -70,9 +72,10 @@ export function createHeuristicAgent(roleId, id, factionState) {
  * @param {import('../../heresy-server/src/heresyGameManager.js').HeresyGameManager} manager
  * @param {string} code - Game code
  * @param {string} playerCode - Player's code
+ * @param {Array} [lastDayVoteTally=[]] - Vote tally from the last day phase
  * @returns {AgentState}
  */
-export function buildAgentState(manager, code, playerCode) {
+export function buildAgentState(manager, code, playerCode, lastDayVoteTally = []) {
   const game = manager.game(code);
   const rawPlayers = manager.players(code);
   const state = manager.state(code, playerCode);
@@ -91,13 +94,25 @@ export function buildAgentState(manager, code, playerCode) {
   // Vote options: all alive players except self + 'skip'
   const voteOptions = ['skip', ...legalTargets];
 
-  // Votes from state
-  const voteTally = state.votes || [];
+  // Votes from state (use last day's tally during night phases)
+  const voteTally = game.phase === 'day' ? (state.votes || []) : lastDayVoteTally;
 
   // Available variants from role definition
   const roleData = me?.role_id ? manager.role(me.role_id) : null;
   const nightAction = roleData?.actions?.night;
   const availableVariants = nightAction?.variants || [];
+
+  // Scaled costs for the viewer's own role (if it has a scaled-cost-based night action)
+  const totalPlayers = rawPlayers.length;
+  let scaledCosts = null;
+  if (roleData?.scaledCostKey) {
+    scaledCosts = {};
+    for (const tier of ['T1', 'T2', 'T3']) {
+      try {
+        scaledCosts[tier] = resolveScaledCost(manager.config.drift.scaledCosts, roleData.scaledCostKey, tier, totalPlayers);
+      } catch { /* tier not defined for this role, skip */ }
+    }
+  }
 
   return {
     me: {
@@ -132,9 +147,11 @@ export function buildAgentState(manager, code, playerCode) {
     voteTally,
     myAction: state.myAction,
     pendingTorture: state.pendingTorture || null,
+    privateMessages: state.privateMessages,
     maxDrift: game.max_drift,
     lastTorturedTarget: game.last_tortured_target || null,
     availableVariants,
+    scaledCosts,
   };
 }
 
@@ -146,9 +163,10 @@ export function buildAgentState(manager, code, playerCode) {
  * @param {string} code
  * @param {Map<string, Agent>} agents - Map of playerCode -> agent
  * @param {boolean} [verbose=false]
+ * @param {Array} [lastDayVoteTally=[]] - Vote tally from the last day phase
  * @returns {Array} Submitted actions
  */
-export function collectNightActions(manager, code, agents, verbose = false) {
+export function collectNightActions(manager, code, agents, verbose = false, lastDayVoteTally = []) {
   const rawPlayers = manager.players(code).filter(p => p.alive);
   const submitted = [];
 
@@ -156,7 +174,7 @@ export function collectNightActions(manager, code, agents, verbose = false) {
     const agent = agents.get(player.player_code);
     if (!agent) continue;
 
-    const agentState = buildAgentState(manager, code, player.player_code);
+    const agentState = buildAgentState(manager, code, player.player_code, lastDayVoteTally);
 
     // Skip roles with an explicit sleep action (imperial-citizen). A role
     // with NO night action at all (Conspirator — its own action is day-only
@@ -175,6 +193,7 @@ export function collectNightActions(manager, code, agents, verbose = false) {
       const result = action.factionAction
         ? manager.submitFactionAction(code, player.player_code, { targetCode: action.targetCode })
         : manager.submitAction(code, player.player_code, { targetCode: action.targetCode, variant: action.variant });
+      agent.onNightActionCommitted?.(action, result);
       submitted.push({ playerCode: player.player_code, action, result });
       if (verbose) {
         const targetName = manager.player(code, action.targetCode)?.name || '?';
@@ -206,7 +225,9 @@ export function collectDayVotes(manager, code, agents, verbose = false) {
 
   const rawPlayers = manager.players(code).filter(p => p.alive);
   const submitted = [];
+  const collected = [];
 
+  // Pass 1: Collect votes from all players without submitting
   for (const player of rawPlayers) {
     const agent = agents.get(player.player_code);
     if (!agent) continue;
@@ -217,6 +238,17 @@ export function collectDayVotes(manager, code, agents, verbose = false) {
       const choice = agent.dayVote(agentState);
       if (!choice) continue;
 
+      collected.push({ player, choice });
+    } catch (err) {
+      if (verbose) {
+        console.log(`  Vote: ${player.name} (${player.role_id}) — vote failed: ${err.message}`);
+      }
+    }
+  }
+
+  // Pass 2: Submit all collected votes
+  for (const { player, choice } of collected) {
+    try {
       const result = manager.vote(code, player.player_code, choice, '');
       submitted.push({ playerCode: player.player_code, choice, result });
       if (verbose) {

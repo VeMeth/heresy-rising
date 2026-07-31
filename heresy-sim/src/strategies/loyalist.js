@@ -42,11 +42,19 @@ export function createL2Interrogator(id) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
       // Target the player who received the most votes last day but wasn't killed
       const target = getMostVoted(s) || pickRandom(s.legalTargets);
-      // Choose intensity based on drift
+      // Choose intensity based on scaled costs: prefer highest tier it can afford
+      // without spending more than roughly a third of maxDrift in one shot
       const myDrift = s.me?.drift || 0;
-      let variant = 'T2';
-      if (myDrift >= 10) variant = 'T1'; // Conserving drift
-      else if (myDrift >= 5 && s.maxDrift >= 12) variant = 'T3';
+      let variant = 'T2'; // Default fallback
+      if (s.scaledCosts) {
+        if (s.scaledCosts.T3 != null && myDrift + s.scaledCosts.T3 <= s.maxDrift / 3) {
+          variant = 'T3';
+        } else if (s.scaledCosts.T2 != null && myDrift + s.scaledCosts.T2 <= s.maxDrift / 2) {
+          variant = 'T2';
+        } else if (s.scaledCosts.T1 != null) {
+          variant = 'T1';
+        }
+      }
       return { targetCode: target, variant };
     },
     dayVote(s) {
@@ -70,8 +78,8 @@ export function createL3Chirurgeon(id) {
     nightAction(s) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
       const myDrift = s.me?.drift || 0;
-      // Self-protect if own drift is high
-      if (myDrift >= 5) {
+      // Self-protect if own drift is high and didn't self-protect last round
+      if (myDrift >= 5 && lastProtectedTarget !== s.me?.playerCode) {
         lastProtectedTarget = s.me?.playerCode;
         return { targetCode: s.me?.playerCode };
       }
@@ -190,11 +198,13 @@ export function createL7SanctionedPsyker(id) {
       if (shouldFire) {
         const target = getMostVoted(s) || s.legalTargets[0];
         if (s.legalTargets.includes(target)) {
-          hasKilled = true;
           return { targetCode: target };
         }
       }
       return null; // Sleep (recover drift)
+    },
+    onNightActionCommitted() {
+      hasKilled = true;
     },
     dayVote(s) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';

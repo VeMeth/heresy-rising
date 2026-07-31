@@ -118,9 +118,6 @@ export function createH1Murderer(id, factionState) {
         .filter(vc => candidates.includes(vc));
       if (antiHereticVoters.length > 0) {
         const target = antiHereticVoters[0];
-        recentTargets.push(target);
-        if (recentTargets.length > 3) recentTargets.shift();
-        factionState?.set('lastKillTarget', target);
         return { targetCode: target };
       }
 
@@ -129,9 +126,6 @@ export function createH1Murderer(id, factionState) {
       if (loyalCandidates.length > 0) candidates = loyalCandidates;
 
       const target = candidates[0];
-      recentTargets.push(target);
-      if (recentTargets.length > 3) recentTargets.shift();
-      factionState?.set('lastKillTarget', target);
       return { targetCode: target };
     },
     dayVote(s) {
@@ -148,7 +142,13 @@ export function createH1Murderer(id, factionState) {
       if (cleanTargets.length > 0) return cleanTargets[0];
       return s.voteOptions[0];
     },
-    respondTorture() { return 'resist'; }
+    respondTorture() { return 'resist'; },
+    onNightActionCommitted(action) {
+      if (action.factionAction) return; // blood-ritual path handles its own bookkeeping separately
+      recentTargets.push(action.targetCode);
+      if (recentTargets.length > 3) recentTargets.shift();
+      factionState?.set('lastKillTarget', action.targetCode);
+    }
   };
 }
 
@@ -221,6 +221,7 @@ export function createH3Conspirator(id, factionState) {
           if (maxVoter) {
             knownInterrogator = maxVoter;
             factionState?.set('knownInterrogator', maxVoter);
+            factionState?.set('consensusVoteTarget', maxVoter);
           }
         }
       }
@@ -271,15 +272,19 @@ export function createH4Saboteur(id, factionState) {
 // comment above) — keeps the conversion win path undiluted.
 
 export function createH5Recruiter(id, factionState) {
+  /** @type {string[]} recent recruitment targets (for rotation) */
+  const recentTargets = [];
   return {
     id,
     label: `h5-recruiter-${id}`,
     nightAction(s) {
       if (!s.legalTargets || s.legalTargets.length === 0) return null;
-      // Target the most voted player (proxy for Black zone)
       const target = getMostVotedFromTally(s);
-      if (target && s.legalTargets.includes(target)) return { targetCode: target };
-      return { targetCode: s.legalTargets[0] };
+      const candidates = s.legalTargets.filter(t => !recentTargets.includes(t));
+      const chosen = (target && s.legalTargets.includes(target) && !recentTargets.includes(target))
+        ? target
+        : (candidates[0] || s.legalTargets[0]);
+      return { targetCode: chosen };
     },
     dayVote(s) {
       if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
@@ -288,7 +293,11 @@ export function createH5Recruiter(id, factionState) {
       if (target && s.voteOptions.includes(target)) return target;
       return s.voteOptions[0];
     },
-    respondTorture() { return 'resist'; }
+    respondTorture() { return 'resist'; },
+    onNightActionCommitted(action) {
+      recentTargets.push(action.targetCode);
+      if (recentTargets.length > 3) recentTargets.shift();
+    }
   };
 }
 

@@ -148,6 +148,12 @@ export function runSingleGame(options = {}) {
       }
     }
 
+    // Track each player's faction at agent-creation time to detect conversions
+    const agentFaction = new Map();
+    for (const p of rawPlayers) {
+      agentFaction.set(p.player_code, p.faction);
+    }
+
     if (verbose) {
       console.log(`\nGame ${code} started with ${playerCount} players (seed ${seed})`);
       for (const p of rawPlayers) {
@@ -158,6 +164,7 @@ export function runSingleGame(options = {}) {
     // Game loop
     let game = manager.game(code);
     let rounds = 0;
+    let lastDayVoteTally = [];
 
     while (game.status === 'active' && rounds < maxRounds) {
       rounds++;
@@ -166,11 +173,22 @@ export function runSingleGame(options = {}) {
         if (verbose) console.log(`\n--- Night ${game.round} ---`);
 
         // Collect and submit night actions
-        collectNightActions(manager, code, agents, verbose);
+        collectNightActions(manager, code, agents, verbose, lastDayVoteTally);
 
         // Resolve night
         manager.resolve(code, true);
         game = manager.game(code);
+
+        // Detect faction conversions (heretical-catalyst may flip a player's faction).
+        // Converted players get a random fallback agent rather than staying on their
+        // stale pre-conversion heuristic (which would actively work against their new team).
+        // A proper faction-aware heuristic for converts is a future improvement.
+        for (const p of manager.players(code).filter(x => x.alive)) {
+          if (agentFaction.get(p.player_code) !== p.faction) {
+            agents.set(p.player_code, createRandomAgent(p.player_code));
+            agentFaction.set(p.player_code, p.faction);
+          }
+        }
 
       } else if (game.phase === 'day') {
         if (verbose) console.log(`\n--- Day ${game.round} ---`);
@@ -189,6 +207,7 @@ export function runSingleGame(options = {}) {
           } else {
             // Normal voting stage
             collectDayVotes(manager, code, agents, verbose);
+            lastDayVoteTally = manager.state(code, hostCode).votes;
             // Advance to resolve day
             manager.advance(code, hostCode);
           }
