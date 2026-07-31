@@ -11,7 +11,6 @@ import { pickRandom } from '../util.js';
  * @property {string} label
  * @property {(state: import('../agent.js').AgentState) => ({targetCode: string, variant?: string, factionAction?: boolean}|null)} nightAction
  * @property {(state: import('../agent.js').AgentState) => string} dayVote
- * @property {(state: import('../agent.js').AgentState) => ('confess'|'resist'|'refuse-break')} respondTorture
  */
 
 /**
@@ -38,13 +37,6 @@ export function createRandomAgent(id) {
     dayVote(state) {
       if (!state.voteOptions || state.voteOptions.length === 0) return 'skip';
       return pickRandom(state.voteOptions);
-    },
-    /**
-     * @param {import('../agent.js').AgentState} state
-     * @returns {'confess' | 'resist' | 'refuse-break'}
-     */
-    respondTorture(state) {
-      return pickRandom(['confess', 'resist', 'refuse-break']);
     }
   };
 }

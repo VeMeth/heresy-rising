@@ -144,7 +144,6 @@ export function createH1Murderer(id, factionState) {
       if (cleanTargets.length > 0) return cleanTargets[0];
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture(s) { return heresyRespondTorture(s); },
     onNightActionCommitted(action) {
       if (action.factionAction) return; // blood-ritual path handles its own bookkeeping separately
       recentTargets.push(action.targetCode);
@@ -185,8 +184,7 @@ export function createH2HereticPriest(id, factionState) {
       const consensus = factionState?.get('consensusVoteTarget');
       if (consensus && s.voteOptions.includes(consensus)) return consensus;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return heresyRespondTorture(s); }
+    }
   };
 }
 
@@ -239,8 +237,7 @@ export function createH3Conspirator(id, factionState) {
       const target = factionState?.get('consensusVoteTarget');
       if (target && s.voteOptions.includes(target)) return target;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return heresyRespondTorture(s); }
+    }
   };
 }
 
@@ -278,8 +275,7 @@ export function createH4Saboteur(id, factionState) {
       const consensus = factionState?.get('consensusVoteTarget');
       if (consensus && s.voteOptions.includes(consensus)) return consensus;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return heresyRespondTorture(s); }
+    }
   };
 }
 
@@ -314,7 +310,6 @@ export function createH5Recruiter(id, factionState) {
       if (target && s.voteOptions.includes(target)) return target;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture(s) { return heresyRespondTorture(s); },
     onNightActionCommitted(action) {
       recentTargets.push(action.targetCode);
       if (recentTargets.length > 3) recentTargets.shift();
@@ -352,17 +347,11 @@ export function createH6Animus(id, factionState) {
       if (consensus && s.voteOptions.includes(consensus)) return consensus;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
     },
-    respondTorture(s) { return heresyRespondTorture(s); },
     onNightActionCommitted() { hasPossessed = true; }
   };
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-/** Heretics always resist — confessing reveals their faction (fatal), refuse-break is strictly worse than resist with no upside. */
-function heresyRespondTorture() {
-  return 'resist';
-}
 
 function getMostVotedFromTally(s) {
   const counts = new Map();

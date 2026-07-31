@@ -12,7 +12,6 @@ import {
   createHeuristicAgent,
   collectNightActions,
   collectDayVotes,
-  collectTortureResponses,
 } from './agent.js';
 import { createRandomAgent } from './strategies/random.js';
 
@@ -198,19 +197,10 @@ export function runSingleGame(options = {}) {
           if (verbose) console.log('  Day 1: No vote (Q28), advancing...');
           manager.advance(code, hostCode);
         } else {
-          // Check if we're in the response stage
-          if (game.day_stage === 'response') {
-            if (verbose) console.log('  Torture response stage');
-            collectTortureResponses(manager, code, agents, verbose);
-            // After response, advance to next phase
-            manager.advance(code, hostCode);
-          } else {
-            // Normal voting stage
-            collectDayVotes(manager, code, agents, verbose, lastDayVoteTally);
-            lastDayVoteTally = manager.state(code, hostCode).votes;
-            // Advance to resolve day
-            manager.advance(code, hostCode);
-          }
+          collectDayVotes(manager, code, agents, verbose, lastDayVoteTally);
+          lastDayVoteTally = manager.state(code, hostCode).votes;
+          // Advance to resolve day
+          manager.advance(code, hostCode);
         }
 
         game = manager.game(code);

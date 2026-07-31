@@ -12,11 +12,9 @@
   },
 
   "cripple": {
-    "_comment": "Torture damage tiers. MAX_TIER caps escalation. At JUSTIFY_VOTES_AT_TIER a player must supply a written justification with every vote. DIRECT_ASK_AT_TIER cannot respond to torture normally and must be asked to confess directly. REFUSE_BREAK_TIER is the floor a 'refuse-break' response forces the player to (via MAX(cripple_tier, N)). PERMANENT_AT_TIER is where damage stops expiring: below it, tier 1 lapses once tier1_until_round passes; at or above it the tier is permanent. It currently equals JUSTIFY_VOTES_AT_TIER but is a SEPARATE concept — do not collapse them, or raising the justify threshold would silently make tier-2 damage temporary.",
+    "_comment": "Torture damage tiers. MAX_TIER caps escalation. At JUSTIFY_VOTES_AT_TIER a player must supply a written justification with every vote. PERMANENT_AT_TIER is where damage stops expiring: below it, tier 1 lapses once tier1_until_round passes; at or above it the tier is permanent. It currently equals JUSTIFY_VOTES_AT_TIER but is a SEPARATE concept — do not collapse them, or raising the justify threshold would silently make tier-2 damage temporary.",
     "MAX_TIER": 3,
     "JUSTIFY_VOTES_AT_TIER": 2,
-    "DIRECT_ASK_AT_TIER": 3,
-    "REFUSE_BREAK_TIER": 2,
     "PERMANENT_AT_TIER": 2
   },
 

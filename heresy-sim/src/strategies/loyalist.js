@@ -27,8 +27,7 @@ export function createL1Citizen(id) {
       if (target && s.voteOptions.includes(target)) return target;
       // Fallback: deterministic rotation
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return loyalistRespondTorture(s); }
+    }
   };
 }
 
@@ -88,8 +87,7 @@ export function createL2Interrogator(id) {
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return loyalistRespondTorture(s); }
+    }
   };
 }
 
@@ -121,8 +119,7 @@ export function createL3Chirurgeon(id) {
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return loyalistRespondTorture(s); }
+    }
   };
 }
 
@@ -156,8 +153,7 @@ export function createL4NovicePsychic(id) {
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return loyalistRespondTorture(s); }
+    }
   };
 }
 
@@ -179,8 +175,7 @@ export function createL5Arbitrator(id) {
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return loyalistRespondTorture(s); }
+    }
   };
 }
 
@@ -206,8 +201,7 @@ export function createL6Priest(id) {
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return loyalistRespondTorture(s); }
+    }
   };
 }
 
@@ -240,27 +234,11 @@ export function createL7SanctionedPsyker(id) {
       const target = getMostVoted(s);
       if (target && s.voteOptions.includes(target)) return target;
       return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
-    },
-    respondTorture(s) { return loyalistRespondTorture(s); }
+    }
   };
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Loyalists mostly resist (silent, cheap). Confess only when already under
- * real drift pressure — it's free but reveals the exact role, so it's only
- * worth it once staying quiet stops paying off. Note: cripple tier is NOT a
- * useful signal here — anyone being asked to respond is already at tier 1
- * by definition (the engine sets it as part of opening the response window
- * itself), so checking it would make this always return 'confess'.
- */
-function loyalistRespondTorture(s) {
-  const drift = s.me?.drift || 0;
-  const driftRatio = s.maxDrift ? drift / s.maxDrift : 0;
-  if (driftRatio >= 0.6) return 'confess';
-  return 'resist';
-}
 
 function getMostVoted(s) {
   const counts = new Map();

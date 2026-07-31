@@ -36,7 +36,6 @@ const badgeLabels = {
   'lynch': 'SENTENCE CARRIED OUT',
   'protection': 'CHIRURGEON INTERVENTION',
   'torture-chamber': 'TORTURE CHAMBER',
-  'confession': 'CONFESSION',
   'gameover': 'CONCLUSION',
   'role-reveal': 'DOSSIER ISSUED',
   'neverborn-reveal': 'THE BODY RUPTURES'
@@ -281,9 +280,6 @@ function formatTime(t) {
 
 .type-torture-chamber .announcement-backdrop { background: rgba(50, 40, 0, 0.5); }
 .type-torture-chamber .announcement-card { border-color: #6b5a1a; color: #ffd700; }
-
-.type-confession .announcement-backdrop { background: rgba(40, 0, 50, 0.5); }
-.type-confession .announcement-card { border-color: #5a1a6b; color: #c966ff; }
 
 .type-role-reveal .announcement-backdrop { background: rgba(20, 30, 40, 0.6); }
 .type-role-reveal .announcement-card { border-color: #3a5a7a; color: #a8d0e8; }

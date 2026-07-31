@@ -215,15 +215,17 @@ type Agent = {
   id: string;         // player code
   nightAction(state: AgentState): { targetCode: string, variant?: string } | null;
   dayVote(state: AgentState): string;    // playerCode | 'skip'
-  respondTorture(state: AgentState): 'confess' | 'resist' | 'refuse-break';
 };
 ```
 
 `AgentState` is built by `buildAgentState(manager, code, playerCode)` and
 contains exactly the information that player would see in the real game:
-their own role/faction/drift, living player counts, vote tally, pending
-interrogation status, and (for faction-mates) faction identity of allies.
-No hidden state is leaked.
+their own role/faction/drift, living player counts, vote tally, and (for
+faction-mates) faction identity of allies. No hidden state is leaked.
+
+Note: torture (a below-threshold day-vote outcome) resolves automatically —
+tier-1 cripple damage applies silently, no player response is involved. There
+is no `respondTorture` method on the `Agent` interface.
 
 **Intentional omissions:** Other players' raw `drift` value and drift `zone` are
 deliberately excluded from `AgentState.living` and `.dead`. A real player never
@@ -363,7 +365,6 @@ node src/index.js run --games 3 --players 8 --seed 42 2>&1 | grep Loyalist
        id,
        nightAction(state) { /* pick target from state.legalTargets */ },
        dayVote(state) { /* return a playerCode from state.voteOptions or 'skip' */ },
-       respondTorture(state) { return 'resist'; },
      };
    }
    ```

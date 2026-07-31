@@ -269,35 +269,3 @@ export function collectDayVotes(manager, code, agents, verbose = false, lastDayV
   return submitted;
 }
 
-/**
- * Handle torture response flow.
- * @param {import('../../heresy-server/src/heresyGameManager.js').HeresyGameManager} manager
- * @param {string} code
- * @param {Map<string, Agent>} agents
- * @param {boolean} [verbose=false]
- */
-export function collectTortureResponses(manager, code, agents, verbose = false) {
-  const game = manager.game(code);
-  if (game.day_stage !== 'response') return;
-
-  const targetCode = game.last_tortured_target;
-  if (!targetCode) return;
-
-  const agent = agents.get(targetCode);
-  if (!agent) return;
-
-  const agentState = buildAgentState(manager, code, targetCode);
-
-  try {
-    const response = agent.respondTorture(agentState);
-    manager.respondTorture(code, targetCode, response);
-    if (verbose) {
-      const player = manager.player(code, targetCode);
-      console.log(`  Torture: ${player?.name} responds: ${response}`);
-    }
-  } catch (err) {
-    if (verbose) {
-      console.log(`  Torture response failed: ${err.message}`);
-    }
-  }
-}
