@@ -26,7 +26,6 @@ import { resolveScaledCost } from '../../heresy-server/src/mechanics/scaledCosts
  * @property {Object|null} pendingTorture - Pending torture-response info
  * @property {number} maxDrift - Maximum drift for this game
  * @property {string|null} lastTorturedTarget - Last day's tortured target
- * @property {string[]} availableVariants - Legal night-action variants for the viewer's role (e.g. T1/T2/T3)
  * @property {Object|null} scaledCosts - Scaled costs for viewer's role (e.g. {T1: 6, T2: 8, T3: 10}), null if role has no scaled-cost actions
  */
 
@@ -97,10 +96,8 @@ export function buildAgentState(manager, code, playerCode, lastDayVoteTally = []
   // Votes from state (use last day's tally during night phases)
   const voteTally = game.phase === 'day' ? (state.votes || []) : lastDayVoteTally;
 
-  // Available variants from role definition
+  // Fetch role data for other state fields
   const roleData = me?.role_id ? manager.role(me.role_id) : null;
-  const nightAction = roleData?.actions?.night;
-  const availableVariants = nightAction?.variants || [];
 
   // Scaled costs for the viewer's own role (if it has a scaled-cost-based night action)
   const totalPlayers = rawPlayers.length;
@@ -150,7 +147,6 @@ export function buildAgentState(manager, code, playerCode, lastDayVoteTally = []
     privateMessages: state.privateMessages,
     maxDrift: game.max_drift,
     lastTorturedTarget: game.last_tortured_target || null,
-    availableVariants,
     scaledCosts,
   };
 }

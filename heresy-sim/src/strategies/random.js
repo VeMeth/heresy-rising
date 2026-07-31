@@ -24,16 +24,12 @@ export function createRandomAgent(id) {
     label: `random-${id}`,
     /**
      * @param {import('../agent.js').AgentState} state
-     * @returns {{ targetCode: string, variant?: string } | null}
+     * @returns {{ targetCode: string } | null}
      */
     nightAction(state) {
       if (!state.legalTargets || state.legalTargets.length === 0) return null;
       const targetCode = pickRandom(state.legalTargets);
-      // If variants are available, pick one randomly
-      const variant = state.availableVariants && state.availableVariants.length > 0
-        ? pickRandom(state.availableVariants)
-        : undefined;
-      return { targetCode, ...(variant ? { variant } : {}) };
+      return { targetCode };
     },
     /**
      * @param {import('../agent.js').AgentState} state
