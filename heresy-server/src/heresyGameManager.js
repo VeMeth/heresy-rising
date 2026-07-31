@@ -595,7 +595,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     // vote UI is disabled while possessed), so this throw is a defensive
     // backstop, not something a normal client ever hits.
     if(v.possessed_by)throw new Error('You are possessed and cannot vote today');
-    if(cleanChoice!=='skip')this.requireAlive(c,cleanChoice);if(effectiveCrippleTier(this.config.rules,v,g.round)>=this.config.rules.cripple.JUSTIFY_VOTES_AT_TIER&&!String(justification).trim())throw new Error('Broken players must justify every vote');
+    if(cleanChoice!=='skip')this.requireAlive(c,cleanChoice);
     // Resubmitting the same choice (double-click, retry, etc.) is a no-op —
     // skip the system message and DB write so "X stood down." doesn't spam
     // the log every time the same vote is re-cast.
@@ -608,7 +608,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
   // client-supplied), so a bot/client can never spoof "vote as" someone it
   // doesn't actually possess. Writes under the TARGET's own voter_code, so
   // it's indistinguishable from a normal vote to everyone else at the table.
-  voteAs(c,p,choice,justification=''){const g=this.requireGame(c);if(g.phase!=='day'||g.round<this.config.rules.day.FIRST_VOTING_ROUND)throw new Error('Voting is closed');this.requireAlive(c,p);const target=this.players(c).find(x=>x.possessed_by===p&&x.alive);if(!target)throw new Error('You are not possessing anyone right now');const cleanChoice=String(choice||'');if(cleanChoice!=='skip')this.requireAlive(c,cleanChoice);if(effectiveCrippleTier(this.config.rules,target,g.round)>=this.config.rules.cripple.JUSTIFY_VOTES_AT_TIER&&!String(justification).trim())throw new Error('Broken players must justify every vote');
+  voteAs(c,p,choice,justification=''){const g=this.requireGame(c);if(g.phase!=='day'||g.round<this.config.rules.day.FIRST_VOTING_ROUND)throw new Error('Voting is closed');this.requireAlive(c,p);const target=this.players(c).find(x=>x.possessed_by===p&&x.alive);if(!target)throw new Error('You are not possessing anyone right now');const cleanChoice=String(choice||'');if(cleanChoice!=='skip')this.requireAlive(c,cleanChoice);
     // Same no-op guard as vote() — see its comment.
     const existingVoteAs=this.db.prepare("SELECT choice FROM hr_votes WHERE game_code=? AND round=? AND stage='target' AND voter_code=?").get(c,g.round,target.player_code);
     if(existingVoteAs&&existingVoteAs.choice===cleanChoice)return{votes:this.voteState(c),message:null};

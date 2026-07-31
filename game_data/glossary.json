@@ -72,7 +72,7 @@
       "kind": "Mechanic",
       "doc": "/docs/how-to-play",
       "aliases": ["crippled", "cripple", "cripple tier"],
-      "gloss": "Torture damage. Tier 1 wounds, Tier 2 forces you to justify every vote aloud, Tier 3 shatters you. A crippled operative cannot take a night action."
+      "gloss": "Torture damage. Escalates with repeated torture. A crippled operative cannot take a night action."
     },
     {
       "id": "execute-on-sight",

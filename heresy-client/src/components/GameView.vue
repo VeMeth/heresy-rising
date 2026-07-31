@@ -154,8 +154,8 @@
             <span class="eyebrow">Objective</span>
             <p class="dossier-text objective">{{ role.objective }}</p>
           </section>
-          <div v-if="game.phase==='day' && me?.alive && (role.actions?.day?.kind==='forgery' || me?.crippleTier>=2)" class="order-block">
-            <div v-if="role.actions?.day?.kind==='forgery'" class="preset">
+          <div v-if="game.phase==='day' && me?.alive && role.actions?.day?.kind==='forgery'" class="order-block">
+            <div class="preset">
               <span class="eyebrow">Forgery · Once today</span>
               <label>Attributed speaker
                 <select v-model="forgeAs"><option v-for="p in validTargets" :key="p.playerCode" :value="p.playerCode">{{ p.name }}</option></select>
@@ -165,10 +165,6 @@
               </label>
               <button class="ghost wide" :disabled="!forgeAs||!forgeBody" @click="forge">Plant transmission</button>
             </div>
-            <label v-if="me?.alive && me.crippleTier>=2" class="justify-label">
-              <span class="eyebrow">Required vote justification</span>
-              <textarea v-model="voteJustification" maxlength="300"></textarea>
-            </label>
           </div>
           <template v-else-if="game.phase !== 'day'">
           <div class="order-block night-directive" :class="{ disabled: !me?.alive }">
@@ -1216,23 +1212,12 @@ button.ghost.wide.stand-down-leading {
   font-style: italic;
 }
 
-.response-card {
-  margin-top: 14px;
-  padding: 14px;
-  background: rgba(40, 25, 25, 0.7);
-  border: 1px solid #6b3030;
-}
-.response-card .eyebrow { color: #ff8a8a; }
-.response-card .dossier-text { margin-bottom: 12px; }
-
-.justify-label,
 .intensity-label {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin: 14px 0;
 }
-.justify-label .eyebrow,
 .intensity-label .eyebrow {
   color: var(--muted);
   letter-spacing: 0.18em;
