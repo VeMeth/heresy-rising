@@ -13,6 +13,14 @@
 .chat-panel { min-height: 0; }
 .message-feed { min-height: 0; }
 
+/* The Inquisition-frame decorative border (.panel::after, inset 7px) and
+   gold corner brackets sit inward from the panel's edge, but the themed
+   scrollbar below renders flush against message-feed's own edge — so it
+   sat on top of that frame instead of inside it. Shrink the scrollable
+   box by a few pixels so the scrollbar clears the frame and reads as
+   contained by it, not cutting across it. */
+.message-feed { margin-right: 8px; }
+
 /* Grid items default to min-height:auto, which lets a tall roster
    (e.g. a full 12-player lobby) grow the panel past its grid row
    instead of scrolling inside it — the whole page falls back to the
