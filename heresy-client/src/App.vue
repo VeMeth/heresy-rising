@@ -170,8 +170,13 @@ function openManual(path) {
   // its current page. Always show the overlay.
   if (typeof path === 'string') manualUrl.value = path;
   showManual.value = true;
+  // The overlay sits on top of the game page, but doesn't stop it from
+  // scrolling underneath — without this the manual's own scrollbar and
+  // the game page's scrollbar both show at once. Locked here rather than
+  // via a watcher since open/close are the only two places this changes.
+  document.documentElement.style.overflow = 'hidden';
 }
-function closeManual() { showManual.value = false; }
+function closeManual() { showManual.value = false; document.documentElement.style.overflow = ''; }
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
 function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
 
