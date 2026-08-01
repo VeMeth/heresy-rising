@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fallbackVoteTarget, seedableRNG, pickRandom } from '../src/util.js';
+import { fallbackVoteTarget, seedableRNG } from '../src/util.js';
 
 // ── Distribution / No-Bloc Regression ────────────────────────────────────
 

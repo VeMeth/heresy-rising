@@ -74,6 +74,7 @@ export function normalizeAction(parsed) {
   }
   if (parsed.justification !== undefined) out.justification = String(parsed.justification || '');
   if (parsed.asPlayerCode !== undefined) out.asPlayerCode = String(parsed.asPlayerCode || '');
+  if (parsed.asPuppet !== undefined) out.asPuppet = parsed.asPuppet === true;
   return out;
 }
 
@@ -90,7 +91,7 @@ export const ACTION_SCHEMA = {
     target: { type: ['string', 'null'] },
     verb: {
       type: ['string', 'null'],
-      enum: ['interrogate', 'kill', 'protect', 'bodyguard', 'scan_drift', 'sermon', 'trap', 'recruit', 'forge', 'possess', 'sleep', null]
+      enum: ['interrogate', 'kill', 'protect', 'bodyguard', 'scan_drift', 'sermon', 'trap', 'recruit', 'forge', 'possess', 'blood_ritual', 'sleep', null]
     },
     tier: { type: ['integer', 'null'], enum: [1, 2, 3, null] },
     sermonTier: {
@@ -98,6 +99,7 @@ export const ACTION_SCHEMA = {
       enum: ['whisper', 'hymn', 'litany', 'false_comfort', 'twisted_hymn', 'warp_litany', null]
     },
     justification: { type: ['string', 'null'] },
+    asPuppet: { type: ['boolean', 'null'] },
     notes: { type: ['object', 'null'], additionalProperties: { type: 'string' } }
   },
   required: ['kind'],

@@ -286,10 +286,9 @@ const props = defineProps({
   busy: Boolean,
   compositionErrors: { type: Array, default: () => [] },
   messages: { type: Array, default: () => [] },
-  channel: { type: String, default: 'public' },
   hasMore: { type: Boolean, default: true },
 });
-const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors', 'send', 'channel-change', 'history', 'kick']);
+const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors', 'send', 'history', 'kick']);
 
 const players = computed(() => props.game.players || []);
 const isHost = computed(() => props.me?.isHost);
@@ -644,7 +643,6 @@ onUnmounted(() => {
   if (savedFlashTimer) clearTimeout(savedFlashTimer);
 });
 
-function initial(name) { return (name || '?').charAt(0).toUpperCase(); }
 // Operative seals — same mark the player carries in-game, so the roster you
 // read in the lobby is the roster you recognise once the chamber is sealed.
 const sealMap = computed(() => buildSealMap(players.value.map(p => p.name), settings.sealStyle));

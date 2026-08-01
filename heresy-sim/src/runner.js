@@ -240,7 +240,6 @@ export function runSingleGame(options = {}) {
         drift: p.drift,
         crippleTier: p.cripple_tier,
         deathCause: p.death_cause,
-        confessed: !!p.confessed,
       })),
       seed,
     };

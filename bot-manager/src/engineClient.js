@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 
 // Wraps heresy-server's control HTTP endpoints (/api/bots/spawn and
 // /api/bots/despawn). The bot manager is the caller; we authenticate to the
@@ -52,9 +51,4 @@ export class EngineClient {
     err.body = body;
     return err;
   }
-}
-
-// Lazy unique-id helper for any manager-side records not driven by playerCode.
-export function shortId() {
-  return crypto.randomBytes(8).toString('hex');
 }

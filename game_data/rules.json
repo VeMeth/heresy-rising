@@ -21,11 +21,7 @@
     "role": "imperial-citizen",
     "rate": 0.30,
     "floor": 1,
-    "adjacency": "conclave_list",
     "scope": "night_actions_only",
-    "sleepStacks": true,
-    "cap": 20,
-    "visibility": "hidden",
     "_comment": "Conclave Proximity Siphon (v2.6.0). Imperial Citizens take 30% floored at 1 of any Conclave-list neighbor's drift-charging night action cost. See projects/heresy-rising/mechanics/drift.md v2.6.0 § Conclave Proximity Siphon."
   },
 

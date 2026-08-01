@@ -21,6 +21,8 @@ function verbToIntent(verb, session) {
     case 'recruit':
     case 'possess':    return { engineType: 'action', variantFrom: null };
     case 'forge':      return { engineType: 'action', variantFrom: null, day: true, forge: true };
+    // Faction-wide Heretic attack -> its own engine event (action:submit-faction).
+    case 'blood_ritual': return { engineType: 'faction-action' };
     default:           return { engineType: 'unknown' };
   }
 }
@@ -37,11 +39,14 @@ export function buildEnginePayload(action, session) {
   if (clean.kind === 'pass') return { type: 'pass', payload: null };
 
   if (clean.kind === 'chat') {
-    return { type: 'chat', payload: { code: session.conclaveCode, channel: 'public', body: String(clean.text || '').slice(0, 1000) } };
+    return {
+      type: clean.asPuppet ? 'chat-as' : 'chat',
+      payload: { code: session.conclaveCode, channel: 'public', body: String(clean.text || '').slice(0, 1000) }
+    };
   }
 
   if (clean.kind === 'vote') {
-    return { type: 'vote', payload: {
+    return { type: clean.asPuppet ? 'vote-as' : 'vote', payload: {
       code: session.conclaveCode,
       targetCode: clean.target || 'skip',
       justification: String(clean.justification || '').slice(0, 1000)
@@ -53,6 +58,10 @@ export function buildEnginePayload(action, session) {
   if (!verb) return null;
   if (verb === 'sleep') return { type: 'sleep', payload: null };
   const intent = verbToIntent(verb, session);
+  if (intent.engineType === 'faction-action') {
+    if (!clean.target) return null;
+    return { type: 'faction-action', payload: { code: session.conclaveCode, targetCode: clean.target } };
+  }
   if (intent.engineType !== 'action') return null;
   let variant = null;
   if (intent.variantFrom === 'tier') variant = tierToVariant(clean);

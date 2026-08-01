@@ -23,13 +23,6 @@
     "{victim} was found with the Imperial aquila branded into their forehead.",
     "{victim} was discovered slumped over a console, a single needle-hole in their neck."
   ],
-  "bodyguardRedirect": [
-    "{victim} was found dead, the killer's strike meant for {target} having landed true instead.",
-    "{victim} absorbed the killing blow meant for {target}.",
-    "{victim} took the lethal strike intended for {target}, their body shielding the proxy.",
-    "{victim} was found cut down in {target}'s place, the assassin's blade turned aside by flesh.",
-    "{victim} was found collapsed across {target}, having taken the round that was meant for another."
-  ],
   "tortureChamber": [
     "{victim} was dragged before the torture chamber's pain engine and left {severity}.",
     "{victim} was strapped to the excruciator and left {severity}.",

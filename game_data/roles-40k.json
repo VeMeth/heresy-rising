@@ -5,7 +5,7 @@
   "lastUpdated": "2026-07-18T03:24:00+02:00",
   "owner": "Heretic",
   "origin": "Locked roster from ROSTER.md + loyalist-kit.md + heretic-kit.md. 12 roles total (7 Loyalist, 5 Heretic). Composition table in composition.json. Updated 2026-07-18 to add L7 Sanctioned Psyker.",
-  "notes": "All role IDs are kebab-case. Citizen role ID is the noise-floor and may appear multiple times in a game (see composition.json). All other role IDs are unique per game.",
+  "notes": "All role IDs are kebab-case. Citizen role ID is the noise-floor and may appear multiple times in a game (see composition.json). All other role IDs are unique per game. `crippleProfile` is DESCRIPTIVE METADATA ONLY — the engine does not read it. Cripple behaviour is the blanket rule in heresyGameManager.submitAction (a crippled player is blocked from every action except protect/bodyguard/drift-hint). Changing a crippleProfile has no effect on play.",
   "roles": [
     {
       "id": "imperial-citizen",
@@ -25,10 +25,9 @@
         }
       },
       "crippleProfile": {
-        "blocks": [
-          "vote"
-        ],
-        "onCripple": "disable-one"
+        "blocks": [],
+        "onCripple": "disable-one",
+        "_comment": "Empty by design. Every other role's `blocks` names that role's NIGHT ability; the Imperial Citizen has none, so a cripple takes nothing from them. This previously read [\"vote\"], picked up from the role's day action when these profiles were generated — cripple has never gated voting in the engine and is not intended to."
       },
       "abilityTemplate": "You have no night power. Discuss, vote, read the table, and survive on wit. Sleep ({sleepRecovery} drift) by default.",
       "objective": "Loyalist win: reduce Heretic living count to below parity."

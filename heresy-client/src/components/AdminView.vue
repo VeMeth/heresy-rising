@@ -118,7 +118,6 @@
                       <label class="check-inline"><input v-model="player.alive" type="checkbox"> Alive</label>
                       <label class="check-inline"><input v-model="player.ready" type="checkbox"> Ready</label>
                       <label class="check-inline"><input v-model="player.connected" type="checkbox"> Online</label>
-                      <label class="check-inline"><input v-model="player.confessed" type="checkbox"> Confessed</label>
                     </td>
                     <td><button type="button" class="btn-save" @click="savePlayer(player)">Save</button></td>
                   </tr>
@@ -709,7 +708,6 @@ import { pickBotName } from '../botNames.js';
 import { validRoles, hardRules, presetFlavor } from '../compositionData.js';
 import { validateComposition } from '../server-composition-validator.js';
 import SimResultsPanel from './SimResultsPanel.vue';
-import phases from '@game_data/phases.json';
 import rules from '@game_data/rules.json';
 import { DRIFT } from '../driftCosts.js';
 
@@ -874,8 +872,7 @@ async function savePlayer(player) {
       drift: player.drift,
       alive: player.alive,
       ready: player.ready,
-      connected: player.connected,
-      confessed: player.confessed
+      connected: player.connected
     })
   });
   Object.assign(player, data.player);

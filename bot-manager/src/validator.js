@@ -21,12 +21,12 @@ const ROLES_VERBS = new Map([
   ['arbitrator', { verbs: ['bodyguard', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
   ['priest', { verbs: ['sermon', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: ['whisper', 'hymn', 'litany'] }],
   ['sanctioned-psyker', { verbs: ['kill', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
-  ['murderer', { verbs: ['kill', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
-  ['heretic-priest', { verbs: ['sermon', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: ['false-comfort', 'twisted-hymn', 'warp-litany'] }],
-  ['conspirator', { verbs: ['forge', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
-  ['saboteur', { verbs: ['trap', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
-  ['recruiter', { verbs: ['recruit', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
-  ['animus', { verbs: ['possess', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }]
+  ['murderer', { verbs: ['kill', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
+  ['heretic-priest', { verbs: ['sermon', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: ['false-comfort', 'twisted-hymn', 'warp-litany'] }],
+  ['conspirator', { verbs: ['forge', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
+  ['saboteur', { verbs: ['trap', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
+  ['recruiter', { verbs: ['recruit', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
+  ['animus', { verbs: ['possess', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }]
 ]);
 
 const SERMON_USAGE_LIMITS = {
@@ -95,12 +95,27 @@ function validateNightAction(roleId, action, gameState) {
       if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'target not alive' };
       return { ok: true };
     }
+    case 'blood_ritual': {
+      if (!action.target) return { ok: false, reason: 'blood_ritual requires a target' };
+      if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'target not alive' };
+      if (gameState.selfCode && action.target === gameState.selfCode) return { ok: false, reason: 'cannot blood_ritual yourself' };
+      return { ok: true };
+    }
     case 'scan_drift':
-    case 'protect':
-    case 'bodyguard':
     case 'trap': {
       if (!action.target) return { ok: false, reason: `${verb} requires a target` };
       if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'target not alive' };
+      return { ok: true };
+    }
+    case 'protect':
+    case 'bodyguard': {
+      if (!action.target) return { ok: false, reason: `${verb} requires a target` };
+      if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'target not alive' };
+      // The engine rejects the same target on consecutive nights
+      // (validateRotation). Catch it here so the turn isn't wasted.
+      if (gameState.lastProtectTarget && action.target === gameState.lastProtectTarget) {
+        return { ok: false, reason: `cannot ${verb} the same target on consecutive nights` };
+      }
       return { ok: true };
     }
     case 'sermon': {

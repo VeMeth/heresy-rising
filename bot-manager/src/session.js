@@ -225,6 +225,9 @@ export class BotSession {
       if (s.me.faction) this.faction = s.me.faction;
       this._latestMe = s.me;
     }
+    if ('lastProtectTarget' in s) {
+      this._lastProtectTarget = s.lastProtectTarget || null;
+    }
     if (Array.isArray(s.players)) {
       // Track the codes of all currently-alive/dead players. The bot is
       // drift-blind — it only sees codes from the public roster, never drift
@@ -401,7 +404,7 @@ export class BotSession {
     if (dispatch.type === 'pass' || dispatch.type === 'sleep') { this.lastAction = dispatch.type; this._logAction({ kind: dispatch.type, action }); this._markRoundAction(prompt, 'passed'); return; }
     if (!this._socket || !this._socket.connected) { this.lastAction = 'socket_offline'; this._logAction({ kind: 'socket_offline', action }); this._markRoundAction(prompt, 'error', { reason: 'socket_offline' }); return; }
 
-    if (dispatch.type === 'chat') {
+    if (dispatch.type === 'chat' || dispatch.type === 'chat-as') {
       // Small local models regenerate near-identical chat lines — the same
       // bot restating itself once the provoking message scrolls out of
       // context, or a different bot echoing another bot's exact phrasing.
@@ -416,8 +419,9 @@ export class BotSession {
         return;
       }
       this._chatSentThisPhase = (this._chatSentThisPhase || 0) + 1;
-      this._emit('chat:send', dispatch.payload, (ack) => {
-        if (ack?.ok === false) console.warn(`chat:send rejected for ${this.id}: ${ack.error}`);
+      const chatEvent = dispatch.type === 'chat-as' ? 'chat:send-as' : 'chat:send';
+      this._emit(chatEvent, dispatch.payload, (ack) => {
+        if (ack?.ok === false) console.warn(`${chatEvent} rejected for ${this.id}: ${ack.error}`);
       });
       this.lastAction = 'chat';
       this._logAction({ kind: 'chat', action, target: dispatch.payload?.target, text: dispatch.payload?.body });
@@ -425,7 +429,7 @@ export class BotSession {
       // of the requested action means no real action was submitted — surface
       // that as an error rather than leaving admin looking at a stale 'pending'.
       this._markRoundAction(prompt, 'error', { reason: 'model replied with chat instead of the requested action' });
-    } else if (dispatch.type === 'vote') {
+    } else if (dispatch.type === 'vote' || dispatch.type === 'vote-as') {
       // Same anti-duplicate check applied to the justification only — the
       // vote itself always counts (dropping it over duplicate flavor text
       // would be worse than the duplication). Only strip when safe: a
@@ -437,14 +441,23 @@ export class BotSession {
         const dupSources = [...this._recentOwnTexts(), ...(this._director?.recentTexts() || [])];
         if (isNearDuplicate(dispatch.payload.justification, dupSources)) dispatch.payload.justification = '';
       }
-      this._emit('vote:submit', dispatch.payload, (ack) => {
-        if (ack?.ok === false) console.warn(`vote:submit rejected for ${this.id}: ${ack.error}`);
+      const voteEvent = dispatch.type === 'vote-as' ? 'vote:submit-as' : 'vote:submit';
+      this._emit(voteEvent, dispatch.payload, (ack) => {
+        if (ack?.ok === false) console.warn(`${voteEvent} rejected for ${this.id}: ${ack.error}`);
       });
       this.lastAction = 'vote';
       this._lastVoteTarget = dispatch.payload?.targetCode || 'skip';
       this.rollingSummary.addOwnVote(this.round, this._lastVoteTarget, dispatch.payload?.justification);
       this._logAction({ kind: 'vote', action, target: dispatch.payload?.targetCode });
       this._markRoundAction(prompt, 'submitted', { target: dispatch.payload?.targetCode, justification: dispatch.payload?.justification });
+    } else if (dispatch.type === 'faction-action') {
+      this._emit('action:submit-faction', dispatch.payload, (ack) => {
+        if (ack?.ok === false) console.warn(`action:submit-faction rejected for ${this.id}: ${ack.error}`);
+      });
+      this.lastAction = 'action:blood_ritual';
+      this.rollingSummary.addOwnNightAction(this.round, 'blood_ritual', dispatch.payload?.targetCode);
+      this._logAction({ kind: 'action', verb: 'blood_ritual', action, targetCode: dispatch.payload?.targetCode });
+      this._markRoundAction(prompt, 'submitted', { verb: 'blood_ritual', target: dispatch.payload?.targetCode });
     } else if (dispatch.type === 'action') {
       this._emit('action:submit', dispatch.payload, (ack) => {
         if (ack?.ok === false) console.warn(`action:submit rejected for ${this.id}: ${ack.error}`);
@@ -497,7 +510,7 @@ export class BotSession {
       crippleTier: me.crippleTier ?? 0,
       alivePlayers: this.alivePlayers,
       usage: me.usage || {},
-      lastProtectTarget: me.lastProtectTarget || null,
+      lastProtectTarget: this._lastProtectTarget || null,
       // No signal today: the bot-manager doesn't track per-target drift
       // zones or faction rosters client-side, so the validator is
       // drift-blind here (see validator.js's H1/H6 gate comments).

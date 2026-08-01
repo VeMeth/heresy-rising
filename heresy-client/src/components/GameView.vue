@@ -40,8 +40,11 @@
         </template>
         <div v-if="votingOpen" class="verdict-block">
           <span v-if="!spectator" class="eyebrow">{{ speakAsTarget && possessedTarget ? 'Vote as ' + possessedTarget.name : 'Cast Your Verdict' }}</span>
-          <button class="ghost wide" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small @mouseenter="showVoteTip('Stand down','skip',$event)" @mouseleave="hideVoteTip">{{ targetVoteCount('skip') }}</small></button>
-          <button v-if="myVote && !spectator" class="ghost wide" @click="retractMyVote">Retract vote</button>
+          <input v-if="!spectator" v-model="voteJustification" class="vote-justification" type="text" maxlength="300"
+            placeholder="Justification (optional)" :disabled="busy"
+            :title="'Optional. If filled, it is posted publicly with your vote.'" />
+          <button class="ghost wide" :disabled="busy" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small @mouseenter="showVoteTip('Stand down','skip',$event)" @mouseleave="hideVoteTip">{{ targetVoteCount('skip') }}</small></button>
+          <button v-if="myVote && !spectator" class="ghost wide" :disabled="busy" @click="retractMyVote">Retract vote</button>
         </div>
         <p v-else-if="me?.possessed && !spectator" class="day1-hint">Possessed — you cannot vote today.</p>
         <p v-else-if="game.phase==='day' && game.round===1 && !spectator" class="day1-hint">Day 1 — no vote. Introduce yourself and observe.</p>
@@ -56,6 +59,7 @@
           <template v-else>
             <div class="day-sections">
               <button v-if="earlierPastDays.length" class="load-history" @click="showEarlierDays = !showEarlierDays">{{ showEarlierDays ? 'Hide earlier messages' : 'Load earlier messages' }}</button>
+              <button v-if="messages.length && hasMore" class="load-history" :disabled="busy" @click="$emit('history', messages[0]?.id)">Load earlier transmissions</button>
               <section v-for="day in visibleDays" :key="day.label" class="day-section">
                 <header class="day-header" @click="toggleDay(day.label)">
                   <span class="day-toggle">{{ day.expanded ? '▼' : '▶' }}</span>
@@ -177,7 +181,7 @@
                   <select v-model="variant"><option v-for="v in variants" :key="v" :value="v">{{ intensityLabel(v) }}</option></select>
                 </label>
                 <div class="targets">
-                  <button v-for="p in actionTargets" :key="p.playerCode" :class="{selected:game.myAction?.kind===nightAction?.kind&&game.myAction?.targetCode===p.playerCode}" @click="act(p.playerCode)">
+                  <button v-for="p in actionTargets" :key="p.playerCode" :disabled="busy||isRotationBlocked(p.playerCode)" :title="isRotationBlocked(p.playerCode) ? 'Protected last night — choose someone else' : undefined" :class="{selected:game.myAction?.kind===nightAction?.kind&&game.myAction?.targetCode===p.playerCode,'rotation-blocked':isRotationBlocked(p.playerCode)}" @click="act(p.playerCode)">
                     <span class="target-avatar" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
                     <span class="target-name">{{ p.name }}</span>
                   </button>
@@ -299,9 +303,11 @@ const knownZone=computed(()=>{const msgs=props.game.privateMessages||[];for(let 
 // hardcoded ['t1','t2','t3'] — Priest's are whisper/hymn/litany, not t1/t2/t3.
 const scaledCostRow=computed(()=>{const r=role.value;if(!r?.scaledCostKey)return null;const n=players.value.length;if(!n)return null;const cfg=SCALED_COSTS[r.scaledCostKey];if(!cfg)return null;const tiers=cfg.curve?cfg.tierKeys:Object.keys(cfg.baseValues);return tiers.map((tier,i)=>{const v=resolveScaledCost(r.scaledCostKey,tier,n);return{tier:tier.toUpperCase(),tierNum:i+1,value:formatSigned(v),zone:zoneForValue(v)};});});
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
-function castVote(choice){if(props.spectator)return;if(speakAsTarget.value&&possessedTarget.value)emit('vote-as',{choice,justification:voteJustification.value});else emit('vote',{choice,justification:voteJustification.value})}
+function castVote(choice){if(props.spectator)return;const justification=voteJustification.value.trim();if(speakAsTarget.value&&possessedTarget.value)emit('vote-as',{choice,justification});else emit('vote',{choice,justification});voteJustification.value=''}
 function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}
-function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){emit('action',{targetCode,variant:variant.value||undefined})}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function initial(n){return(n||'?')[0].toUpperCase()}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}const liveMode = computed(() => props.game.mode !== 'async');
+function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){if(isRotationBlocked(targetCode))return;emit('action',{targetCode,variant:variant.value||undefined})}
+// Mirrors the engine's validateRotation for protect/bodyguard only.
+function isRotationBlocked(targetCode){const k=nightAction.value?.kind;if(k!=='protect'&&k!=='bodyguard')return false;return !!props.game.lastProtectTarget&&props.game.lastProtectTarget===targetCode}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}const liveMode = computed(() => props.game.mode !== 'async');
 function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(!liveMode.value)return'';return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function tortureTooltip(tier){if(!tier)return'Tortured once. Next vote will kill them.';if(tier===1)return'Tortured once (T1). Next vote will escalate to death.';if(tier===2)return'Tortured twice (T2). One more vote and they die.';if(tier===3)return'Dead.';return'Tortured. At risk of death.';}
 function tortureTip(p){return{kind:'TORTURE STATUS',label:p.crippleTier?`Tier ${p.crippleTier}`:'Tortured',gloss:tortureTooltip(p.crippleTier)};}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 function voterNames(choice){return (props.game.votes||[]).filter(v=>v.choice===choice).map(v=>players.value.find(p=>p.playerCode===v.voterCode)?.name||'Unknown')}
@@ -420,7 +426,7 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   // Torture-chamber outcome lines (all deathFlavor tortureChamber variants end
   // in "and left <severity>") get their own glyph, distinct from executions.
   if(/and left (wounded|crippled|shattered)|torture chamber|excruciator|agony bonds/i.test(b))return{type:'torture',glyph:'#hr-torture'};
-  if(/lynched|executed|summary execution|revealed (as )?(loyalist|heretic)|left at tier \d|forced to confess|confessed:/i.test(b))return{type:'execution',glyph:'#hr-execution'};
+  if(/lynched|executed|summary execution|revealed (as )?(loyalist|heretic)|left at tier \d/i.test(b))return{type:'execution',glyph:'#hr-execution'};
   if(/slain|was killed|found dead|absorbed a strike|deflected/i.test(b))return{type:'death',glyph:'#hr-deceased'};
   if(/vote tally|\d+ of \d+ votes|voters:/i.test(b))return{type:'vote',glyph:'#hr-vote'};
   if(/accused|retracted their accusation/i.test(b))return{type:'accusation',glyph:'#hr-accusation'};
@@ -546,6 +552,19 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   letter-spacing: 0.2em;
 }
 .verdict-block button + button { margin-top: 8px; }
+.vote-justification {
+  width: 100%;
+  margin-bottom: 9px;
+  padding: 7px 9px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  color: var(--pale);
+  font: 400 12px/1.4 Inter, sans-serif;
+}
+.vote-justification::placeholder { color: var(--muted); font-style: italic; }
+.vote-justification:focus { outline: none; border-color: var(--gold); }
+.vote-justification:disabled { opacity: 0.5; }
+.targets button.rotation-blocked { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }
 
 .leave {
   border-top: 1px solid var(--line);

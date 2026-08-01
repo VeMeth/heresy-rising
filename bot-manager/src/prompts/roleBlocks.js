@@ -65,10 +65,11 @@ Litany is your rescue tool — save it for a Red-zone ally. A Heretic-Priest tel
 
   ['murderer', `## YOUR ROLE: MURDERER (Heretic)
 Claim (public): "I am an Imperial Citizen" — never your real role.
-Night: kill one player. Costs +15 self-drift, GATED: if your drift+15 would exceed 20, the kill fails silently instead — no drift charged, you simply can't reach them tonight. Cannot target a fellow Heretic (engine rejects it).
-One successful kill puts you at 15+ (Red). Your next kill is gated until a Loyalist Priest heals you down (Litany -10, Hymn -5, Whisper -2 stacked) — you NEED a friendly Priest to keep killing.
+Night: kill one player. +15 self-drift, GATED: if drift+15 would exceed 20 the kill fails silently, no drift charged. Cannot target a fellow Heretic.
+One kill puts you at 15+ (Red); the next is gated until a Priest heals you down (Litany -10, Hymn -5, Whisper -2, stacking) — you NEED a friendly Priest to keep killing.
 Faction chat: private to Heretics — coordinate kills there, never in public chat.
-Saboteur trap on your target -> kill still lands (if not gated) but you take +5 extra drift; the Saboteur team is informed.
+Saboteur trap on your target -> kill still lands (if not gated) but +5 extra drift; the Saboteur is informed.
+Blood Ritual (cabal-shared, instead of your own move): verb "blood_ritual" + target, any living non-Heretic. +3 self-drift. ONE Heretic per night. Same target twice = cripple then kill.
 Cripple: kill silently fails, no notice to anyone. T1 lose one action. T2 lose all + justify votes (cover as a broken Citizen). T3 confess + must name Heretic allies on ask.
 Don't panic-claim Citizen on Day 1. You look identical to a Sanctioned Psyker from the table's view — use that ambiguity.`],
 
@@ -78,6 +79,7 @@ Night: same UI as Priest, but effects RAISE the target's drift.
 - False Comfort: +3 target, +2 self. Looks like Whisper to them. Daily, unlimited.
 - Twisted Hymn: +7 target, +2 self. 2 uses/game.
 - Warp Litany: +12 target, +4 self. Target must already be Orange+ (silent-reject below Orange). 1 use/game.
+Blood Ritual (cabal-shared, instead of your own move): verb "blood_ritual" + target, any living non-Heretic. +3 self-drift. ONE Heretic per night. Same target twice = cripple then kill.
 Cripple: sermon silently fails, use not consumed. T1 lose one action. T2 lose all + justify votes. T3 confess on ask.
 Detection risk: any drift-raising "intervention" is a Heretic-Priest tell. Coordinate kills with the Murderer and catalyst setups with the Recruiter via faction chat; never reveal plans in public.`],
 
@@ -85,6 +87,7 @@ Detection risk: any drift-raising "intervention" is a Heretic-Priest tell. Coord
 Claim (public): "I am an Imperial Citizen."
 Day action (Forgery): once per day, post one public message under another living player's name (engine-posted). The forged sender learns next day and may publicly correct it. Costs +1 drift.
 No night action — you sleep by default (-1 drift).
+Blood Ritual (cabal-shared, instead of your own move): verb "blood_ritual" + target, any living non-Heretic. +3 self-drift. ONE Heretic per night. Same target twice = cripple then kill.
 Cripple: forgery silently rejected. T1 caps your next forgery. T2 lose all day/night actions + justify votes. T3 confess on ask.
 Frame the Loyalist Interrogator or Novice-Psychic with plausible accusations. Don't over-use forgery — a spike of forged messages from many senders betrays you.`],
 
@@ -92,6 +95,7 @@ Frame the Loyalist Interrogator or Novice-Psychic with plausible accusations. Do
 Claim (public): "I am an Imperial Citizen."
 Night: booby-trap one player (expires at sunrise). Any night action on the trapped player: their action silently fails, they take +5 extra drift, and YOU privately learn their name (trap sprung).
 Cannot trap a fellow Heretic (engine rejects it). Trapped player never learns they were trapped.
+Blood Ritual (cabal-shared, instead of your own move): verb "blood_ritual" + target, any living non-Heretic. +3 self-drift. ONE Heretic per night. Same target twice = cripple then kill.
 Cripple: trap silently fails. T1 lose one action. T2 lose all + justify votes (cover as broken Citizen). T3 confess on ask.
 Coordinate with the Heretic-Priest: trap whoever looks like the biggest Loyalist investigator. You drift slower than the Murderer — stay clean.`],
 
@@ -99,13 +103,15 @@ Coordinate with the Heretic-Priest: trap whoever looks like the biggest Loyalist
 Claim (public): "I am an Imperial Citizen."
 Night: attempt the Heretical Catalyst on one target — only takes if target is at Black (drift 20), unprotected, untrapped. Success: target silently flips to Heretic (new Heretic identity, not a role swap; they get a private "catalyst takes hold" message).
 Below Black -> silent failure, no reason given (keep trying). Saboteur trap on target -> catalyst still resolves but you take +5 extra drift (+8 total).
+Blood Ritual (cabal-shared, instead of your own move): verb "blood_ritual" + target, any living non-Heretic. +3 self-drift. ONE Heretic per night. Same target twice = cripple then kill.
 Cannot recruit a fellow Heretic. Cripple: catalyst silently fails. T1 lose one action. T2 lose all + justify votes. T3 confess on ask.
 Coordinate with the Heretic-Priest to push one passive Loyalist toward Black, then catalyse. Never confess Citizen under interrogation.`],
 
   ['animus', `## YOUR ROLE: ANIMUS (Heretic)
 Claim (public): "I am an Imperial Citizen."
-Night: ONE-SHOT ever. Target a living non-Heretic you believe is in Red drift (15-19) — you have no way to confirm this, it's a pure guess from reading the table. Costs +3 self-drift immediately, win or lose. If they're actually Red, you possess them: you can speak in their name during tomorrow's day, their vote is silently voided, their night is skipped. Wrong guess -> the attempt just wastes, no info, no second try.
-You do not get a "speak as them" tool automatically — this build does not yet support that for bots. If your possession succeeds, just keep playing your own turns normally; do not expect to control the target's chat.
+Night: ONE-SHOT ever. Target a living non-Heretic you believe is Red (drift 15-19) — pure guess, no way to confirm. +3 self-drift win or lose. If Red, you possess them: their vote is voided and their night skipped. Wrong guess wastes it, no info, no retry.
+While a possession is live, add "asPuppet":true to a chat or vote to send it in their name (their own vote is voided — cast it this way or their seat is silent). Omit it to act as yourself.
+Blood Ritual (cabal-shared, instead of your own move): verb "blood_ritual" + target, any living non-Heretic. +3 self-drift. ONE Heretic per night. Same target twice = cripple then kill.
 Cripple: possess silently fails. T1 lose one action. T2 lose all + justify votes. T3 confess on ask.
 Once you've possessed someone, their body will explode publicly at the next day's end regardless of the vote — don't be surprised by it, don't react as if you didn't know.`]
 ]);

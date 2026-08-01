@@ -158,7 +158,6 @@ export function createHeresyServer({ databasePath, now } = {}) {
   app.get('/api/admin/game-logs',requireAdmin,(req,res)=>{try{res.json({logs:listGameLogs({limit:String(req.query.limit||'')})});}catch(e){res.status(500).json({error:e.message});}});
   app.get('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{const log=getGameLog(req.params.id);if(!log)return res.status(404).json({error:'Game log not found'});res.json({log});}catch(e){res.status(500).json({error:e.message});}});
   app.delete('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{res.json({deleted:deleteGameLog(req.params.id)});}catch(e){res.status(400).json({error:e.message});}});
-  function requestPlayerCode(req){return requirePlayerCode(req.get('X-Player-Code')||req.query.playerCode);}
   // ── Bot manager ↔ engine auth ────────────────────────────────────────────
   // The bot-manager talks to us with BOT_API_KEY as a bearer token. Both tokens
   // must be set before these endpoints accept anything — fail-closed.
@@ -185,7 +184,6 @@ export function createHeresyServer({ databasePath, now } = {}) {
   app.delete('/api/admin/bots/:id',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}`,{method:'DELETE',withBody:false}));
   app.post('/api/admin/bots/:id/notes',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}/notes`,{method:'POST',withBody:true}));
   app.get('/api/admin/bots/:id/notes',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}/notes`,{method:'GET',withBody:false}));
-  app.delete('/api/admin/bots/by-conclave/:conclaveCode',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/by-conclave/${encodeURIComponent(req.params.conclaveCode)}`,{method:'DELETE',withBody:false}));
   // ── Admin panel → heresy-sim proxy ──────────────────────────────────────
   // Same shared-secret-on-the-hop model as botProxy above: the browser holds
   // ADMIN_PASSWORD (validated by requireSimAdmin), we then present
@@ -214,8 +212,6 @@ export function createHeresyServer({ databasePath, now } = {}) {
     if(Number.isFinite(Number(seed)))body.seed=Number(seed);
     simProxy(req,res,body);
   });
-  app.get('/api/game/:code',(req,res)=>{try{res.set('Cache-Control','no-store').json({state:gameManager.state(normalizeRoomCode(req.params.code),requestPlayerCode(req))});}catch(e){res.status(400).json({error:e.message});}});
-  app.get('/api/game/:code/chat',(req,res)=>{try{res.set('Cache-Control','no-store').json(gameManager.historyMessages(normalizeRoomCode(req.params.code),requestPlayerCode(req),String(req.query.channel||'public'),String(req.query.before||''),String(req.query.limit||'')));}catch(e){res.status(400).json({error:e.message});}});
   app.use((err,req,res,next)=>{if(err?.message==='Origin not allowed')return res.status(403).json({error:'Origin not allowed'});next(err);});
   // Per-lobby simulate cooldown, keyed by game code — NOT by socket.id like
   // socketLimiter below. socketLimiter's rate limiting is trivially bypassed

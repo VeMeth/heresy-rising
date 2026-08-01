@@ -30,12 +30,15 @@ const emit = defineEmits(['dismiss']);
 // All announcements now require explicit acknowledgement
 const persistent = computed(() => !!props.announcement);
 
+// Must cover every `type` heresyGameManager.emitAnnouncement can send;
+// anything missing falls through to a generic 'ANNOUNCEMENT' badge.
 const badgeLabels = {
   'kill': 'NIGHT SLAYING',
   'execution': 'SUMMARY EXECUTION',
   'lynch': 'SENTENCE CARRIED OUT',
-  'protection': 'CHIRURGEON INTERVENTION',
   'torture-chamber': 'TORTURE CHAMBER',
+  'torture-death': 'EXPIRED UNDER QUESTION',
+  'blood-ritual-cripple': 'THE RITUAL TAKES ITS TOLL',
   'gameover': 'CONCLUSION',
   'role-reveal': 'DOSSIER ISSUED',
   'neverborn-reveal': 'THE BODY RUPTURES'
@@ -275,8 +278,6 @@ function formatTime(t) {
 .type-lynch .announcement-backdrop { background: rgba(60, 20, 0, 0.6); }
 .type-lynch .announcement-card { border-color: #6b3a00; color: #ff8844; }
 
-.type-protection .announcement-backdrop { background: rgba(0, 30, 50, 0.45); }
-.type-protection .announcement-card { border-color: #1a4a6b; color: #66c0ff; }
 
 .type-torture-chamber .announcement-backdrop { background: rgba(50, 40, 0, 0.5); }
 .type-torture-chamber .announcement-card { border-color: #6b5a1a; color: #ffd700; }

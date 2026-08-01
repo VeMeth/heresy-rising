@@ -16,7 +16,6 @@ export const BUDGETS = {
   recentChat: 800,
   turnInstruction: 120
 };
-export const USER_MESSAGE_TARGET_TOKENS = 3000;
 export const MIN_CHAT_LINES = 6;
 
 // Trims an array of rendered lines (oldest first) to fit a token budget,

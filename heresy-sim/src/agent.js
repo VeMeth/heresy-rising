@@ -23,7 +23,6 @@ import { resolveScaledCost } from '../../heresy-server/src/mechanics/scaledCosts
  * @property {string[]} voteOptions - Legal vote targets + 'skip'
  * @property {Array} voteTally - Current vote tally
  * @property {Object|null} myAction - Already-submitted action this phase
- * @property {Object|null} pendingTorture - Pending torture-response info
  * @property {number} maxDrift - Maximum drift for this game
  * @property {string|null} lastTorturedTarget - Last day's tortured target
  * @property {Object|null} scaledCosts - Scaled costs for viewer's role (e.g. {T1: 6, T2: 8, T3: 10}), null if role has no scaled-cost actions
@@ -126,7 +125,6 @@ export function buildAgentState(manager, code, playerCode, lastDayVoteTally = []
       drift: me?.drift || 0,
       alive: !!me?.alive,
       crippleTier: me?.cripple_tier || 0,
-      confessed: !!me?.confessed,
     },
     living: alive.map(p => ({
       playerCode: p.player_code,
@@ -149,7 +147,6 @@ export function buildAgentState(manager, code, playerCode, lastDayVoteTally = []
     voteOptions,
     voteTally,
     myAction: state.myAction,
-    pendingTorture: state.pendingTorture || null,
     privateMessages: state.privateMessages,
     atRiskTargets: state.atRiskTargets || [],
     maxDrift: game.max_drift,

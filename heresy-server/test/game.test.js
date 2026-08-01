@@ -340,7 +340,7 @@ test('Async mode: Day 1 always ends at day-start+12h, never at day-start itself 
     for(let i=1;i<5;i++){manager.join({code,playerCode:`p${i}`,name:`P${i}`});manager.ready(code,`p${i}`,true);}
     manager.start(code,'p0');
 
-    const nightStart=Date.parse('2026-07-27T21:00:00.000Z'),dayStart=Date.parse('2026-07-27T09:00:00.000Z');
+    const nightStart=Date.parse('2026-07-27T21:00:00.000Z');
     assert.equal(manager.game(code).deadline,nightStart,'Day 1 must end at the next night-start (21:00 UTC), not the next day-start (09:00 UTC)');
 
     now=nightStart; manager.resolve(code,true);

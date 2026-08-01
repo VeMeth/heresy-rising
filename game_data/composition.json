@@ -36,16 +36,5 @@
     "10": ["murderer", "heretic-priest", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen"],
     "11": ["murderer", "heretic-priest", "conspirator", "saboteur", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator"],
     "12": ["murderer", "heretic-priest", "conspirator", "saboteur", "recruiter", "sanctioned-psyker", "priest", "interrogator", "chirurgeon", "novice-psychic", "arbitrator", "imperial-citizen"]
-  },
-
-  "perCountSummary": {
-    "5":  { "heretic": 1, "loyalist": 3, "citizen": 1, "non_citizen_unique": 4 },
-    "6":  { "heretic": 2, "loyalist": 4, "citizen": 0, "non_citizen_unique": 6 },
-    "7":  { "heretic": 2, "loyalist": 5, "citizen": 0, "non_citizen_unique": 7 },
-    "8":  { "heretic": 3, "loyalist": 5, "citizen": 0, "non_citizen_unique": 8 },
-    "9":  { "heretic": 2, "loyalist": 6, "citizen": 1, "non_citizen_unique": 8 },
-    "10": { "heretic": 3, "loyalist": 6, "citizen": 1, "non_citizen_unique": 9 },
-    "11": { "heretic": 5, "loyalist": 6, "citizen": 0, "non_citizen_unique": 11 },
-    "12": { "heretic": 5, "loyalist": 6, "citizen": 1, "non_citizen_unique": 11 }
   }
 }

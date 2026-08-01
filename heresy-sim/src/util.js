@@ -35,16 +35,6 @@ export function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-/**
- * Format seconds into a human-readable duration.
- */
-export function formatDuration(ms) {
-  const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}m${s}s`;
-}
 
 /**
  * A non-skip vote when no other signal is available. Uses the seeded RNG
