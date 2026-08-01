@@ -193,13 +193,16 @@ test('execute-on-sight: interrogator private intel meta says execute_on_sight + 
     f.manager.start(f.code, 'host-human-1');
     f.manager.advance(f.code, 'host-human-1');
     const interrogator = f.manager.players(f.code).find(p => p.role_id === 'interrogator');
-    // Force a heretic target into Orange (12) so T2 triggers Execute-on-Sight.
+    // Force a heretic target into Red (16) so T2 triggers Execute-on-Sight.
+    // Per rules.json interrogation._comment (Q25 locked, engine synced
+    // Q-AUDIT-EoS 2026-07-30) EoS needs zoneTierUpgrade >= 2 — Red or Black
+    // only. Orange is intel-only: confirmed warp-taint, no auto-kill.
     const target = f.manager.players(f.code).find(p => p.faction === 'heretic' && p.player_code !== interrogator.player_code);
     if (!target) {
       // Composition may not include interrogator+heretic here under our random; fall back to forcing roles.
       const forced = f.manager.players(f.code).find(p => p.player_code !== interrogator.player_code);
       f.manager.db.prepare('UPDATE hr_players SET role_id=?,faction=? WHERE game_code=? AND player_code=?').run('murderer', 'heretic', f.code, forced.player_code);
-      f.manager.db.prepare('UPDATE hr_players SET drift=12 WHERE game_code=? AND player_code=?').run(f.code, forced.player_code);
+      f.manager.db.prepare('UPDATE hr_players SET drift=16 WHERE game_code=? AND player_code=?').run(f.code, forced.player_code);
       f.manager.submitAction(f.code, interrogator.player_code, { targetCode: forced.player_code, variant: 'T2' });
       f.manager.resolve(f.code, true);
       const msgs = f.manager.db.prepare("SELECT meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=?").all(f.code, interrogator.player_code).map(m => m.meta ? JSON.parse(m.meta) : null);
@@ -209,7 +212,7 @@ test('execute-on-sight: interrogator private intel meta says execute_on_sight + 
       assert.equal(ex.faction, 'heretic');
       assert.equal(f.manager.player(f.code, forced.player_code).alive, 0);
     } else {
-      f.manager.db.prepare('UPDATE hr_players SET drift=12 WHERE game_code=? AND player_code=?').run(f.code, target.player_code);
+      f.manager.db.prepare('UPDATE hr_players SET drift=16 WHERE game_code=? AND player_code=?').run(f.code, target.player_code);
       f.manager.submitAction(f.code, interrogator.player_code, { targetCode: target.player_code, variant: 'T2' });
       f.manager.resolve(f.code, true);
       const msgs = f.manager.db.prepare("SELECT meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=?").all(f.code, interrogator.player_code).map(m => m.meta ? JSON.parse(m.meta) : null);
