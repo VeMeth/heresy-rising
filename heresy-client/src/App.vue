@@ -32,11 +32,15 @@
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :has-more="hasMoreByChannel[channel]"
         :busy="busy" :now="now" :spectator="spectator" :voting-enabled="game?.votingEnabled"
+        :notes="notes" :bookmarks="bookmarks"
         @channel="changeChannel" @send="sendMessage" @send-as="sendMessageAs" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @vote-as="submitVoteAs" @retract-vote-as="retractVoteAs" @action="submitAction"
         @faction-action="submitFactionAction"
         @retract-action="retractAction"
-        @open-manual="openManual" @leave="leaveGame" />
+        @open-manual="openManual" @leave="leaveGame"
+        @notes-add="addNote" @notes-edit="editNote" @notes-delete="deleteNote"
+        @bookmark-toggle="toggleBookmark" @bookmark-annotate="annotateBookmark"
+        @notify="notify" />
     </main>
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
@@ -75,6 +79,7 @@ const game = ref(null); const busy = ref(false); const error = ref(''); const to
 const showManual = ref(false); const manualMounted = ref(false); const manualUrl = ref('/docs/how-to-play');
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
+const notes = ref([]); const bookmarks = ref([]);
 const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
 const channel = ref('public'); const now = ref(Date.now()); let clock; let toastTimer;
 const profile = ref(readJson('heresy-rising:profile', { playerCode: getPlayerCode() }));
@@ -91,8 +96,8 @@ function saveGameCode(code){if(code)localStorage.setItem('heresy-rising:game',co
 function normalize(data) { return data?.state || data?.game || data?.room || data || null; }
 function notify(text) { toast.value = text; clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.value = '', 2600); }
 async function command(event, payload = {}) { busy.value = true; error.value = ''; try { await ensureConnected(); const data = await emitWithAck(event, { ...payload, playerCode: getPlayerCode() }); const state = normalize(data); if (state?.code && state?.players) { game.value = state; saveGameCode(state.code); } if (data?.profile || data?.playerCode) saveProfile(data.profile || data); return data; } catch (e) { error.value = e.message; notify(e.message); throw e; } finally { busy.value = false; } }
-async function createGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:create', { name: form.name, mode: form.mode, options: {}, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if (data?.code&&game.value&&!game.value.code)game.value.code=data.code; if(game.value?.code){saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();}}catch{}}
-async function joinGame(form) { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if(game.value?.code)saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code||form.roomCode}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();}
+async function createGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:create', { name: form.name, mode: form.mode, options: {}, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if (data?.code&&game.value&&!game.value.code)game.value.code=data.code; if(game.value?.code){saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();await loadNotes();}}catch{}}
+async function joinGame(form) { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if(game.value?.code)saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code||form.roomCode}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();await loadNotes();}
 async function joinOrSpectate(form) {
   // A player who isn't already in the game will fail to join once it has
   // started (or is full) — fall back to read-only spectating instead of
@@ -119,6 +124,7 @@ async function switchToGame(code) {
       messagesByChannel.value = { public: [], faction: [], graveyard: [] };
       hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
       await loadHistory();
+      await loadNotes();
     }
   } catch (e) { notify(e.message || 'Unable to switch conclaves.'); }
 }
@@ -155,6 +161,22 @@ async function sendMessage(body) { try { await command('chat:send', { code: game
 // possessed_by record, never from anything the client sends).
 async function sendMessageAs(body) { try { await command('chat:send-as', { code: game.value.code, body }); } catch {} }
 async function loadHistory(before) { try { if (before == null) { let all = []; let cursor; let hasMore = true; while (hasMore) { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before: cursor, limit: 100 }); const batch = data?.messages || []; if (!batch.length) break; all = [...batch, ...all]; hasMore = !!data?.hasMore; cursor = batch[0]?.id; if (!cursor) break; } messagesByChannel.value = { ...messagesByChannel.value, [channel.value]: all }; hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: hasMore }; } else { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before, limit: 50 }); mergeMessages(channel.value, data?.messages || [], true); hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: !!data?.hasMore }; } } catch {} }
+// Private notes & bookmarks. Never called for a spectator — the server's
+// notes:*/bookmark:* handlers all require a real seat (requirePlayer) and
+// throw otherwise, and command() would just surface that as a toast for
+// something that was never going to work. Loaded once per game (game code
+// first available, or a reconnect) rather than on every phase:updated,
+// since that fires constantly and the arrays are otherwise kept in sync
+// locally by patching in each mutation's response below.
+async function loadNotes() { if (!game.value?.code || spectator.value) return; try { const data = await command('notes:list', { code: game.value.code }); notes.value = data?.notes || []; bookmarks.value = data?.bookmarks || []; } catch {} }
+async function addNote({ subjectCode, body }) { try { const data = await command('notes:add', { code: game.value.code, subjectCode, body }); if (data?.note) notes.value = [...notes.value, data.note]; } catch {} }
+async function editNote({ noteId, body }) { try { const data = await command('notes:edit', { code: game.value.code, noteId, body }); if (data?.note) notes.value = notes.value.map(n => n.id === data.note.id ? data.note : n); } catch {} }
+async function deleteNote({ noteId }) { try { await command('notes:delete', { code: game.value.code, noteId }); notes.value = notes.value.filter(n => n.id !== noteId); } catch {} }
+// bookmark:toggle both creates and removes a bookmark server-side (ack
+// carries the new Bookmark, or null when the toggle removed it) — this
+// mirrors that directly rather than assuming "toggle" always means "add".
+async function toggleBookmark({ messageId }) { try { const data = await command('bookmark:toggle', { code: game.value.code, messageId }); if (data?.bookmark == null) { bookmarks.value = bookmarks.value.filter(b => b.messageId !== messageId); } else { const b = data.bookmark; bookmarks.value = bookmarks.value.some(x => x.messageId === b.messageId) ? bookmarks.value.map(x => x.messageId === b.messageId ? b : x) : [...bookmarks.value, b]; } } catch {} }
+async function annotateBookmark({ messageId, note }) { try { const data = await command('bookmark:note', { code: game.value.code, messageId, note }); if (data?.bookmark) { const b = data.bookmark; bookmarks.value = bookmarks.value.some(x => x.messageId === b.messageId) ? bookmarks.value.map(x => x.messageId === b.messageId ? b : x) : [...bookmarks.value, b]; } } catch {} }
 async function submitVote(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
 async function retractVote() { try { await command('vote:retract', { code: game.value.code }); } catch {} }
 async function submitVoteAs(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit-as', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
@@ -162,7 +184,7 @@ async function retractVoteAs() { try { await command('vote:retract-as', { code: 
 async function submitAction(payload) { try { const data=await command('action:submit', { code: game.value.code, ...(typeof payload==='string'?{targetCode:payload}:payload) }); if(data?.action) game.value={...game.value,myAction:data.action}; } catch {} }
 async function submitFactionAction(payload) { try { const data=await command('action:submit-faction', { code: game.value.code, ...payload }); if(data?.action) game.value={...game.value,myAction:data.action}; } catch {} }
 async function retractAction() { try { const data = await command('action:retract', { code: game.value.code }); if (data?.action === null) game.value = { ...game.value, myAction: null }; } catch {} }
-async function leaveGame() { try { if (game.value) { const data = await command('game:leave', { code: game.value.code }); if (data?.disbanded) notify('You were the only one there — the conclave has been disbanded.'); } } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; history.replaceState({}, '', location.pathname); }
+async function leaveGame() { try { if (game.value) { const data = await command('game:leave', { code: game.value.code }); if (data?.disbanded) notify('You were the only one there — the conclave has been disbanded.'); } } catch {} game.value = null; saveGameCode(null); messagesByChannel.value = { public: [], faction: [], graveyard: [] }; notes.value = []; bookmarks.value = []; history.replaceState({}, '', location.pathname); }
 function leaveToHome() { if (!game.value || confirm('Leave this game? You can return with the same player code.')) leaveGame(); }
 function openManual(path) {
   manualMounted.value = true;
@@ -241,7 +263,7 @@ function receiveAnnouncement(payload) {
   clearTimeout(announcementTimer);
 }
 function dismissAnnouncement() { clearTimeout(announcementTimer); announcement.value = null; }
-function onConnect() { connected.value = true; reconnecting.value = false; const code=game.value?.code||readJson('heresy-rising:game');const profile=readJson('heresy-rising:profile',{});if(code){if(profile.isSpectator){spectateGame(code).catch(()=>{});}else{emitWithAck('game:state',{code,playerCode:getPlayerCode()}).then(data=>{receiveState(data);return loadHistory();}).catch(()=>{});}}}
+function onConnect() { connected.value = true; reconnecting.value = false; const code=game.value?.code||readJson('heresy-rising:game');const profile=readJson('heresy-rising:profile',{});if(code){if(profile.isSpectator){spectateGame(code).catch(()=>{});}else{emitWithAck('game:state',{code,playerCode:getPlayerCode()}).then(data=>{receiveState(data);return loadHistory();}).then(()=>loadNotes()).catch(()=>{});}}}
 function onDisconnect() { connected.value = false; reconnecting.value = true; }
 async function maybeAutoJoin() {
   if (game.value) return;

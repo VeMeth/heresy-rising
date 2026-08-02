@@ -16,13 +16,18 @@
         <span class="panel-frame-corner bl"></span><span class="panel-frame-corner br"></span>
         <header class="roster-header">
           <h2 class="roster-heading">Conclave</h2>
+          <button v-if="!spectator" type="button" class="roster-dossier-btn" title="General notes and bookmarks" aria-label="Open general dossier" @click="openDossier(null)">
+            <svg class="roster-dossier-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg>
+          </button>
           <span class="roster-count"><strong>{{ alive.length }}</strong><small>Alive</small></span>
         </header>
+        <p v-if="!spectator" class="roster-hint">Right-click a name for notes</p>
         <ul class="player-list">
-          <li v-for="p in alive" :key="p.playerCode" :class="{me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.playerCode!==me?.playerCode,unavailable:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)">
+          <li v-for="p in alive" :key="p.playerCode" :class="{me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.playerCode!==me?.playerCode,unavailable:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
             <span class="portrait" :data-status="portraitStatus(p)" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.torturedBefore" class="tortured-badge" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">TORTURED</small></div>
             <small v-if="p.crippleTier" class="tier-badge" :data-tier="p.crippleTier" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">T{{ p.crippleTier }}</small>
+            <small v-if="!spectator && subjectEntryCount(p.playerCode)" class="dossier-badge" title="Notes / bookmarks on this player">{{ subjectEntryCount(p.playerCode) }}</small>
             <small v-if="votingOpen" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
             <i v-if="liveMode" :class="{online:p.connected}"></i>
           </li>
@@ -30,10 +35,11 @@
         <template v-if="dead.length">
           <div class="fallen-header"><span class="eyebrow">Fallen</span><span class="fallen-count">{{ dead.length }}</span></div>
           <ul class="player-list dead-list">
-            <li v-for="p in dead" :key="p.playerCode" class="dead" :class="{me:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}">
+            <li v-for="p in dead" :key="p.playerCode" class="dead" :class="{me:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
               <span class="portrait" data-status="deceased" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
               <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
               <span class="death-badge" :class="{executed:['lynch','execute-on-sight'].includes(p.deathCause)}" :title="deathCauseLabel(p)"><svg class="death-glyph" aria-hidden="true"><use :href="deathGlyph(p)"/></svg></span>
+              <small v-if="!spectator && subjectEntryCount(p.playerCode)" class="dossier-badge" title="Notes / bookmarks on this player">{{ subjectEntryCount(p.playerCode) }}</small>
               <i v-if="liveMode" :class="{online:p.connected}"></i>
             </li>
           </ul>
@@ -68,27 +74,29 @@
                   <span class="day-count">{{ day.messages.length }}</span>
                 </header>
                 <div class="day-messages" v-show="day.expanded">
-                  <article v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
-                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time></span>
+                  <article :id="'hr-msg-'+m.id" v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'jump-highlight':jumpHighlightId===m.id}]">
+                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><button v-if="!spectator" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
                     <template v-else>
                       <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
                       <div>
                         <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
                         <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
                       </div>
+                      <button v-if="!spectator" type="button" class="bookmark-btn" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this message'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button>
                     </template>
                   </article>
                 </div>
               </section>
             </div>
-            <article v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m)}]">
-              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time></span>
+            <article :id="'hr-msg-'+m.id" v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'jump-highlight':jumpHighlightId===m.id}]">
+              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><button v-if="!spectator" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
               <template v-else>
                 <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
                 <div>
                   <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
                   <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
                 </div>
+                <button v-if="!spectator" type="button" class="bookmark-btn" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this message'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button>
               </template>
             </article>
           </template>
@@ -225,6 +233,20 @@
         <p v-else class="vote-tip-empty">No votes yet</p>
       </div>
     </Teleport>
+    <PlayerDossier
+      :open="dossierOpen"
+      :subject="dossierSubject"
+      :notes="notes"
+      :bookmarks="bookmarks"
+      :busy="busy"
+      @close="closeDossier"
+      @add-note="onAddNote"
+      @edit-note="onEditNote"
+      @delete-note="onDeleteNote"
+      @remove-bookmark="onRemoveBookmark"
+      @annotate-bookmark="onAnnotateBookmark"
+      @jump="onJump"
+    />
   </section>
 </template>
 <script setup>
@@ -234,7 +256,8 @@ import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
 import { settings } from '../settings.js';
 import { DRIFT, DRIFT_ZONE_ORDER, SCALED_COSTS, resolveScaledCost, formatSigned } from '../driftCosts.js';
 import rules from '@game_data/rules.json';
-const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','open-manual','leave']);
+import PlayerDossier from './PlayerDossier.vue';
+const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true},notes:{type:Array,default:()=>[]},bookmarks:{type:Array,default:()=>[]}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','open-manual','leave','notes-add','notes-edit','notes-delete','bookmark-toggle','bookmark-annotate','notify']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
 const showEarlierDays = ref(false);
@@ -310,7 +333,13 @@ function castVote(choice){if(props.spectator)return;const justification=voteJust
 // only update: the message is posted, the tally and the log are untouched.
 function submitJustification(){if(props.spectator||props.busy||!myVote.value||!voteJustification.value.trim())return;castVote(myVote.value.choice)}
 function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}
-function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){if(isRotationBlocked(targetCode))return;emit('action',{targetCode,variant:variant.value||undefined})}
+function voteFor(p){
+  // A long-press that opened the dossier is followed on most touch devices
+  // by a synthetic click on the same element — without this guard that
+  // click would also cast a vote. startLongPress() sets this for a short
+  // window only, so it never swallows a real subsequent tap.
+  if(suppressVoteClick){suppressVoteClick=false;return}
+  if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){if(isRotationBlocked(targetCode))return;emit('action',{targetCode,variant:variant.value||undefined})}
 // Mirrors the engine's validateRotation for protect/bodyguard only.
 function isRotationBlocked(targetCode){const k=nightAction.value?.kind;if(k!=='protect'&&k!=='bodyguard')return false;return !!props.game.lastProtectTarget&&props.game.lastProtectTarget===targetCode}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}const liveMode = computed(() => props.game.mode !== 'async');
 function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(!liveMode.value)return'';return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function tortureTooltip(tier){if(!tier)return'Tortured once. Next vote will kill them.';if(tier===1)return'Tortured once (T1). Next vote will escalate to death.';if(tier===2)return'Tortured twice (T2). One more vote and they die.';if(tier===3)return'Dead.';return'Tortured. At risk of death.';}
@@ -437,6 +466,75 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   if(/accused|retracted their accusation/i.test(b))return{type:'accusation',glyph:'#hr-accusation'};
   if(/night \d|day \d|begins|has begun|vote for a target|stands? down|dispers|no vote/i.test(b))return{type:'phase',glyph:/night/i.test(b)?'#hr-night':'#hr-day'};
   return{type:'system',glyph:'#hr-vox'};}
+
+// ── Private notes & bookmarks (roster dossier) ─────────────────────────────
+// Gated entirely on !spectator: the server's notes:*/bookmark:* handlers all
+// require a real seat (requirePlayer), so a spectator calling any of them
+// would just throw. App.vue already skips the notes:list fetch for
+// spectators; this component skips rendering every entry point instead of
+// relying on that alone.
+const dossierOpen=ref(false),dossierSubject=ref(null);
+function openDossier(subject){if(props.spectator)return;dossierSubject.value=subject||null;dossierOpen.value=true}
+function closeDossier(){dossierOpen.value=false}
+function subjectEntryCount(code){let n=0;for(const note of props.notes)if(note.subjectCode===code)n++;for(const bm of props.bookmarks)if(bm.subjectCode===code)n++;return n}
+function onAddNote({subjectCode,body}){emit('notes-add',{subjectCode,body})}
+function onEditNote({noteId,body}){emit('notes-edit',{noteId,body})}
+function onDeleteNote({noteId}){emit('notes-delete',{noteId})}
+// bookmark:toggle both creates and removes a bookmark server-side, so the
+// dossier's dedicated "remove" affordance goes through the same toggle emit
+// as the inline message button — there's no separate remove event to wire.
+function onRemoveBookmark({messageId}){emit('bookmark-toggle',{messageId})}
+function onAnnotateBookmark({messageId,note}){emit('bookmark-annotate',{messageId,note})}
+function isBookmarked(id){return props.bookmarks.some(b=>b.messageId===id)}
+function toggleBookmark(id){if(props.spectator)return;emit('bookmark-toggle',{messageId:id})}
+
+// Roster gesture: right-click opens the dossier directly (@contextmenu.prevent
+// in the template); touch devices get a long-press instead since there's no
+// right-click equivalent. Left-click must keep casting a vote exactly as
+// before, so the timer here only ever *adds* a second gesture — voteFor()
+// above is the only place that changes, via the suppressVoteClick flag.
+const LONG_PRESS_MS=450;
+let longPressTimer=null,suppressVoteClick=false;
+function startLongPress(p){
+  if(props.spectator)return;
+  cancelLongPress();
+  longPressTimer=setTimeout(()=>{
+    longPressTimer=null;
+    suppressVoteClick=true;
+    // Cleared on a short timer rather than left set indefinitely, so a
+    // long-press that *doesn't* get followed by a synthetic click (not
+    // every browser fires one) doesn't silently eat the player's next tap.
+    setTimeout(()=>{suppressVoteClick=false},400);
+    openDossier(p);
+  },LONG_PRESS_MS);
+}
+function cancelLongPress(){if(longPressTimer){clearTimeout(longPressTimer);longPressTimer=null}}
+
+// Jump-to-message from a bookmark: the target may be sitting inside a
+// collapsed day-section or behind "Load earlier messages" — expand whatever
+// contains it before querying the DOM, since scrollIntoView on a
+// display:none node (v-show="day.expanded") silently does nothing.
+let jumpHighlightTimer=null;
+const jumpHighlightId=ref(null);
+function onJump({messageId}){
+  dossierOpen.value=false;
+  for(const day of pastDays.value){
+    if(day.messages.some(m=>m.id===messageId)){
+      dayExpanded.value[day.label]=true;
+      if(earlierPastDays.value.some(d=>d.label===day.label))showEarlierDays.value=true;
+      break;
+    }
+  }
+  nextTick(()=>{
+    const el=document.getElementById('hr-msg-'+messageId);
+    if(!el){emit('notify','That message is outside the loaded history.');return}
+    el.scrollIntoView({block:'center'});
+    clearTimeout(jumpHighlightTimer);
+    jumpHighlightId.value=messageId;
+    jumpHighlightTimer=setTimeout(()=>{jumpHighlightId.value=null},1500);
+  });
+}
+onBeforeUnmount(()=>{cancelLongPress();clearTimeout(jumpHighlightTimer)});
 </script>
 
 <style scoped>
@@ -480,6 +578,60 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   margin-top: 3px;
 }
 
+/* Opens the dossier on the General bucket — the only entry point to notes
+   that isn't a right-click/long-press on a specific player. */
+.roster-dossier-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.roster-dossier-btn:hover,
+.roster-dossier-btn:focus-visible {
+  color: var(--gold2);
+  border-color: var(--gold);
+}
+.roster-dossier-glyph { width: 13px; height: 13px; }
+
+/* Right-click is an invisible affordance — this is the only textual hint
+   that the roster gesture exists at all. Kept in the same muted, unshouty
+   register as .day1-hint but without its bordered box, since this one
+   should read as a caption, not a status callout. */
+.roster-hint {
+  margin: 0 2px 6px;
+  font: 400 10px/1.4 Inter, sans-serif;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+/* Persistent marker for "this player has notes/bookmarks" — the main way
+   players discover the feature exists, since right-click itself is silent.
+   Same visual language as .tier-badge (squared, bordered, gold glow). */
+.dossier-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 15px;
+  margin-top: 4px;
+  margin-left: 4px;
+  padding: 0 4px;
+  font: 700 9px/1 Inter, sans-serif;
+  letter-spacing: 0.04em;
+  color: var(--gold2);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(182, 154, 92, 0.45);
+  border-radius: 2px;
+  box-shadow: 0 0 5px rgba(182, 154, 92, 0.15);
+}
+
 .player-list {
   display: flex;
   flex-direction: column;
@@ -514,6 +666,11 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   padding: 10px 12px;
   margin: 0;
   transition: border-color 0.15s ease, background-color 0.15s ease;
+  /* Long-press opens the dossier — without this, iOS shows its own text
+     callout/selection menu over the row instead, and Android may fire a
+     text-selection long-press of its own. */
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 .player-list li.me {
   border-color: var(--gold);
@@ -1522,4 +1679,58 @@ button.ghost.wide.stand-down-leading {
 
 @media (prefers-reduced-motion: reduce) { .verdict-seal { animation: none; } }
 @media (max-width: 460px) { .log-entry::after { display: none; } }
+
+/* ── Message bookmarking ───────────────────────────────────────────────
+   One toggle per transmission, revealed on hover so the feed reads clean
+   normally; once bookmarked it stays lit (gold) regardless of hover, since
+   that persistent glow is what teaches players the affordance exists at
+   all without them needing to hover every line first. */
+.message { position: relative; }
+.bookmark-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.message:hover .bookmark-btn,
+.bookmark-btn:focus-visible,
+.bookmark-btn.active {
+  opacity: 1;
+}
+.bookmark-btn.active {
+  color: var(--gold2);
+  border-color: var(--gold);
+  box-shadow: 0 0 6px rgba(182, 154, 92, 0.3);
+}
+.bookmark-btn:hover:not(.active) { color: var(--gold2); border-color: rgba(182, 154, 92, 0.5); }
+.bookmark-glyph { width: 11px; height: 11px; }
+/* Player messages: the button is a direct child of .message, floated to its
+   top-right corner — that corner is otherwise empty (the header/time sit
+   left-aligned next to the avatar, and .message p's own corner accent is
+   scoped to the bubble, not the outer article). */
+.message > .bookmark-btn { position: absolute; top: 2px; right: 2px; }
+/* System log lines: in-flow as the last item in the .log-entry flex row,
+   so it lands after .log-time instead of overlapping it. */
+.log-bookmark { margin-left: 6px; }
+
+/* Jump-to-message from a bookmark: a brief gold outline on the target
+   article. Uses outline (not box-shadow) so it doesn't fight the message
+   bubble's own shadow/border, and clears itself via a plain timeout in
+   script rather than an animationend listener. */
+.message.jump-highlight { animation: jumpFlash 1.5s ease-out; }
+@keyframes jumpFlash {
+  from { outline: 2px solid var(--gold); outline-offset: 3px; background-color: rgba(182, 154, 92, 0.1); }
+  to   { outline-color: transparent; background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .message.jump-highlight { animation: none; outline: 2px solid var(--gold); outline-offset: 3px; }
+}
 </style>

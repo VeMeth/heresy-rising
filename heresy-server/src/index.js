@@ -229,7 +229,10 @@ export function createHeresyServer({ databasePath, now } = {}) {
     'vote:submit-as': { points: 20, duration: 10_000 },
     'action:submit': { points: 20, duration: 10_000 },
     'action:submit-faction': { points: 20, duration: 10_000 },
-    'game:kick': { points: 6, duration: 60_000 }
+    'game:kick': { points: 6, duration: 60_000 },
+    'notes:add': { points: 30, duration: 10_000 },
+    'notes:edit': { points: 30, duration: 10_000 },
+    'bookmark:toggle': { points: 30, duration: 10_000 }
   });
   const io=new Server(server,{cors:{origin:allowed==='*'?'*':allowed,methods:['GET','POST'],credentials:false},allowRequest(req,cb){cb(null,isRequestOriginAllowed(req,allowed));},maxHttpBufferSize:32768,transports:['websocket'],pingTimeout:10000,pingInterval:20000});
   function ackWrap(socket,event,fn){socket.on(event,async(payload={},ack=(/** @type {any} */ _response)=>{})=>{try{if(socketLimiter.isRateLimited(socket.id,event))throw new Error('Rate limit exceeded');const data=await fn(payload);ack({ok:true,...(data&&typeof data==='object'?data:{data})});}catch(error){ack({ok:false,error:error.message});}});}
@@ -272,6 +275,19 @@ export function createHeresyServer({ databasePath, now } = {}) {
     // Player preferences (seal style, etc.) — not tied to any specific game.
     ackWrap(socket,'player:prefs:get',p=>({prefs:gameManager.getPlayerPrefs(auth(socket,p))}));
     ackWrap(socket,'player:prefs:set',p=>({prefs:gameManager.setPlayerPrefs(auth(socket,p),p.prefs)}));
+    // Private notes & bookmarks. Owner is ALWAYS the authenticated socket's
+    // own playerCode (auth(socket,p)) — never taken from the payload — and
+    // responses go back through the ack ONLY. There is no per-player socket
+    // room in this codebase (sockets only join the per-game room), so unlike
+    // nearly every other handler above, none of these ever broadcast via
+    // io.to(code).emit(...): that would leak one player's private notes to
+    // everyone else in the lobby.
+    ackWrap(socket,'notes:list',p=>{const code=normalizeRoomCode(p.code),ownerCode=auth(socket,p);return gameManager.listNotes(code,ownerCode);});
+    ackWrap(socket,'notes:add',p=>{const code=normalizeRoomCode(p.code),ownerCode=auth(socket,p);return {note:gameManager.addNote(code,ownerCode,p.subjectCode,p.body)};});
+    ackWrap(socket,'notes:edit',p=>{const code=normalizeRoomCode(p.code),ownerCode=auth(socket,p);return {note:gameManager.editNote(code,ownerCode,p.noteId,p.body)};});
+    ackWrap(socket,'notes:delete',p=>{const code=normalizeRoomCode(p.code),ownerCode=auth(socket,p);gameManager.deleteNote(code,ownerCode,p.noteId);return {};});
+    ackWrap(socket,'bookmark:toggle',p=>{const code=normalizeRoomCode(p.code),ownerCode=auth(socket,p);return {bookmark:gameManager.toggleBookmark(code,ownerCode,p.messageId)};});
+    ackWrap(socket,'bookmark:note',p=>{const code=normalizeRoomCode(p.code),ownerCode=auth(socket,p);return {bookmark:gameManager.annotateBookmark(code,ownerCode,p.messageId,p.note)};});
     ackWrap(socket,'game:list-mine',p=>({games:gameManager.listPlayerGames(auth(socket,p))}));
     ackWrap(socket,'game:create',p=>{const playerCode=auth(socket,p);const result=gameManager.create({playerCode,name:p.name,mode:p.mode,options:p.options});socket.join(result.code);return result;});
     ackWrap(socket,'game:join',p=>{const playerCode=auth(socket,p),code=normalizeRoomCode(p.code);const state=gameManager.join({code,playerCode,name:p.name});socket.join(code);broadcast(code);return {state};});

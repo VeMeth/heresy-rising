@@ -116,6 +116,28 @@ function nextScheduleBoundary(now, dayStartMinuteUtc) {
  * @property {number} created_at
  */
 
+/**
+ * @typedef {Object} NoteEntry
+ * @property {number} id
+ * @property {string|null} subjectCode
+ * @property {string} body
+ * @property {number} round
+ * @property {string} phase
+ * @property {number} createdAt
+ * @property {number} updatedAt
+ */
+
+/**
+ * @typedef {Object} Bookmark
+ * @property {number} messageId
+ * @property {string|null} subjectCode
+ * @property {string} author
+ * @property {string} excerpt
+ * @property {string} channel
+ * @property {string|null} note
+ * @property {number} createdAt
+ */
+
 const schema = `
 CREATE TABLE IF NOT EXISTS hr_games(code TEXT PRIMARY KEY,host_code TEXT NOT NULL,mode TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'lobby',day_stage TEXT,status TEXT NOT NULL DEFAULT 'lobby',round INTEGER NOT NULL DEFAULT 0,deadline INTEGER,day_ms INTEGER NOT NULL,night_ms INTEGER NOT NULL,max_drift INTEGER NOT NULL,hint_profile TEXT NOT NULL DEFAULT 'default',last_tortured_target TEXT,last_torture_tier INTEGER NOT NULL DEFAULT 0,winner TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS hr_players(game_code TEXT NOT NULL,player_code TEXT NOT NULL,name TEXT NOT NULL,seat INTEGER NOT NULL,role_id TEXT,faction TEXT,drift INTEGER NOT NULL DEFAULT 0,alive INTEGER NOT NULL DEFAULT 1,ready INTEGER NOT NULL DEFAULT 0,connected INTEGER NOT NULL DEFAULT 1,cripple_tier INTEGER NOT NULL DEFAULT 0,tier1_until_round INTEGER,skip_next_night INTEGER NOT NULL DEFAULT 0,joined_at INTEGER NOT NULL,PRIMARY KEY(game_code,player_code));
@@ -126,6 +148,9 @@ CREATE TABLE IF NOT EXISTS hr_messages(id INTEGER PRIMARY KEY AUTOINCREMENT,game
 CREATE INDEX IF NOT EXISTS hr_messages_cursor ON hr_messages(game_code,id);
 CREATE TABLE IF NOT EXISTS hr_usage(game_code TEXT NOT NULL,player_code TEXT NOT NULL,ability TEXT NOT NULL,uses INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(game_code,player_code,ability));
 CREATE TABLE IF NOT EXISTS hr_events(id INTEGER PRIMARY KEY AUTOINCREMENT,game_code TEXT NOT NULL,type TEXT NOT NULL,payload TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS hr_notes(id INTEGER PRIMARY KEY AUTOINCREMENT,game_code TEXT NOT NULL,owner_code TEXT NOT NULL,subject_code TEXT,body TEXT NOT NULL,round INTEGER NOT NULL,phase TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS hr_notes_owner ON hr_notes(game_code,owner_code);
+CREATE TABLE IF NOT EXISTS hr_bookmarks(game_code TEXT NOT NULL,owner_code TEXT NOT NULL,message_id INTEGER NOT NULL,subject_code TEXT,author TEXT NOT NULL,excerpt TEXT NOT NULL,channel TEXT NOT NULL,note TEXT,created_at INTEGER NOT NULL,PRIMARY KEY(game_code,owner_code,message_id));
 `;
 
 export function isHostileTo(a, b) {
@@ -222,6 +247,186 @@ export class HeresyGameManager {
     if(serialized.length>4000)throw new Error('Preferences payload too large');
     this.db.prepare('INSERT INTO hr_player_prefs(player_code,prefs,updated_at) VALUES(?,?,?) ON CONFLICT(player_code) DO UPDATE SET prefs=excluded.prefs,updated_at=excluded.updated_at').run(playerCode,serialized,this.now());
     return merged;
+  }
+
+  // ── Private notes & bookmarks ──────────────────────────────────────────
+  // Per-game, per-owner dossier: freeform notes about other players (or a
+  // "General" bucket, subjectCode null) plus bookmarked chat messages.
+  // Both are strictly private — every read path below is scoped to
+  // owner_code=ownerCode, and there is no per-player socket room in this
+  // codebase to accidentally broadcast one into, so nothing here is ever
+  // pushed through io.to(code).emit — only back through the request's own
+  // ack. Never expose a row whose owner_code isn't the caller's.
+
+  /** @returns {NoteEntry} */
+  noteRow(id) {
+    return /** @type {NoteEntry} */ (this.db.prepare(
+      'SELECT id,subject_code AS subjectCode,body,round,phase,created_at AS createdAt,updated_at AS updatedAt FROM hr_notes WHERE id=?'
+    ).get(id));
+  }
+  /** @returns {Bookmark|undefined} */
+  bookmarkRow(c, ownerCode, messageId) {
+    return /** @type {Bookmark|undefined} */ (this.db.prepare(
+      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?'
+    ).get(c, ownerCode, messageId));
+  }
+
+  // Everything this owner has stashed for this game — their private notes
+  // and their bookmarked messages. Scoped by owner_code in the SQL itself,
+  // not filtered after the fact, so there is no code path here that can
+  // ever hand back another player's row.
+  listNotes(c, ownerCode) {
+    const notes = /** @type {NoteEntry[]} */ (this.db.prepare(
+      'SELECT id,subject_code AS subjectCode,body,round,phase,created_at AS createdAt,updated_at AS updatedAt FROM hr_notes WHERE game_code=? AND owner_code=? ORDER BY created_at,id'
+    ).all(c, ownerCode));
+    const bookmarks = /** @type {Bookmark[]} */ (this.db.prepare(
+      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? ORDER BY created_at,message_id'
+    ).all(c, ownerCode));
+    return { notes, bookmarks };
+  }
+
+  // Adds one dossier entry, stamped with the game's CURRENT round/phase —
+  // that stamp is what turns a flat list of notes into a chronological
+  // record of when the observation was formed, and editNote below is
+  // careful never to move it. subjectCode is either a real player_code in
+  // this game or null/omitted for the "General" bucket (a note not about
+  // any one player); anything else is rejected rather than silently
+  // dropped, since a stray subjectCode would otherwise misfile a note
+  // under the wrong dossier tab.
+  addNote(c, ownerCode, subjectCode, body) {
+    const g = this.requireGame(c);
+    this.requirePlayer(c, ownerCode);
+    const trimmed = String(body || '').trim();
+    if (!trimmed) throw new Error('Note is empty');
+    if (trimmed.length > 500) throw new Error('Note is too long');
+    let cleanSubject = null;
+    if (subjectCode !== null && subjectCode !== undefined && subjectCode !== '') {
+      if (!this.player(c, subjectCode)) throw new Error('Unknown subject');
+      cleanSubject = subjectCode;
+    }
+    // Cap is per (game, owner, subject) — a chatty player filling up notes
+    // on one target shouldn't crowd out room to note anyone else.
+    const { n } = /** @type {{n:number}} */ (this.db.prepare(
+      'SELECT COUNT(*) AS n FROM hr_notes WHERE game_code=? AND owner_code=? AND subject_code IS ?'
+    ).get(c, ownerCode, cleanSubject));
+    if (n >= 200) throw new Error('Note limit reached for this subject');
+    const now = this.now();
+    const result = this.db.prepare(
+      'INSERT INTO hr_notes(game_code,owner_code,subject_code,body,round,phase,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)'
+    ).run(c, ownerCode, cleanSubject, trimmed, g.round, g.phase, now, now);
+    return this.noteRow(result.lastInsertRowid);
+  }
+
+  // Changes body (and bumps updated_at) only. round/phase/created_at — and
+  // therefore the note's position in listNotes' created_at,id ordering —
+  // are frozen at addNote time and never touched here: the stamp records
+  // when the observation was FORMED, not when it was last tidied up.
+  // updated_at > created_at is the only "this was edited" signal there
+  // is — deliberately no separate boolean flag to keep in sync with it.
+  editNote(c, ownerCode, noteId, body) {
+    const trimmed = String(body || '').trim();
+    if (!trimmed) throw new Error('Note is empty');
+    if (trimmed.length > 500) throw new Error('Note is too long');
+    // Ownership lives IN the UPDATE's WHERE clause, not a prior
+    // SELECT-then-check: id is a bare autoincrement primary key, so
+    // without owner_code in the predicate a player could edit another
+    // player's private note purely by guessing an integer. A zero-row
+    // result throws the exact same "not found" error a genuinely missing
+    // id would — the response never reveals that some OTHER owner's note
+    // exists at that id.
+    const result = this.db.prepare(
+      'UPDATE hr_notes SET body=?,updated_at=? WHERE id=? AND game_code=? AND owner_code=?'
+    ).run(trimmed, this.now(), noteId, c, ownerCode);
+    if (result.changes === 0) throw new Error('Note not found');
+    return this.noteRow(noteId);
+  }
+
+  // Same ownership-in-the-WHERE-clause reasoning as editNote above — a
+  // DELETE that isn't scoped by owner_code would let any player erase any
+  // other player's private notes by id-guessing.
+  deleteNote(c, ownerCode, noteId) {
+    const result = this.db.prepare(
+      'DELETE FROM hr_notes WHERE id=? AND game_code=? AND owner_code=?'
+    ).run(noteId, c, ownerCode);
+    if (result.changes === 0) throw new Error('Note not found');
+    return true;
+  }
+
+  // Bookmarks a chat message, or un-bookmarks it if it's already saved
+  // (returns null in that case — this is a toggle, not an add-only call).
+  toggleBookmark(c, ownerCode, messageId) {
+    const g = this.requireGame(c);
+    const player = this.requirePlayer(c, ownerCode);
+    const existing = this.db.prepare(
+      'SELECT 1 FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?'
+    ).get(c, ownerCode, messageId);
+    if (existing) {
+      this.db.prepare('DELETE FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?').run(c, ownerCode, messageId);
+      return null;
+    }
+    const message = /** @type {any} */ (this.db.prepare('SELECT * FROM hr_messages WHERE id=? AND game_code=?').get(messageId, c));
+    if (!message) throw new Error('Message not found');
+    // SECURITY — this is the one real attack surface in the whole
+    // notes/bookmarks feature. Without this check, any player could read
+    // ANY message in the game — including enemy faction chat, or another
+    // player's private messages — just by bookmarking an arbitrary
+    // integer message id and reading the stored excerpt back out of
+    // listNotes(). 'private' is handled separately from the
+    // authorizeChannel(..., false) call below rather than being folded
+    // into it: authorizeChannel's channel list intentionally excludes
+    // 'private' because it's also the gate chat:history uses, and
+    // chat:history's own query has no per-recipient filter — teaching
+    // authorizeChannel to accept 'private' as a generally-readable channel
+    // would let ANY player pull every private message in the game through
+    // chat:history, not just their own. So: for 'private' messages, the
+    // recipient_code check below is the ENTIRE visibility check; for every
+    // other channel, authorizeChannel(..., false) enforces the same
+    // read-access rules chat:history does. Do not simplify this away.
+    if (message.channel === 'private') {
+      if (message.recipient_code !== ownerCode) throw new Error('Message not found');
+    } else {
+      this.authorizeChannel(g, player, message.channel, false);
+    }
+    const { n } = /** @type {{n:number}} */ (this.db.prepare(
+      'SELECT COUNT(*) AS n FROM hr_bookmarks WHERE game_code=? AND owner_code=?'
+    ).get(c, ownerCode));
+    if (n >= 300) throw new Error('Bookmark limit reached');
+    // Subject resolution deliberately does NOT use hr_messages.player_code.
+    // A possessed puppet's message is stored under the POSSESSOR's
+    // player_code (see sendMessageAs above) but DISPLAYS the puppet's
+    // name — keying subjectCode off player_code would hand the viewer
+    // exactly who is possessing whom, a game-breaking information leak.
+    // Matching the stored `author` string against each roster player's
+    // CURRENT displayName() instead resolves to the puppet, which is both
+    // what the viewer actually believed they were reading and what the
+    // bookmark should say. System messages are authored 'The Vox' (see
+    // system() above), which never matches a roster name, so they fall
+    // through to subjectCode=null (the General bucket) — that's intended,
+    // not a bug. This resolution happens once, here, at bookmark time,
+    // and is stored rather than recomputed on read — so a later switch
+    // into anonymized mode (which changes what displayName() returns)
+    // can't retroactively orphan an already-created bookmark.
+    const roster = this.players(c);
+    const subjectPlayer = roster.find(pl => this.displayName(g, pl) === message.author);
+    const subjectCode = subjectPlayer ? subjectPlayer.player_code : null;
+    const excerpt = String(message.body || '').slice(0, 300);
+    this.db.prepare(
+      'INSERT INTO hr_bookmarks(game_code,owner_code,message_id,subject_code,author,excerpt,channel,note,created_at) VALUES(?,?,?,?,?,?,?,?,?)'
+    ).run(c, ownerCode, messageId, subjectCode, message.author, excerpt, message.channel, null, this.now());
+    return this.bookmarkRow(c, ownerCode, messageId);
+  }
+
+  // Attaches (or clears, if note is blank) the owner's own annotation to
+  // an already-bookmarked message. Scoped by owner_code in the UPDATE's
+  // WHERE clause for the same id-guessing reason as editNote/deleteNote.
+  annotateBookmark(c, ownerCode, messageId, note) {
+    const trimmed = String(note || '').trim();
+    if (trimmed.length > 300) throw new Error('Bookmark note is too long');
+    const result = this.db.prepare(
+      'UPDATE hr_bookmarks SET note=? WHERE game_code=? AND owner_code=? AND message_id=?'
+    ).run(trimmed || null, c, ownerCode, messageId);
+    if (result.changes === 0) throw new Error('Bookmark not found');
+    return this.bookmarkRow(c, ownerCode, messageId);
   }
 
   // Every conclave this playerCode has an hr_players row in — the "which
