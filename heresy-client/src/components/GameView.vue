@@ -1644,19 +1644,13 @@ button.ghost.wide.stand-down-leading {
 .log-glyph { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; color: var(--tint); opacity: .85; }
 .log-text { flex: 1; }
 .log-time { font: 400 11px Inter, sans-serif; opacity: 0.65; flex: none; white-space: nowrap; }
-.log-entry::after {
-  content: ''; flex: none; width: 26%; height: 1px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--tint) 34%, transparent), transparent);
-}
-/* The flourish closes the sentence — it divides the line from its metadata
-   rather than being a right margin. Generated content is always the last
-   flex child, which pinned it to the edge and left the hour and the
-   bookmark stranded at ~74% across: neither centered nor on a side.
-   Ordering puts them back on the right edge, where every other timestamp
-   in this UI sits, with the rule between. */
-.log-entry::after { order: 1; }
-.log-time { order: 2; }
-.log-bookmark { order: 3; }
+/* There used to be a 26%-wide gradient rule here as a trailing flourish.
+   Removed: the line already states its event type four ways — the left
+   border, the glyph, the text colour and the background wash — and the
+   flourish was a fifth. Worse, the wash expires at 65% and the rule began
+   right about there, so the two chained into one shape that faded out and
+   became a hairline two-thirds across. With it gone, .log-text's flex:1
+   puts the hour and the bookmark on the right edge on its own. */
 .log-entry--accusation { --tint: #b69a5c; }
 .log-entry--vote       { --tint: #8f9c6a; }
 .log-entry--execution  { --tint: #c14545; }
@@ -1667,7 +1661,6 @@ button.ghost.wide.stand-down-leading {
 .log-entry--system     { --tint: var(--muted); }
 
 @media (prefers-reduced-motion: reduce) { .verdict-seal { animation: none; } }
-@media (max-width: 460px) { .log-entry::after { display: none; } }
 
 /* ── Message byline ────────────────────────────────────────────────────
    Attribution is one unit — who, then when — not two things pinned to
