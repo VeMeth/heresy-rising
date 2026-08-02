@@ -25,7 +25,6 @@
           <li v-for="p in alive" :key="p.playerCode" :class="{me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.playerCode!==me?.playerCode,unavailable:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
             <span class="portrait" :data-status="portraitStatus(p)" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.torturedBefore" class="tortured-badge" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">TORTURED</small></div>
-            <small v-if="p.crippleTier" class="tier-badge" :data-tier="p.crippleTier" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">T{{ p.crippleTier }}</small>
             <button v-if="!spectator" type="button" class="dossier-btn" :class="{filled:subjectEntryCount(p.playerCode)}" :title="subjectEntryCount(p.playerCode) ? `Notes on ${p.name} (${subjectEntryCount(p.playerCode)})` : `Open your dossier on ${p.name}`" :aria-label="`Open your dossier on ${p.name}`" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="subjectEntryCount(p.playerCode)">{{ subjectEntryCount(p.playerCode) }}</small></button>
             <small v-if="votingOpen" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
             <i v-if="liveMode" :class="{online:p.connected}"></i>
@@ -782,40 +781,13 @@ onBeforeUnmount(()=>{cancelLongPress();clearTimeout(jumpHighlightTimer)});
   border-left-color: #26281f;
 }
 
-/* Tier badge — small colored pill shown below the player name */
-.tier-badge {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 1px 7px 2px;
-  font: 600 9px/1.4 Inter, sans-serif;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: 1px solid;
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.35);
-}
-.tier-badge[data-tier="1"] {
-  color: #d4a84a;
-  border-color: rgba(212, 168, 74, 0.5);
-  box-shadow: 0 0 6px rgba(212, 168, 74, 0.15);
-}
-.tier-badge[data-tier="2"] {
-  color: #d99b95;
-  border-color: rgba(217, 155, 149, 0.5);
-  box-shadow: 0 0 6px rgba(217, 155, 149, 0.15);
-}
-.tier-badge[data-tier="3"] {
-  color: #ff8a8a;
-  border-color: rgba(255, 138, 138, 0.5);
-  box-shadow: 0 0 8px rgba(255, 60, 60, 0.25);
-  animation: tier3-pulse 1.5s ease-in-out infinite alternate;
-}
-@keyframes tier3-pulse {
-  from { box-shadow: 0 0 4px rgba(255, 60, 60, 0.15); }
-  to   { box-shadow: 0 0 12px rgba(255, 60, 60, 0.4); }
-}
+/* The numeric T1/T2/T3 tier pill used to sit here next to TORTURED. Removed:
+   two badges for one state read as noise on a 250px column, and TORTURED
+   already carries it — its tooltip names the tier and spells out what the
+   next torture does, so the escalation warning survives the hover rather
+   than shouting from the row. */
 
-/* Death badge — same pill slot as the tier badge, but for a dead player:
+/* Death badge — pill slot below the player name, for a dead player:
    the execution glyph (lynched, tier 3 + killed together) or the plain
    deceased glyph (killed at night — Murderer, Blood Ritual, Psyker, etc.),
    matching the glyphs classifyEntry() already uses for these exact events
@@ -1082,7 +1054,6 @@ onBeforeUnmount(()=>{cancelLongPress();clearTimeout(jumpHighlightTimer)});
   color: var(--muted);
 }
 .vote-count:focus-visible,
-.tier-badge:focus-visible,
 .tortured-badge:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
@@ -1346,8 +1317,9 @@ button.ghost.wide.stand-down-leading {
 .zone-word.black  { color: #e0574c; text-shadow: 0 0 8px rgba(163, 42, 38, 0.8); }
 
 /* Scaled-cost readout — one chip per intensity tier, tinted by the drift zone
-   that tier's cost lands the player in. Vocabulary mirrors tier-badge (pill
-   shape) and zone-word (zone palette) so it reads as part of the dossier. */
+   that tier's cost lands the player in. Vocabulary mirrors tortured-badge
+   (pill shape) and zone-word (zone palette) so it reads as part of the
+   dossier. */
 .role-meta .cost-row dd { gap: 6px; flex-wrap: wrap; }
 .cost-chip {
   display: inline-flex; align-items: baseline; gap: 4px;
