@@ -1660,6 +1660,48 @@ button.ghost.wide.stand-down-leading {
 @media (prefers-reduced-motion: reduce) { .verdict-seal { animation: none; } }
 @media (max-width: 460px) { .log-entry::after { display: none; } }
 
+/* ── Message byline ────────────────────────────────────────────────────
+   Attribution is one unit — who, then when — not two things pinned to
+   opposite edges. The chat panel is a .panel, so style.css's
+   `.panel header{justify-content:space-between}` was applying to every
+   message header and flinging the timestamp to the far right of the body
+   column, stranded from the name it belongs to and sitting in the exact
+   corner the bookmark button occupies. Reset to a left-aligned pair. */
+.message header {
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 0;
+  min-width: 0;
+}
+.message header strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.message header time {
+  position: relative;
+  flex: none;
+  margin-left: 9px;
+  padding-left: 10px;
+  font: 400 9.5px/1 Inter, sans-serif;
+  letter-spacing: 0.06em;
+  color: #6c6f65;
+  white-space: nowrap;
+}
+/* A hairline divides the name from the hour, not a bullet — every other
+   metadata pair in this UI is separated by a 1px --line rule, and the feed
+   is a record of the conclave, so it should read like a ledger entry. */
+.message header time::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 9px;
+  transform: translateY(-50%);
+  background: var(--line);
+}
+
 /* ── Message bookmarking ───────────────────────────────────────────────
    One toggle per transmission, revealed on hover so the feed reads clean
    normally; once bookmarked it stays lit (gold) regardless of hover, since
@@ -1692,11 +1734,22 @@ button.ghost.wide.stand-down-leading {
 }
 .bookmark-btn:hover:not(.active) { color: var(--gold2); border-color: rgba(182, 154, 92, 0.5); }
 .bookmark-glyph { width: 11px; height: 11px; }
-/* Player messages: the button is a direct child of .message, floated to its
-   top-right corner — that corner is otherwise empty (the header/time sit
-   left-aligned next to the avatar, and .message p's own corner accent is
-   scoped to the bubble, not the outer article). */
-.message > .bookmark-btn { position: absolute; top: 2px; right: 2px; }
+/* Touch has no hover, so a hover-revealed control is an invisible one — it
+   stays tappable at opacity 0, which is worse than absent. Show it resting
+   on coarse pointers instead. */
+@media (hover: none) {
+  .bookmark-btn { opacity: 0.55; }
+}
+/* Player messages: the button holds a reserved rail at the message's right
+   edge, in flow as the third flex child after the avatar and the body
+   column. It was absolutely positioned into the top-right corner, which is
+   where the timestamp had been flung — so the two overlapped and neither
+   was anchored to anything. Reserving the space rather than inserting it on
+   hover also means revealing the button never reflows the bubble. */
+.message > .bookmark-btn {
+  align-self: flex-start;
+  margin-top: 1px;
+}
 /* System log lines: in-flow as the last item in the .log-entry flex row,
    so it lands after .log-time instead of overlapping it. */
 .log-bookmark { margin-left: 6px; }
