@@ -15,7 +15,7 @@
         <span class="panel-frame-corner tl"></span><span class="panel-frame-corner tr"></span>
         <span class="panel-frame-corner bl"></span><span class="panel-frame-corner br"></span>
         <header class="roster-header">
-          <div class="roster-heading"><span class="eyebrow">Roll Call</span><h2>Conclave</h2></div>
+          <h2 class="roster-heading">Conclave</h2>
           <span class="roster-count"><strong>{{ alive.length }}</strong><small>Alive</small></span>
         </header>
         <ul class="player-list">
@@ -447,20 +447,8 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
   gap: 10px;
 }
 .roster-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   flex: 1 1 auto;
   min-width: 0;
-}
-.roster-heading .eyebrow {
-  color: var(--gold);
-  letter-spacing: 0.22em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.roster-heading h2 {
   margin: 0;
   font-size: 15px;
   overflow: hidden;
