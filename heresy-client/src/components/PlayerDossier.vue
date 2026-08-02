@@ -227,8 +227,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 .dossier-panel {
   position: relative;
   width: 100%;
-  max-width: 480px;
-  max-height: 80vh;
+  max-width: 660px;
+  /* A fixed height rather than max-height: the panel is a writing surface,
+     and one that resizes as you add entries makes the compose box jump
+     around under the cursor. 82vh can never exceed the viewport, so it
+     needs no min-height guard on short screens. */
+  height: 82vh;
+  max-height: 780px;
   display: flex;
   flex-direction: column;
   background: linear-gradient(145deg, rgba(27, 29, 24, 0.98), rgba(15, 17, 14, 0.98));
@@ -241,7 +246,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 20px 14px;
+  padding: 20px 24px 16px;
   border-bottom: 1px solid var(--line);
 }
 .dossier-head h2 {
@@ -270,7 +275,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   text-transform: uppercase;
   font: 700 10px Inter, sans-serif;
   letter-spacing: 0.1em;
-  padding: 12px 8px;
+  padding: 13px 8px;
   cursor: pointer;
 }
 .dossier-tabs button:last-child { border-right: 0; }
@@ -290,7 +295,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 .entry-list {
   list-style: none;
   margin: 0;
-  padding: 12px 16px;
+  padding: 16px 20px;
   overflow-y: auto;
   flex: 1;
 }
@@ -299,7 +304,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   color: var(--muted);
   font-size: 12px;
   text-align: center;
-  padding: 24px 8px;
+  padding: 40px 8px;
 }
 
 /* ── Notes ──────────────────────────────────────────────────────────── */
@@ -307,8 +312,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   position: relative;
   border: 1px solid var(--line);
   border-left: 2px solid rgba(182, 154, 92, 0.4);
-  padding: 8px 34px 8px 10px;
-  margin-bottom: 8px;
+  padding: 10px 40px 11px 13px;
+  margin-bottom: 10px;
 }
 .entry-stamp {
   display: block;
@@ -325,8 +330,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   margin-left: 4px;
 }
 .entry-body {
-  margin: 4px 0 0;
-  font: 13px/1.5 Georgia, serif;
+  margin: 5px 0 0;
+  font: 13.5px/1.6 Georgia, serif;
   color: var(--pale);
   white-space: pre-wrap;
   word-break: break-word;
@@ -373,7 +378,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 .entry-append {
   display: flex;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border-top: 1px solid var(--line);
   background: #0e100e;
 }
@@ -396,8 +401,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 /* ── Bookmarks ──────────────────────────────────────────────────────── */
 .bookmark-entry {
   border: 1px solid var(--line);
-  padding: 8px 10px;
-  margin-bottom: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
 }
 .bookmark-head {
   display: flex;
@@ -420,9 +425,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   background: #1d201b;
   border: 1px solid #2f322b;
   color: #d1cfc4;
-  font: 13px/1.5 Georgia, serif;
-  padding: 8px 10px;
-  margin: 6px 0;
+  font: 13.5px/1.6 Georgia, serif;
+  padding: 10px 12px;
+  margin: 8px 0;
   cursor: pointer;
   white-space: pre-wrap;
   word-break: break-word;

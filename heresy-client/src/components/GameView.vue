@@ -21,13 +21,12 @@
           </button>
           <span class="roster-count"><strong>{{ alive.length }}</strong><small>Alive</small></span>
         </header>
-        <p v-if="!spectator" class="roster-hint">Right-click a name for notes</p>
         <ul class="player-list">
           <li v-for="p in alive" :key="p.playerCode" :class="{me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.playerCode!==me?.playerCode,unavailable:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
             <span class="portrait" :data-status="portraitStatus(p)" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.torturedBefore" class="tortured-badge" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">TORTURED</small></div>
             <small v-if="p.crippleTier" class="tier-badge" :data-tier="p.crippleTier" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">T{{ p.crippleTier }}</small>
-            <small v-if="!spectator && subjectEntryCount(p.playerCode)" class="dossier-badge" title="Notes / bookmarks on this player">{{ subjectEntryCount(p.playerCode) }}</small>
+            <button v-if="!spectator" type="button" class="dossier-btn" :class="{filled:subjectEntryCount(p.playerCode)}" :title="subjectEntryCount(p.playerCode) ? `Notes on ${p.name} (${subjectEntryCount(p.playerCode)})` : `Open your dossier on ${p.name}`" :aria-label="`Open your dossier on ${p.name}`" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="subjectEntryCount(p.playerCode)">{{ subjectEntryCount(p.playerCode) }}</small></button>
             <small v-if="votingOpen" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
             <i v-if="liveMode" :class="{online:p.connected}"></i>
           </li>
@@ -39,7 +38,7 @@
               <span class="portrait" data-status="deceased" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
               <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
               <span class="death-badge" :class="{executed:['lynch','execute-on-sight'].includes(p.deathCause)}" :title="deathCauseLabel(p)"><svg class="death-glyph" aria-hidden="true"><use :href="deathGlyph(p)"/></svg></span>
-              <small v-if="!spectator && subjectEntryCount(p.playerCode)" class="dossier-badge" title="Notes / bookmarks on this player">{{ subjectEntryCount(p.playerCode) }}</small>
+              <button v-if="!spectator" type="button" class="dossier-btn" :class="{filled:subjectEntryCount(p.playerCode)}" :title="subjectEntryCount(p.playerCode) ? `Notes on ${p.name} (${subjectEntryCount(p.playerCode)})` : `Open your dossier on ${p.name}`" :aria-label="`Open your dossier on ${p.name}`" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="subjectEntryCount(p.playerCode)">{{ subjectEntryCount(p.playerCode) }}</small></button>
               <i v-if="liveMode" :class="{online:p.connected}"></i>
             </li>
           </ul>
@@ -600,37 +599,46 @@ onBeforeUnmount(()=>{cancelLongPress();clearTimeout(jumpHighlightTimer)});
 }
 .roster-dossier-glyph { width: 13px; height: 13px; }
 
-/* Right-click is an invisible affordance — this is the only textual hint
-   that the roster gesture exists at all. Kept in the same muted, unshouty
-   register as .day1-hint but without its bordered box, since this one
-   should read as a caption, not a status callout. */
-.roster-hint {
-  margin: 0 2px 6px;
-  font: 400 10px/1.4 Inter, sans-serif;
-  color: var(--muted);
-  letter-spacing: 0.02em;
-}
-
-/* Persistent marker for "this player has notes/bookmarks" — the main way
-   players discover the feature exists, since right-click itself is silent.
-   Same visual language as .tier-badge (squared, bordered, gold glow). */
-.dossier-badge {
+/* The quill on every roster row. Always visible, not hover-revealed and not
+   conditional on already having notes: a marker that only appears once you
+   have entries can't teach a feature you haven't found yet, and right-click
+   announces itself to nobody. It doubles as the plain tap target on touch,
+   so long-press is a shortcut rather than the only way in. .stop on the
+   click keeps it from casting a vote through the row underneath. */
+.dossier-btn {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 15px;
-  margin-top: 4px;
+  gap: 3px;
+  height: 22px;
+  min-width: 22px;
   margin-left: 4px;
-  padding: 0 4px;
+  padding: 0 5px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: #6f7268;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.dossier-btn small {
   font: 700 9px/1 Inter, sans-serif;
   letter-spacing: 0.04em;
+}
+/* Lit once the dossier actually holds something, so a filled row reads at a
+   glance without having to open it. */
+.dossier-btn.filled {
   color: var(--gold2);
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(182, 154, 92, 0.45);
-  border-radius: 2px;
+  border-color: rgba(182, 154, 92, 0.45);
   box-shadow: 0 0 5px rgba(182, 154, 92, 0.15);
 }
+.dossier-btn:hover,
+.dossier-btn:focus-visible {
+  color: var(--gold2);
+  border-color: var(--gold);
+}
+.dossier-glyph { width: 12px; height: 12px; }
 
 .player-list {
   display: flex;
