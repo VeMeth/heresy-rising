@@ -41,8 +41,9 @@
         <div v-if="votingOpen" class="verdict-block">
           <span v-if="!spectator" class="eyebrow">{{ speakAsTarget && possessedTarget ? 'Vote as ' + possessedTarget.name : 'Cast Your Verdict' }}</span>
           <input v-if="!spectator" v-model="voteJustification" class="vote-justification" type="text" maxlength="300"
-            placeholder="Justification (optional)" :disabled="busy"
-            :title="'Optional. If filled, it is posted publicly with your vote.'" />
+            :placeholder="myVote ? 'Update your justification — press Enter' : 'Justification (optional)'" :disabled="busy"
+            @keydown.enter.prevent="submitJustification"
+            :title="myVote ? 'Press Enter to post this justification for the vote you already cast.' : 'Optional. If filled, it is posted publicly with your vote.'" />
           <button class="ghost wide" :disabled="busy" :class="{selected:myVote?.choice==='skip','stand-down-leading':standDownLeading}" @click="castVote('skip')">Stand down <small @mouseenter="showVoteTip('Stand down','skip',$event)" @mouseleave="hideVoteTip">{{ targetVoteCount('skip') }}</small></button>
           <button v-if="myVote && !spectator" class="ghost wide" :disabled="busy" @click="retractMyVote">Retract vote</button>
         </div>
@@ -304,6 +305,10 @@ const knownZone=computed(()=>{const msgs=props.game.privateMessages||[];for(let 
 const scaledCostRow=computed(()=>{const r=role.value;if(!r?.scaledCostKey)return null;const n=players.value.length;if(!n)return null;const cfg=SCALED_COSTS[r.scaledCostKey];if(!cfg)return null;const tiers=cfg.curve?cfg.tierKeys:Object.keys(cfg.baseValues);return tiers.map((tier,i)=>{const v=resolveScaledCost(r.scaledCostKey,tier,n);return{tier:tier.toUpperCase(),tierNum:i+1,value:formatSigned(v),zone:zoneForValue(v)};});});
 function tallyStyle(choice){return{'--fill':maxVoteCount.value?Math.min(1,(voteCounts.value[choice]||0)/maxVoteCount.value):0};}
 function castVote(choice){if(props.spectator)return;const justification=voteJustification.value.trim();if(speakAsTarget.value&&possessedTarget.value)emit('vote-as',{choice,justification});else emit('vote',{choice,justification});voteJustification.value=''}
+// Enter in the justification box re-posts your reasoning for the vote you've
+// already cast. The server treats a same-choice resubmit as a justification-
+// only update: the message is posted, the tally and the log are untouched.
+function submitJustification(){if(props.spectator||props.busy||!myVote.value||!voteJustification.value.trim())return;castVote(myVote.value.choice)}
 function retractMyVote(){if(speakAsTarget.value&&possessedTarget.value)emit('retract-vote-as');else emit('retract-vote')}
 function voteFor(p){if(props.spectator||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){if(isRotationBlocked(targetCode))return;emit('action',{targetCode,variant:variant.value||undefined})}
 // Mirrors the engine's validateRotation for protect/bodyguard only.

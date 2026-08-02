@@ -579,3 +579,16 @@ test('game:leave — a bot left alone in the lobby after the host leaves is NOT 
     assert.ok(manager.game(code));
   }finally{manager.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+// A voter can update the reasoning behind a vote they already cast: re-casting
+// the SAME choice posts the new justification without disturbing the tally or
+// re-announcing the accusation.
+test('re-casting the same vote with a justification posts it without re-announcing the accusation',()=>{const f=fixture();try{f.manager.start(f.code,'p0');const target=f.manager.players(f.code).find(p=>p.player_code!=='p0');f.manager.db.prepare("UPDATE hr_games SET phase='day',round=2,day_stage='vote' WHERE code=?").run(f.code);
+  const first=f.manager.vote(f.code,'p0',target.player_code,'he lied about the crypt');assert.match(first.message.body,/he lied about the crypt/);
+  const second=f.manager.vote(f.code,'p0',target.player_code,'and his alibi does not hold');assert.match(second.message.body,/his alibi does not hold/,'the updated justification is posted');
+  assert.equal(f.manager.voteState(f.code).filter(v=>v.voterCode==='p0').length,1,'still exactly one vote on record');
+  assert.equal(f.manager.voteState(f.code).find(v=>v.voterCode==='p0').choice,target.player_code,'and it still points at the same target');
+  const bodies=f.manager.historyMessages(f.code,'p0','public').messages.map(m=>m.body);
+  assert.equal(bodies.filter(b=>/accused/.test(b)).length,1,'the accusation is announced once, not once per justification');
+  assert.equal(f.manager.vote(f.code,'p0',target.player_code).message,null,'a bare re-cast with no justification stays a silent no-op');
+}finally{f.close();}});
