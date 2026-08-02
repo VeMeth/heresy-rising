@@ -1741,10 +1741,10 @@ button.ghost.wide.stand-down-leading {
    that one is animated cyan at 18px because an unread mention means act
    now, while this is a filing mark you made yourself. Static, no pulse. */
 .message.is-bookmarked p {
-  border-color: rgba(182, 154, 92, 0.42);
+  border-color: rgba(182, 154, 92, 0.58);
   box-shadow:
-    0 0 0 1px rgba(182, 154, 92, 0.07),
-    0 0 9px rgba(182, 154, 92, 0.1);
+    0 0 0 1px rgba(182, 154, 92, 0.15),
+    0 0 13px rgba(182, 154, 92, 0.2);
 }
 /* A mention outranks your own filing mark, and two glows on one bubble is
    noise — mentions-me keeps the bubble. Its keyframes own box-shadow while
@@ -1756,7 +1756,7 @@ button.ghost.wide.stand-down-leading {
 /* System lines: glow only, never the border — that border is tinted by
    event type and carries the colour-coding. */
 .message.is-bookmarked .log-entry {
-  box-shadow: 0 0 9px rgba(182, 154, 92, 0.1);
+  box-shadow: 0 0 13px rgba(182, 154, 92, 0.2);
 }
 .bookmark-glyph { width: 11px; height: 11px; }
 /* Touch has no hover, so a hover-revealed control is an invisible one — it
