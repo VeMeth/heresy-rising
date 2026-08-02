@@ -72,7 +72,7 @@
                   <span class="day-count">{{ day.messages.length }}</span>
                 </header>
                 <div class="day-messages" v-show="day.expanded">
-                  <article :id="'hr-msg-'+m.id" v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'jump-highlight':jumpHighlightId===m.id}]">
+                  <article :id="'hr-msg-'+m.id" v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
                     <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><button v-if="!spectator" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
                     <template v-else>
                       <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
@@ -86,7 +86,7 @@
                 </div>
               </section>
             </div>
-            <article :id="'hr-msg-'+m.id" v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'jump-highlight':jumpHighlightId===m.id}]">
+            <article :id="'hr-msg-'+m.id" v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
               <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><button v-if="!spectator" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
               <template v-else>
                 <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
@@ -1735,6 +1735,29 @@ button.ghost.wide.stand-down-leading {
   box-shadow: 0 0 6px rgba(182, 154, 92, 0.3);
 }
 .bookmark-btn:hover:not(.active) { color: var(--gold2); border-color: rgba(182, 154, 92, 0.5); }
+
+/* A bookmarked message carries a faint gold edge so you can find it again
+   when scrolling back. Deliberately far below .mentions-me's register:
+   that one is animated cyan at 18px because an unread mention means act
+   now, while this is a filing mark you made yourself. Static, no pulse. */
+.message.is-bookmarked p {
+  border-color: rgba(182, 154, 92, 0.42);
+  box-shadow:
+    0 0 0 1px rgba(182, 154, 92, 0.07),
+    0 0 9px rgba(182, 154, 92, 0.1);
+}
+/* A mention outranks your own filing mark, and two glows on one bubble is
+   noise — mentions-me keeps the bubble. Its keyframes own box-shadow while
+   the animation runs, so only the border needs handing back. */
+.message.is-bookmarked.mentions-me p {
+  border-color: #6fd1e0;
+  border-left-color: #6fd1e0;
+}
+/* System lines: glow only, never the border — that border is tinted by
+   event type and carries the colour-coding. */
+.message.is-bookmarked .log-entry {
+  box-shadow: 0 0 9px rgba(182, 154, 92, 0.1);
+}
 .bookmark-glyph { width: 11px; height: 11px; }
 /* Touch has no hover, so a hover-revealed control is an invisible one — it
    stays tappable at opacity 0, which is worse than absent. Show it resting
