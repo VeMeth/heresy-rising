@@ -1648,6 +1648,15 @@ button.ghost.wide.stand-down-leading {
   content: ''; flex: none; width: 26%; height: 1px;
   background: linear-gradient(90deg, color-mix(in srgb, var(--tint) 34%, transparent), transparent);
 }
+/* The flourish closes the sentence — it divides the line from its metadata
+   rather than being a right margin. Generated content is always the last
+   flex child, which pinned it to the edge and left the hour and the
+   bookmark stranded at ~74% across: neither centered nor on a side.
+   Ordering puts them back on the right edge, where every other timestamp
+   in this UI sits, with the rule between. */
+.log-entry::after { order: 1; }
+.log-time { order: 2; }
+.log-bookmark { order: 3; }
 .log-entry--accusation { --tint: #b69a5c; }
 .log-entry--vote       { --tint: #8f9c6a; }
 .log-entry--execution  { --tint: #c14545; }
