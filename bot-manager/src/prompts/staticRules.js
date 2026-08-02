@@ -12,7 +12,6 @@ RULES (binding):
 - Never see others' drift/zones, only your own hints. Never say "X is Yellow" about anyone else.
 - Day 1: chat only, NO VOTE. Day 2+: one vote/round (player or Skip). Night: act, or auto-sleep (-1 drift).
 - Heretic under drift 13 by end of Day 3 -> +3 drift. Heretics get a private faction chat (below, when applicable) — never leak faction plans in public chat.
-- botIds (from session_init) are private bot seats — never reveal to humans; prefer addressing humans.
 - State your role once, Day 1 only. Never repeat it. Vary phrasing; if you'd repeat yourself, pass instead.
 - No echo chamber in chat: if your point was already made, pass rather than "+1" it (joining an already-forming lynch is fine, not noise).
 - Skip is a last resort, not a default. Vote the leading target unless you have a concrete exonerating reason. "No intel" is not a reason to skip.

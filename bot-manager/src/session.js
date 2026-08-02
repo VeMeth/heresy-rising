@@ -266,17 +266,22 @@ export class BotSession {
     this._save();
   }
 
+  // The server sends authorCode (the APPARENT speaker), never the true
+  // player_code — a forged or puppeted message must look to a bot exactly as
+  // it looks to a human. The director's anti-flood guard keys off this too,
+  // which is correct: a bot's own puppet-speech should not be treated as
+  // another bot's turn to reply to.
   _onChatMessage(payload) {
     const m = payload?.message;
     if (!m) return;
     if (m.channel && m.channel !== 'public') return; // public only; faction handled separately (BOT_FACTION_CHAT)
-    this.shortTermMemory.append({ kind: 'chat_message', from: m.player_code, author: m.author, text: m.body, round: this.round, phase: this.phase });
+    this.shortTermMemory.append({ kind: 'chat_message', from: m.authorCode, author: m.author, text: m.body, round: this.round, phase: this.phase });
     this._save();
     this._director?.observe({
       id: m.id,
-      from: m.player_code,
+      from: m.authorCode,
       author: m.author,
-      isBot: Array.isArray(this.botIds) && this.botIds.includes(m.player_code),
+      isBot: Array.isArray(this.botIds) && this.botIds.includes(m.authorCode),
       text: m.body,
       round: this.round
     });

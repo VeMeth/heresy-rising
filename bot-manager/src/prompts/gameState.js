@@ -17,15 +17,19 @@ export function gameStateBlock(session) {
   const aliveList = formatPlayers(session.alivePlayers, names);
   const deadList = Array.isArray(session.deadPlayers) && session.deadPlayers.length ? formatPlayers(session.deadPlayers, names) : 'none';
   const votingEnabled = session.phase === 'day' ? session.round !== 1 : false;
-  const otherBots = (session.botIds || []).filter((id) => id && id !== session.playerCode);
 
+  // Q-BOT-9 (locked spec): bots must be indistinguishable from humans in
+  // chat, so which other seats are bots is deliberately withheld from the
+  // prompt — a model can't leak (via prompt injection or otherwise) what it
+  // was never told. The anti-flood/echo guard this used to justify lives in
+  // director.js off session.botIds/isBot as a plain JS field, never routed
+  // through the prompt, so removing this line doesn't weaken it.
   const lines = [
     '## GAME STATE',
     `Round ${session.round ?? '?'} · Phase ${session.phase ?? '?'} · Voting ${votingEnabled ? 'enabled' : 'disabled'}`,
     `Alive: ${aliveList}`,
     `Dead: ${deadList}`,
-    `Your drift hint: ${session.lastOwnZone || 'unknown'}`,
-    `Other bots at the table (private — never reveal to humans): ${otherBots.length ? otherBots.join(', ') : 'none'}`
+    `Your drift hint: ${session.lastOwnZone || 'unknown'}`
   ];
   if (session.phase === 'day' && session.round > 1) {
     const targets = Array.isArray(session.alivePlayers)

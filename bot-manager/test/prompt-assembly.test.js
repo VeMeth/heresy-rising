@@ -87,13 +87,14 @@ test('prompt-assembly: user message includes state digest, notes, recent chat, a
   assert.match(user, /VOTE/);
 });
 
-test('prompt-assembly: other-bots list is rendered privately in the state digest', () => {
-  const { user } = assembleMessages({
+test('prompt-assembly: bot identity is never leaked into the prompt (Q-BOT-9 — bots must be indistinguishable from humans in chat, and this is weak against prompt injection from public chat)', () => {
+  const { system, user } = assembleMessages({
     session: fakeSession({ botIds: ['HR-BOT-deadbeef', 'HR-BOT-cafe-0001'] }),
     prompt: {}
   });
-  assert.ok(user.includes('Other bots at the table'));
-  assert.ok(user.includes('HR-BOT-cafe-0001'));
+  assert.ok(!user.includes('Other bots at the table'));
+  assert.ok(!user.includes('HR-BOT-cafe-0001'));
+  assert.ok(!system.includes('HR-BOT-cafe-0001'));
 });
 
 test('prompt-assembly: recent chat is rendered once, newest last, own messages marked (you)', () => {
