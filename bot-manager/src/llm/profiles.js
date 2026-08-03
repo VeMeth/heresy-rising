@@ -73,10 +73,15 @@ const MINIMAX_M27_PROFILE = freezeProfile({
   noThinkSuffix: false,          // /no_think is a Qwen3 convention, junk tokens on MiniMax
   reasoningSplit: true,          // keep <think> out of `content` (§3.9)
   richPrompt: true,              // restored full rules/role text — the context is there for it
-  budgetScale: 6,
-  memoryWindow: 60,
+  // Sized so a WHOLE game fits, not to fill the context window. recentChat's
+  // base budget is 800 tok, so scale 12 gives ~9.6k tok of chat — more than a
+  // full Conclave produces (12 players, bots capped at 3 msgs/phase). Past
+  // that point eviction stops binding and further scale buys nothing but
+  // latency, which is the real cost on a token plan.
+  budgetScale: 12,
+  memoryWindow: 120,
   noteKeys: 40,
-  minChatLines: 20,
+  minChatLines: 40,
   timeoutMs: 120000,
   transportRetries: 2,
   actionRetries: 1,
@@ -102,10 +107,13 @@ const MINIMAX_M3_PROFILE = freezeProfile({
   structuredOutput: false,
   noThinkSuffix: false,
   reasoningSplit: true,
-  budgetScale: 12,
-  memoryWindow: 120,
+  // Same "whole game fits" reasoning as M2.7, with headroom for an unusually
+  // long Conclave — M3's 1M context means there's no reason to be tight, but
+  // there's also no gain past the point where nothing gets evicted.
+  budgetScale: 20,
+  memoryWindow: 200,
   noteKeys: 60,
-  minChatLines: 40,
+  minChatLines: 60,
   timeoutMs: 180000,
   transportRetries: 2,
   actionRetries: 1,

@@ -58,9 +58,19 @@ export const config = {
 
   // Cloud-bot manager-level guards (rest.js, llm/queue.js cloud lane).
   botCloudConcurrency: parseNum(process.env.BOT_CLOUD_CONCURRENCY, 3),
-  maxCloudBotsPerGame: parseNum(process.env.MAX_CLOUD_BOTS_PER_GAME, 2),
-  botDailyUsdCap: parseNum(process.env.BOT_DAILY_USD_CAP, 5.00),
-  botCostCeilingUsd: parseNum(process.env.BOT_COST_CEILING_USD, 0.50), // per bot per game, cloud profiles only
+  // Cloud-bot seats per Conclave. Not a spend guard — it only exists so a
+  // single game can't monopolise a shared rate limit. Defaults to the same
+  // ceiling as MAX_BOTS_PER_GAME (i.e. no extra restriction on cloud bots).
+  maxCloudBotsPerGame: parseNum(process.env.MAX_CLOUD_BOTS_PER_GAME, parseNum(process.env.MAX_BOTS_PER_GAME, 4)),
+  // USD spend limits are OPT-IN and OFF by default: this deployment runs on a
+  // MiniMax token plan, where per-token rates aren't what's billed, so a
+  // dollar ceiling would just be a silent kill switch that stops a bot
+  // mid-game over a cost nobody is being charged. Set either var to a number
+  // to re-arm the guard (useful if you move to pay-per-token billing).
+  // Cost is still *metered* either way — see session.costUsd — because it
+  // remains a useful proxy for how fast a plan's token quota is burning.
+  botDailyUsdCap: parseNum(process.env.BOT_DAILY_USD_CAP, Infinity),
+  botCostCeilingUsd: parseNum(process.env.BOT_COST_CEILING_USD, Infinity), // per bot per game, cloud profiles only
 
   // Per-manager caps and tuning.
   maxBotSessions: parseNum(process.env.MAX_BOT_SESSIONS, 12),
