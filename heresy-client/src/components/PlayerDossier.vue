@@ -69,7 +69,8 @@
             <li v-if="!subjectBookmarks.length" class="empty-state">No bookmarks yet &mdash; save a chat message to see it here.</li>
             <li v-for="b in subjectBookmarks" :key="b.messageId" class="bookmark-entry">
               <div class="bookmark-head">
-                <strong>{{ b.author }}</strong>
+                <strong>{{ b.auto ? 'Recorded' : b.author }}</strong>
+                <span v-if="b.auto" class="auto-tag" title="Filed automatically when this happened to you or you acted">AUTO</span>
                 <time>{{ formatBookmarkTime(b.createdAt) }}</time>
                 <button type="button" class="entry-btn" :disabled="busy" aria-label="Remove bookmark" @click="emit('remove-bookmark', { messageId: b.messageId })">&times;</button>
               </div>
@@ -78,7 +79,7 @@
                 class="bookmark-annotation"
                 type="text"
                 maxlength="300"
-                placeholder="why you saved this"
+                :placeholder="b.auto ? 'add your read' : 'why you saved this'"
                 :disabled="busy"
                 :value="annotationValue(b)"
                 @input="onAnnotationInput(b, $event)"
@@ -412,6 +413,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 .bookmark-head strong {
   font: 700 11px Inter, sans-serif;
   color: var(--pale);
+}
+.auto-tag {
+  font: 700 8px Inter, sans-serif;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  border: 1px solid rgba(182, 154, 92, 0.4);
+  padding: 1px 4px;
 }
 .bookmark-head time {
   font-size: 9px;

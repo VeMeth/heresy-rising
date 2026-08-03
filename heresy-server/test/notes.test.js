@@ -139,6 +139,11 @@ test('bookmarks: a private-channel message can only be bookmarked by its recipie
     assert.throws(() => f.manager.toggleBookmark(f.code, 'p0', priv.id), /Message not found/, 'not the recipient — denied');
     const wrongRow = f.manager.db.prepare('SELECT * FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?').get(f.code, 'p0', priv.id);
     assert.equal(wrongRow, undefined);
+    // privateSystem auto-files for the recipient, so p1 already holds this one:
+    // the first toggle takes it away, the second puts it back by hand.
+    const preFiled = f.manager.listNotes(f.code, 'p1').bookmarks.find(b => b.messageId === priv.id);
+    assert.ok(preFiled, 'the recipient starts with it auto-filed');
+    assert.equal(f.manager.toggleBookmark(f.code, 'p1', priv.id), null, 'toggling removes it');
     const bookmark = f.manager.toggleBookmark(f.code, 'p1', priv.id);
     assert.ok(bookmark, 'the recipient can bookmark their own private message');
     assert.equal(bookmark.messageId, priv.id);

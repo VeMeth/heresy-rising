@@ -165,3 +165,56 @@ test('death reveal: a lynch still reveals nothing, whichever mode is set',()=>{c
   assert.ok(!bodies.includes(roleName),'no role on a lynch');
   assert.doesNotMatch(bodies,/They were a (Heretic|Loyalist)\./,'and no alignment either');
 }finally{f.close();}});
+
+// ── Auto-filed dossier entries ────────────────────────────────────────────
+test('auto-bookmark: an Interrogator scan files itself under the player who was scanned',()=>{const f=fixture(8);try{
+  f.manager.start(f.code,'p0');f.manager.advance(f.code,'p0');
+  const interrogator=f.manager.players(f.code).find(p=>p.role_id==='interrogator');
+  const target=f.manager.players(f.code).find(p=>p.faction==='loyalist'&&p.role_id!=='interrogator');
+  f.manager.submitAction(f.code,interrogator.player_code,{targetCode:target.player_code,variant:'T1'});
+  f.manager.resolve(f.code,true);
+  const mine=f.manager.listNotes(f.code,interrogator.player_code).bookmarks;
+  const filed=mine.find(b=>b.subjectCode===target.player_code);
+  assert.ok(filed,'the scan result is waiting under the scanned player');
+  assert.equal(filed.auto,1,'flagged as engine-filed, not hand-saved');
+  assert.equal(filed.channel,'private');
+  assert.ok(filed.excerpt.length>0,'carries the result text');
+  const bystander=f.manager.players(f.code).find(p=>p.player_code!==interrogator.player_code&&p.player_code!==target.player_code);
+  assert.equal(f.manager.listNotes(f.code,bystander.player_code).bookmarks.length,0,'nobody else gets a copy');
+  assert.equal(f.manager.listNotes(f.code,target.player_code).bookmarks.length,0,'least of all the player who was scanned');
+}finally{f.close();}});
+
+test('auto-bookmark: something done TO you files under General, never naming the actor',()=>{const f=fixture();try{
+  f.manager.start(f.code,'p0');
+  // No meta.target: the actor is deliberately hidden from the recipient, which
+  // is exactly why this must not try to attribute it to anyone.
+  f.manager.privateSystem(f.code,'p1','Something struck at you in the dark. Someone else took the blow meant for you.');
+  const mine=f.manager.listNotes(f.code,'p1').bookmarks;
+  assert.equal(mine.length,1,'filed for the player it happened to');
+  assert.equal(mine[0].subjectCode,null,'General — you were never told who did it');
+  assert.equal(mine[0].auto,1);
+}finally{f.close();}});
+
+test('auto-bookmark: the opening role reveal is not filed, and filing is idempotent',()=>{const f=fixture();try{
+  f.manager.start(f.code,'p0');
+  assert.equal(f.manager.listNotes(f.code,'p0').bookmarks.length,0,'your own dossier is not an event worth bookmarking');
+  const msg=f.manager.privateSystem(f.code,'p0','Your scan reads Red.',{intelKind:'interrogate',target:'p2'});
+  assert.equal(f.manager.listNotes(f.code,'p0').bookmarks.length,1);
+  assert.equal(f.manager.autoBookmark(f.code,'p0',msg,{target:'p2'}),null,'re-filing the same message is a no-op');
+  assert.equal(f.manager.listNotes(f.code,'p0').bookmarks.length,1,'still one');
+}finally{f.close();}});
+
+test('auto-bookmark: an auto entry can be removed by hand, and re-saving marks it manual',()=>{const f=fixture();try{
+  f.manager.start(f.code,'p0');
+  const msg=f.manager.privateSystem(f.code,'p0','Your scan reads Green.',{intelKind:'interrogate',target:'p3'});
+  assert.equal(f.manager.toggleBookmark(f.code,'p0',msg.id),null,'toggling it off removes it like any other');
+  assert.equal(f.manager.listNotes(f.code,'p0').bookmarks.length,0);
+  const manual=f.manager.toggleBookmark(f.code,'p0',msg.id);
+  assert.equal(manual.auto,0,'saving it by hand marks it as hand-saved');
+}finally{f.close();}});
+
+test('auto-bookmark: a bogus meta.target is dropped rather than filed under a stranger',()=>{const f=fixture();try{
+  f.manager.start(f.code,'p0');
+  f.manager.privateSystem(f.code,'p0','Odd reading.',{intelKind:'interrogate',target:'not-a-player'});
+  assert.equal(f.manager.listNotes(f.code,'p0').bookmarks[0].subjectCode,null,'unknown codes fall back to General');
+}finally{f.close();}});

@@ -210,6 +210,9 @@ export class HeresyGameManager {
     // Before this the two execution paths disagreed with each other and with the
     // specs: torture-death announced the full role, a lynch announced nothing.
     this.ensureColumn('hr_games','death_reveal',"TEXT NOT NULL DEFAULT 'role'");
+    // Marks a bookmark the engine filed on the player's behalf rather than one
+    // they saved by hand, so the dossier can label it. Removable either way.
+    this.ensureColumn('hr_bookmarks','auto',"INTEGER NOT NULL DEFAULT 0");
     this.renameColumn('hr_games','last_interrogated_target','last_tortured_target',"TEXT");
     this.renameColumn('hr_games','last_interrogation_tier','last_torture_tier',"INTEGER NOT NULL DEFAULT 0");
     // Anonymized mode (Operational Parameters, lobby-only, off by default):
@@ -296,7 +299,7 @@ export class HeresyGameManager {
   /** @returns {Bookmark|undefined} */
   bookmarkRow(c, ownerCode, messageId) {
     return /** @type {Bookmark|undefined} */ (this.db.prepare(
-      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?'
+      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?'
     ).get(c, ownerCode, messageId));
   }
 
@@ -309,7 +312,7 @@ export class HeresyGameManager {
       'SELECT id,subject_code AS subjectCode,body,round,phase,created_at AS createdAt,updated_at AS updatedAt FROM hr_notes WHERE game_code=? AND owner_code=? ORDER BY created_at,id'
     ).all(c, ownerCode));
     const bookmarks = /** @type {Bookmark[]} */ (this.db.prepare(
-      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? ORDER BY created_at,message_id'
+      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? ORDER BY created_at,message_id'
     ).all(c, ownerCode));
     return { notes, bookmarks };
   }
@@ -383,6 +386,38 @@ export class HeresyGameManager {
 
   // Bookmarks a chat message, or un-bookmarks it if it's already saved
   // (returns null in that case — this is a toggle, not an add-only call).
+  // Files a private event message into the recipient's own dossier as they
+  // receive it, so an Interrogator's scan is already waiting under the player
+  // they scanned instead of having to be hunted down in the log and saved by
+  // hand. Covers both directions: results of your own action, and things done
+  // TO you that the game tells you about (a Blood Ritual crippling, a
+  // bodyguard taking a strike meant for you, a catalyst turning you).
+  //
+  // The subject falls out of that distinction on its own and cannot leak. Your
+  // own action carries meta.target -- a player you already chose, so filing it
+  // under them tells you nothing new. Anything done to you has no target in its
+  // meta, precisely because the actor is hidden from you, so it lands in the
+  // General bucket where it belongs. There is deliberately no path here that
+  // consults the true actor.
+  //
+  // No visibility check: unlike toggleBookmark, the caller is the server
+  // handing a player their own private message, not a client naming an
+  // arbitrary id. Idempotent, so a replayed or duplicated message can't
+  // double-file, and it never overwrites a bookmark the player already made.
+  autoBookmark(c, ownerCode, message, meta) {
+    if (!message?.id || !ownerCode) return null;
+    const existing = this.db.prepare('SELECT 1 FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?').get(c, ownerCode, message.id);
+    if (existing) return null;
+    const { n } = /** @type {{n:number}} */ (this.db.prepare('SELECT COUNT(*) AS n FROM hr_bookmarks WHERE game_code=? AND owner_code=?').get(c, ownerCode));
+    // Silently give up at the cap rather than throwing: this runs inside night
+    // resolution, and a full dossier must never take the game down with it.
+    if (n >= 300) return null;
+    const subject = meta?.target && this.player(c, meta.target) ? meta.target : null;
+    this.db.prepare(
+      'INSERT INTO hr_bookmarks(game_code,owner_code,message_id,subject_code,author,excerpt,channel,note,created_at,auto) VALUES(?,?,?,?,?,?,?,?,?,1)'
+    ).run(c, ownerCode, message.id, subject, message.author, String(message.body || '').slice(0, 300), message.channel, null, this.now());
+    return this.bookmarkRow(c, ownerCode, message.id);
+  }
   toggleBookmark(c, ownerCode, messageId) {
     const g = this.requireGame(c);
     const player = this.requirePlayer(c, ownerCode);
@@ -625,7 +660,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       this.db.prepare("DELETE FROM hr_messages WHERE game_code=?").run(c);
       this.system(c,'Roles sealed. Day 1 begins — review your dossier and discuss.');
     })();
-    players.forEach((x,i)=>{const r=this.role(assigned[i]);this.privateSystem(c,x.player_code,`Your role is ${r.displayName}. ${r.objective}`);this.emitAnnouncement(c,{type:'role-reveal',title:'YOUR DOSSIER',message:`You are a ${r.displayName}. ${r.objective}`,role:r.displayName,objective:r.objective,faction:r.faction,round:1,phase:'day',targetCode:x.player_code});});
+    players.forEach((x,i)=>{const r=this.role(assigned[i]);this.privateSystem(c,x.player_code,`Your role is ${r.displayName}. ${r.objective}`,null,{autoBookmark:false});this.emitAnnouncement(c,{type:'role-reveal',title:'YOUR DOSSIER',message:`You are a ${r.displayName}. ${r.objective}`,role:r.displayName,objective:r.objective,faction:r.faction,round:1,phase:'day',targetCode:x.player_code});});
     return this.state(c,p);
   }
   configure(c,p,options={}){const g=this.requireGame(c);if(g.phase!=='lobby')throw new Error('Game has already started');this.requireHost(c,p);
@@ -941,7 +976,7 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   // someone it doesn't actually possess.
   sendMessageAs(c,p,body){const g=this.game(c),actor=this.requireAlive(c,p);this.authorizeChannel(g,actor,'public',true);const target=this.players(c).find(x=>x.possessed_by===p&&x.alive);if(!target)throw new Error('You are not possessing anyone right now');return this.insertMessage(c,'public',null,p,this.displayName(g,target),String(body||'').trim().slice(0,1000),'player');}
   insertMessage(c,ch,recipient,p,author,body,kind,meta=null){if(!body)throw new Error('Message is empty');const x=this.db.prepare('INSERT INTO hr_messages(game_code,channel,recipient_code,player_code,author,body,kind,created_at,meta) VALUES(?,?,?,?,?,?,?,?,?)').run(c,ch,recipient,p,author,body,kind,this.now(),meta?JSON.stringify(meta):null);return this.db.prepare('SELECT id,channel,player_code,recipient_code,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE id=?').get(x.lastInsertRowid);}
-  system(c,b,meta=null){const m=this.insertMessage(c,'public',null,null,'The Vox',b,'system',meta);this.emitChatMessage(c,m);return m;} privateSystem(c,p,b,meta=null){const m=this.insertMessage(c,'private',p,null,'The Vox',b,'system',meta);this.emitChatMessage(c,m);return m;} factionSystem(c,b){const m=this.insertMessage(c,'faction',null,null,'The Vox',b,'system');this.emitChatMessage(c,m);return m;}
+  system(c,b,meta=null){const m=this.insertMessage(c,'public',null,null,'The Vox',b,'system',meta);this.emitChatMessage(c,m);return m;} privateSystem(c,p,b,meta=null,{autoBookmark=true}={}){const m=this.insertMessage(c,'private',p,null,'The Vox',b,'system',meta);if(autoBookmark)this.autoBookmark(c,p,m,meta);this.emitChatMessage(c,m);return m;} factionSystem(c,b){const m=this.insertMessage(c,'faction',null,null,'The Vox',b,'system');this.emitChatMessage(c,m);return m;}
   flavor(category,vars={}){const list=this.config?.deathFlavor?.[category];if(!list||!list.length)return '';let t=list[Math.floor(this.random()*list.length)];for(const[k,v]of Object.entries(vars))t=t.split(`{${k}}`).join(String(v));return t;}
   /**
    * @param {string} [ch]
