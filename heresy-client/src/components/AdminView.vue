@@ -407,7 +407,7 @@
         <header class="detail-head">
           <div><span>HERESY BOTS</span><h2>AI operatives</h2></div>
           <div class="actions">
-            <button type="button" @click="loadBots" :disabled="loadingBots">Refresh</button>
+            <button type="button" @click="refreshBots" :disabled="loadingBots">Refresh</button>
             <button type="button" :class="{ active: botsPolling }" @click="toggleBotsPolling">{{ botsPolling ? 'Auto: On' : 'Auto: Off' }}</button>
           </div>
         </header>
@@ -424,7 +424,10 @@
           <h3>Spawn bot</h3>
           <div class="spawn-grid">
             <label>Conclave code
-              <input v-model="spawnForm.conclaveCode" type="text" placeholder="ABC123" maxlength="8" />
+              <select v-model="spawnForm.conclaveCode" :disabled="!lobbyGames.length">
+                <option v-if="!lobbyGames.length" value="" disabled>No Conclaves in lobby phase</option>
+                <option v-for="g in lobbyGames" :key="g.code" :value="g.code">{{ g.code }} — host: {{ g.hostName || 'unknown' }} ({{ g.playerCount }}/{{ rules.MAX_PLAYERS }} players, {{ g.botCount }} bot{{ g.botCount === 1 ? '' : 's' }})</option>
+              </select>
             </label>
             <label>Name
               <input v-model="spawnForm.name" type="text" placeholder="random W40k name" maxlength="20" />
@@ -946,6 +949,15 @@ const phaseSummaries = computed(() => {
 // Cloud-spend visibility — cloud bots spend real money, so this is a safety
 // surface, not decoration. `bots` is already the live-session list, so this
 // reflects money being spent right now, not archived games.
+// Spawn form's Conclave dropdown: adminSpawnBot() only accepts lobby-phase
+// games (see heresyGameManager.js), so anything else would just 400. Filtered
+// here off the same `games` list the Conclaves tab already loads.
+const lobbyGames = computed(() => games.value.filter(g => g.phase === 'lobby'));
+watch(lobbyGames, (next) => {
+  if (spawnForm.value.conclaveCode && !next.some(g => g.code === spawnForm.value.conclaveCode)) {
+    spawnForm.value.conclaveCode = '';
+  }
+});
 const cloudBots = computed(() => bots.value.filter(bot => isCloudProfile(bot.profile)));
 const cloudSpendUsd = computed(() => cloudBots.value.reduce((sum, bot) => sum + Number(bot.costUsd || 0), 0));
 const averageDrift = computed(() => {
@@ -1174,6 +1186,10 @@ async function openBots() {
   tab.value = 'bots';
   if (!profiles.value.length) await loadProfiles();
   if (!bots.value.length) await loadBots();
+  // The spawn form's Conclave dropdown needs `games` (phase, hostName,
+  // playerCount, botCount) — loadOverview() otherwise only runs for the
+  // Conclaves tab and on initial mount.
+  if (!games.value.length) await loadOverview();
 }
 async function loadProfiles() {
   try {
@@ -1183,6 +1199,11 @@ async function loadProfiles() {
     // the Model/Cost columns fall back to raw profile ids.
     botError.value = err.message;
   }
+}
+async function refreshBots() {
+  // Also refreshes `games` so the spawn form's lobby dropdown picks up any
+  // Conclave that just entered/left the lobby phase.
+  await Promise.all([loadBots(), loadOverview()]);
 }
 async function loadBots() {
   botError.value = '';
