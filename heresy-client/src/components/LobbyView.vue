@@ -61,12 +61,30 @@
         <div class="params-row">
           <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>Sealed at launch; revealed privately per dossier.</p></div>
           <div v-if="isHost" class="param-fields">
-            <label class="anon-toggle"><input type="checkbox" v-model="setup.anonymized" @change="scheduleSave"> Anonymized mode</label>
-            <p class="anon-hint">Player names are replaced with notable Warhammer 40k characters once the game starts.</p>
-            <label class="anon-toggle"><input type="checkbox" v-model="setup.warpTaintVisible" @change="scheduleSave"> Warp taint display</label>
-            <p class="anon-hint">Shows each operative their own last-sensed drift zone gauge in the dossier. Off hides the gauge entirely — the hint is still sent, just not rendered.</p>
-            <label class="reveal-select">Death reveal<select v-model="setup.deathReveal" @change="scheduleSave"><option value="role">Full role</option><option value="alignment">Alignment only</option></select></label>
-            <p class="anon-hint">What the conclave learns when a tortured suspect dies under interrogation. Full role names their dossier; alignment only says Loyalist or Heretic. A lynch reveals neither either way — buying that information is what torture is for.</p>
+            <label class="anon-toggle">
+              <input type="checkbox" v-model="setup.anonymized" @change="scheduleSave"> Anonymized mode
+              <span class="info-tip" :class="{open: openTip==='anon'}">
+                <button type="button" class="info-trigger" @click.stop="toggleTip('anon')" @keydown.esc="closeTip(); $event.target.blur()" :aria-expanded="openTip==='anon'" aria-label="About anonymized mode" aria-describedby="tip-anon">i</button>
+                <span id="tip-anon" role="tooltip" class="info-tooltip">Player names are replaced with notable Warhammer 40k characters once the game starts.</span>
+              </span>
+            </label>
+            <label class="anon-toggle">
+              <input type="checkbox" v-model="setup.warpTaintVisible" @change="scheduleSave"> Warp taint display
+              <span class="info-tip" :class="{open: openTip==='warp'}">
+                <button type="button" class="info-trigger" @click.stop="toggleTip('warp')" @keydown.esc="closeTip(); $event.target.blur()" :aria-expanded="openTip==='warp'" aria-label="About warp taint display" aria-describedby="tip-warp">i</button>
+                <span id="tip-warp" role="tooltip" class="info-tooltip">Shows each operative their own last-sensed drift zone gauge in the dossier. Off hides the gauge entirely — the hint is still sent, just not rendered.</span>
+              </span>
+            </label>
+            <label class="reveal-select">
+              Death reveal
+              <span class="reveal-select-control">
+                <select v-model="setup.deathReveal" @change="scheduleSave"><option value="role">Full role</option><option value="alignment">Alignment only</option></select>
+                <span class="info-tip" :class="{open: openTip==='reveal'}">
+                  <button type="button" class="info-trigger" @click.stop="toggleTip('reveal')" @keydown.esc="closeTip(); $event.target.blur()" :aria-expanded="openTip==='reveal'" aria-label="About death reveal" aria-describedby="tip-reveal">i</button>
+                  <span id="tip-reveal" role="tooltip" class="info-tooltip">What the conclave learns when a tortured suspect dies under interrogation. Full role names their dossier; alignment only says Loyalist or Heretic. A lynch reveals neither either way — buying that information is what torture is for.</span>
+                </span>
+              </span>
+            </label>
             <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" :max="phases.MAX_DRIFT_CEILING" @input="scheduleSave"></label>
             <template v-if="game.mode==='async'">
               <label>Day starts (UTC)<input type="time" v-model="dayStartTimeUTC" @change="scheduleSave"></label>
@@ -273,7 +291,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { validateComposition } from '../server-composition-validator.js';
 import { validRoles, hardRules, presetFlavor, roleThresholds, roleAbilityForLobby } from '../compositionData.js';
 import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
@@ -358,6 +376,22 @@ watch([() => props.game.maxDrift, () => props.game.dayMs, () => props.game.night
   if (savedFlashTimer) clearTimeout(savedFlashTimer);
   savedFlashTimer = setTimeout(() => { justSaved.value = false; }, 2500);
 });
+
+// (i) tooltips for the setting hints that used to sit permanently on screen
+// as <p> paragraphs. Click/tap toggles `openTip` (touch, and an explicit
+// dismiss target); CSS also reveals on :focus-within (keyboard tab) and
+// :hover (mouse) regardless of this state. aria-describedby on the trigger
+// keeps the text available to screen readers on focus no matter which of
+// those is what showed it. Escape blurs the trigger (dropping :focus-within)
+// and clears `openTip`, so it's dismissable from the keyboard too. A single
+// id at a time is open — these are never meant to stack.
+const openTip = ref(null);
+function toggleTip(id) { openTip.value = openTip.value === id ? null : id; }
+function closeTip() { openTip.value = null; }
+function onDocClickForTips(e) {
+  if (openTip.value && !(e.target instanceof Element && e.target.closest('.info-tip'))) closeTip();
+}
+onMounted(() => document.addEventListener('click', onDocClickForTips));
 
 const compositionMode = ref('preset');
 const presetCount = ref(5);
@@ -645,6 +679,7 @@ onUnmounted(() => {
   if (simCooldownTimer) clearInterval(simCooldownTimer);
   if (saveTimer) clearTimeout(saveTimer);
   if (savedFlashTimer) clearTimeout(savedFlashTimer);
+  document.removeEventListener('click', onDocClickForTips);
 });
 
 // Operative seals — same mark the player carries in-game, so the roster you
@@ -823,16 +858,95 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   accent-color: var(--gold);
   cursor: pointer;
 }
-.params-cell .anon-hint {
-  width: 100%;
-  margin: 0 0 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px dashed #2a2c25;
-  font-size: 10.5px;
-  line-height: 1.5;
-  color: var(--muted);
+.params-cell .param-fields select {
+  width: auto;
+  min-width: 128px;
+  padding: 7px 8px;
+  font: 500 12px Inter;
+  border: 1px solid #3a3c34;
+  background: #0d0f0d;
+  color: var(--pale);
+  border-radius: 2px;
+  cursor: pointer;
   text-transform: none;
   letter-spacing: normal;
+}
+.params-cell .param-fields select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px #b69a5c22;
+  outline: none;
+}
+.params-cell .reveal-select-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* (i) tooltip trigger — replaces the permanently-on-screen hint paragraphs.
+   The trigger is a real <button> (focusable, Enter/Space activates it like
+   any button). Visibility of .info-tooltip is driven three ways: the click
+   toggle (.open, for touch and as an explicit on/off), :focus-within (tab
+   to it with a keyboard), and :hover (mouse). It stays in the accessibility
+   tree at all times (opacity, not display/visibility) so aria-describedby
+   on the trigger reads its text to screen readers on focus regardless of
+   which of those applies. */
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+}
+.info-trigger {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1px solid #52564a;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: italic 700 10px/1 Georgia, serif;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.info-trigger:hover,
+.info-trigger:focus-visible {
+  border-color: var(--gold);
+  color: var(--gold2);
+  outline: none;
+}
+.info-tooltip {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 7px);
+  right: 0;
+  width: 220px;
+  max-width: 70vw;
+  padding: 9px 11px;
+  background: #14150f;
+  border: 1px solid #43463d;
+  border-radius: 2px;
+  box-shadow: 0 12px 30px #0009;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity .12s ease, transform .12s ease;
+}
+.info-tip.open .info-tooltip,
+.info-tip:focus-within .info-tooltip,
+.info-tip:hover .info-tooltip {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 .params-cell .day-start-hint {
   width: 100%;

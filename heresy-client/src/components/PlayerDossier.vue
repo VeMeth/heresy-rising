@@ -19,6 +19,7 @@
         <nav class="dossier-tabs">
           <button type="button" :class="{ active: activeTab === 'notes' }" @click="activeTab = 'notes'">Notes</button>
           <button type="button" :class="{ active: activeTab === 'bookmarks' }" @click="activeTab = 'bookmarks'">Bookmarks ({{ subjectBookmarks.length }})</button>
+          <button type="button" :class="{ active: activeTab === 'actions' }" @click="activeTab = 'actions'">My Actions ({{ myActions.length }})</button>
         </nav>
 
         <section v-if="activeTab === 'notes'" class="dossier-body">
@@ -66,15 +67,15 @@
 
         <section v-else class="dossier-body">
           <ul class="entry-list">
-            <li v-if="!subjectBookmarks.length" class="empty-state">No bookmarks yet &mdash; save a chat message to see it here.</li>
-            <li v-for="b in subjectBookmarks" :key="b.messageId" class="bookmark-entry">
+            <li v-if="!activeBookmarkList.length" class="empty-state">{{ activeTab === 'actions' ? 'Nothing recorded yet — what you do and what happens to you files itself here.' : 'No bookmarks yet — save a chat message to see it here.' }}</li>
+            <li v-for="b in activeBookmarkList" :key="b.messageId" class="bookmark-entry" :class="{ 'bookmark-entry--auto': b.auto }">
               <div class="bookmark-head">
-                <strong>{{ b.auto ? 'Recorded' : b.author }}</strong>
+                <strong>{{ activeTab === 'actions' ? subjectLabelFor(b) : (b.auto ? 'Recorded' : b.author) }}</strong>
                 <span v-if="b.auto" class="auto-tag" title="Filed automatically when this happened to you or you acted">AUTO</span>
                 <time>{{ formatBookmarkTime(b.createdAt) }}</time>
                 <button type="button" class="entry-btn" :disabled="busy" aria-label="Remove bookmark" @click="emit('remove-bookmark', { messageId: b.messageId })">&times;</button>
               </div>
-              <button type="button" class="bookmark-excerpt" @click="emit('jump', { messageId: b.messageId })">{{ b.excerpt }}</button>
+              <button type="button" class="bookmark-excerpt" @click="emit('jump', { messageId: b.messageId, channel: b.channel })">{{ b.excerpt }}</button>
               <input
                 class="bookmark-annotation"
                 type="text"
@@ -102,6 +103,7 @@ const props = defineProps({
   subject: { type: Object, default: null },
   notes: { type: Array, default: () => [] },
   bookmarks: { type: Array, default: () => [] },
+  players: { type: Array, default: () => [] },
   busy: { type: Boolean, default: false }
 });
 
@@ -134,6 +136,23 @@ const subjectNotes = computed(() =>
 const subjectBookmarks = computed(() =>
   props.bookmarks.filter(belongsToSubject).slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
 );
+// "My Actions": everything the owner chose to do, across every subject —
+// deliberately NOT filtered by belongsToSubject like the tab above. ownAction
+// says whether the row describes something the owner picked (a directive, a
+// vote, sleeping) rather than something merely about the currently-open
+// subject; subjectCode still tags who it targeted, and is only used here to
+// label each row, not to filter the list. This is the one tab that reads the
+// same no matter which player's dossier you opened it from.
+const myActions = computed(() =>
+  props.bookmarks.filter(b => b.ownAction).slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+);
+const activeBookmarkList = computed(() => activeTab.value === 'actions' ? myActions.value : subjectBookmarks.value);
+function nameFor(code) {
+  return props.players.find(p => p.playerCode === code)?.name || 'Unknown';
+}
+function subjectLabelFor(b) {
+  return b.subjectCode ? nameFor(b.subjectCode) : 'General';
+}
 
 function stampFor(n) {
   if (n.phase === 'day') return `D${n.round}`;
@@ -404,6 +423,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   border: 1px solid var(--line);
   padding: 10px 12px;
   margin-bottom: 10px;
+}
+/* Engine-filed entries get the same left-accent language as a note —
+   a glance at the edge of the list should be enough to tell what you
+   saved by hand from what the game recorded for you. */
+.bookmark-entry--auto {
+  border-left: 2px solid rgba(182, 154, 92, 0.4);
 }
 .bookmark-head {
   display: flex;

@@ -179,9 +179,15 @@ test('auto-bookmark: an Interrogator scan files itself under the player who was 
   assert.equal(filed.auto,1,'flagged as engine-filed, not hand-saved');
   assert.equal(filed.channel,'private');
   assert.ok(filed.excerpt.length>0,'carries the result text');
+  // Bystander and target may now hold auto-filed entries of THEIR OWN — the
+  // per-actor night-action report (bugfix-round §3b) files a "you slept" or
+  // "you did X" line for every living player, unrelated to this scan. What
+  // must never happen is a COPY of the scan itself (its excerpt, or a bookmark
+  // subject-filed under the scanned target) turning up in someone else's
+  // dossier — that is the actual leak this test guards against.
   const bystander=f.manager.players(f.code).find(p=>p.player_code!==interrogator.player_code&&p.player_code!==target.player_code);
-  assert.equal(f.manager.listNotes(f.code,bystander.player_code).bookmarks.length,0,'nobody else gets a copy');
-  assert.equal(f.manager.listNotes(f.code,target.player_code).bookmarks.length,0,'least of all the player who was scanned');
+  assert.ok(!f.manager.listNotes(f.code,bystander.player_code).bookmarks.some(b=>b.subjectCode===target.player_code||b.excerpt===filed.excerpt),'nobody else gets a copy');
+  assert.ok(!f.manager.listNotes(f.code,target.player_code).bookmarks.some(b=>b.excerpt===filed.excerpt),'least of all the player who was scanned');
 }finally{f.close();}});
 
 test('auto-bookmark: something done TO you files under General, never naming the actor',()=>{const f=fixture();try{
@@ -217,4 +223,33 @@ test('auto-bookmark: a bogus meta.target is dropped rather than filed under a st
   f.manager.start(f.code,'p0');
   f.manager.privateSystem(f.code,'p0','Odd reading.',{intelKind:'interrogate',target:'not-a-player'});
   assert.equal(f.manager.listNotes(f.code,'p0').bookmarks[0].subjectCode,null,'unknown codes fall back to General');
+}finally{f.close();}});
+
+// ── Private-channel history is self-scoped ────────────────────────────────
+// Reading 'private' was added so a reload stops wiping a player's intel log.
+// The whole safety of that rests on the SQL scoping to recipient_code, not on
+// the caller behaving — these tests are the guard on that.
+test('private history: a player reads only their OWN private lines, never another player\'s',()=>{const f=fixture();try{
+  f.manager.start(f.code,'p0');f.manager.advance(f.code,'p0');
+  const [a,b]=f.manager.players(f.code);
+  f.manager.privateSystem(f.code,a.player_code,'ALPHA-ONLY-SECRET');
+  f.manager.privateSystem(f.code,b.player_code,'BETA-ONLY-SECRET');
+  const aSees=f.manager.historyMessages(f.code,a.player_code,'private').messages.map(m=>m.body);
+  const bSees=f.manager.historyMessages(f.code,b.player_code,'private').messages.map(m=>m.body);
+  assert.ok(aSees.some(x=>/ALPHA-ONLY-SECRET/.test(x)),'own line is returned');
+  assert.ok(!aSees.some(x=>/BETA-ONLY-SECRET/.test(x)),'never another player\'s private line');
+  assert.ok(!bSees.some(x=>/ALPHA-ONLY-SECRET/.test(x)),'and not in the other direction either');
+}finally{f.close();}});
+
+test('private history: nobody can WRITE to the private channel',()=>{const f=fixture();try{
+  f.manager.start(f.code,'p0');f.manager.advance(f.code,'p0');
+  const [a]=f.manager.players(f.code);
+  assert.throws(()=>f.manager.sendMessage(f.code,a.player_code,'private','forged intel'),/read-only/i,'a client-authored private line would be forged intel');
+}finally{f.close();}});
+
+test('private history: a spectator cannot read the private channel at all',()=>{const f=fixture();try{
+  f.manager.start(f.code,'p0');f.manager.advance(f.code,'p0');
+  const [a]=f.manager.players(f.code);
+  f.manager.privateSystem(f.code,a.player_code,'ALPHA-ONLY-SECRET');
+  assert.throws(()=>f.manager.historyMessages(f.code,'NOT-A-PLAYER','private'),/Access denied/i);
 }finally{f.close();}});

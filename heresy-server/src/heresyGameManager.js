@@ -135,6 +135,8 @@ function nextScheduleBoundary(now, dayStartMinuteUtc) {
  * @property {string} excerpt
  * @property {string} channel
  * @property {string|null} note
+ * @property {number} auto
+ * @property {number} ownAction
  * @property {number} createdAt
  */
 
@@ -154,6 +156,9 @@ CREATE TABLE IF NOT EXISTS hr_bookmarks(game_code TEXT NOT NULL,owner_code TEXT 
 `;
 
 export const DEATH_REVEALS=['alignment','role'];
+// Auto-filed bookmarks (autoBookmark) get their own budget, separate from the
+// 300-row manual cap toggleBookmark enforces — see autoBookmark's comment.
+const AUTO_BOOKMARK_CAP=300;
 
 // One place decides what an execution discloses, so the lynch and torture-death
 // paths can never drift apart again. Returns the clause to append to the death
@@ -213,6 +218,17 @@ export class HeresyGameManager {
     // Marks a bookmark the engine filed on the player's behalf rather than one
     // they saved by hand, so the dossier can label it. Removable either way.
     this.ensureColumn('hr_bookmarks','auto',"INTEGER NOT NULL DEFAULT 0");
+    // own_action: this row is filed because the OWNER chose the action the
+    // underlying message describes (a protect, a scan, a kill attempt...),
+    // as opposed to subject_code, which says who the message is ABOUT. The
+    // two are independent and both can be true (you protected them — it's
+    // about them AND it's your own action). This is what lets one row serve
+    // both "under their dossier tab" and a separate "my actions" view without
+    // a second row and a second shot at the cap (option A, bugfix-round §3a —
+    // widening the PK to (game,owner,message,subject) and inserting twice was
+    // rejected: it duplicates content, doubles cap pressure, and makes
+    // un-bookmarking ambiguous).
+    this.ensureColumn('hr_bookmarks','own_action',"INTEGER NOT NULL DEFAULT 0");
     this.renameColumn('hr_games','last_interrogated_target','last_tortured_target',"TEXT");
     this.renameColumn('hr_games','last_interrogation_tier','last_torture_tier',"INTEGER NOT NULL DEFAULT 0");
     // Anonymized mode (Operational Parameters, lobby-only, off by default):
@@ -248,11 +264,19 @@ export class HeresyGameManager {
     this._announcementListeners = [];
     this._botPromptListeners = [];
     this._chatMessageListeners = [];
+    this._bookmarkListeners = [];
   }
   onAnnouncement(fn){this._announcementListeners.push(fn);}
   emitAnnouncement(c,a){a.createdAt=new Date().toISOString();for(const fn of this._announcementListeners)try{fn(c,a);}catch{}}
   onBotPrompt(fn){this._botPromptListeners.push(fn);}
   emitBotPrompt(c,payload){for(const fn of this._botPromptListeners)try{fn(c,payload);}catch{}}
+  // Fired only for the owner the bookmark was filed for — never a room
+  // broadcast. autoBookmark is the sole caller; index.js targets delivery to
+  // that one player's socket the same way broadcastBotPrompt already does for
+  // onBotPrompt, so an auto-filed note updates the client's bookmark list
+  // live instead of waiting for the next notes:list reload (bugfix-round §4).
+  onBookmark(fn){this._bookmarkListeners.push(fn);}
+  emitBookmark(c,ownerCode,bookmark){for(const fn of this._bookmarkListeners)try{fn(c,ownerCode,bookmark);}catch{}}
   onChatMessage(fn){this._chatMessageListeners.push(fn);}
   emitChatMessage(c,message){for(const fn of this._chatMessageListeners)try{fn(c,message);}catch{}}
 
@@ -299,7 +323,7 @@ export class HeresyGameManager {
   /** @returns {Bookmark|undefined} */
   bookmarkRow(c, ownerCode, messageId) {
     return /** @type {Bookmark|undefined} */ (this.db.prepare(
-      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?'
+      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,own_action AS ownAction,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?'
     ).get(c, ownerCode, messageId));
   }
 
@@ -312,7 +336,7 @@ export class HeresyGameManager {
       'SELECT id,subject_code AS subjectCode,body,round,phase,created_at AS createdAt,updated_at AS updatedAt FROM hr_notes WHERE game_code=? AND owner_code=? ORDER BY created_at,id'
     ).all(c, ownerCode));
     const bookmarks = /** @type {Bookmark[]} */ (this.db.prepare(
-      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? ORDER BY created_at,message_id'
+      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,own_action AS ownAction,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? ORDER BY created_at,message_id'
     ).all(c, ownerCode));
     return { notes, bookmarks };
   }
@@ -404,19 +428,37 @@ export class HeresyGameManager {
   // handing a player their own private message, not a client naming an
   // arbitrary id. Idempotent, so a replayed or duplicated message can't
   // double-file, and it never overwrites a bookmark the player already made.
-  autoBookmark(c, ownerCode, message, meta) {
+  //
+  // ownAction: true when the message describes something the OWNER chose
+  // (a protect, a scan, a night-action report — see the resolveNight morning
+  // report and resolveIntel) rather than something merely done TO them. It is
+  // never derived from meta — meta is also what gets broadcast/stored on the
+  // message itself and bot-manager reads it, so this stays a separate
+  // argument precisely so adding it here can never change a message's meta
+  // payload (bugfix-round §5 requires interrogate's meta to stay byte-
+  // identical). Stored in its own column, independent of subject_code.
+  //
+  // Cap: auto-filed rows are counted and capped SEPARATELY from manual ones
+  // (auto=1 vs auto=0 — see toggleBookmark's mirrored check below). Night
+  // resolution can now file several rows per player per round (bugfix-round
+  // §3b), so sharing one 300-row budget with hand-picked bookmarks would let
+  // the engine's own record-keeping silently crowd out a player's manual
+  // saves, or vice versa. Hitting the auto cap is logged via event() (not
+  // thrown — this runs inside night resolution and a full dossier must never
+  // take the game down with it) so the drop is detectable instead of silent.
+  autoBookmark(c, ownerCode, message, meta, ownAction = false) {
     if (!message?.id || !ownerCode) return null;
     const existing = this.db.prepare('SELECT 1 FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?').get(c, ownerCode, message.id);
     if (existing) return null;
-    const { n } = /** @type {{n:number}} */ (this.db.prepare('SELECT COUNT(*) AS n FROM hr_bookmarks WHERE game_code=? AND owner_code=?').get(c, ownerCode));
-    // Silently give up at the cap rather than throwing: this runs inside night
-    // resolution, and a full dossier must never take the game down with it.
-    if (n >= 300) return null;
+    const { n } = /** @type {{n:number}} */ (this.db.prepare('SELECT COUNT(*) AS n FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND auto=1').get(c, ownerCode));
+    if (n >= AUTO_BOOKMARK_CAP) { this.event(c, 'bookmark-cap-hit', { ownerCode, messageId: message.id, scope: 'auto' }); return null; }
     const subject = meta?.target && this.player(c, meta.target) ? meta.target : null;
     this.db.prepare(
-      'INSERT INTO hr_bookmarks(game_code,owner_code,message_id,subject_code,author,excerpt,channel,note,created_at,auto) VALUES(?,?,?,?,?,?,?,?,?,1)'
-    ).run(c, ownerCode, message.id, subject, message.author, String(message.body || '').slice(0, 300), message.channel, null, this.now());
-    return this.bookmarkRow(c, ownerCode, message.id);
+      'INSERT INTO hr_bookmarks(game_code,owner_code,message_id,subject_code,author,excerpt,channel,note,created_at,auto,own_action) VALUES(?,?,?,?,?,?,?,?,?,1,?)'
+    ).run(c, ownerCode, message.id, subject, message.author, String(message.body || '').slice(0, 300), message.channel, null, this.now(), ownAction ? 1 : 0);
+    const row = this.bookmarkRow(c, ownerCode, message.id);
+    this.emitBookmark(c, ownerCode, row);
+    return row;
   }
   toggleBookmark(c, ownerCode, messageId) {
     const g = this.requireGame(c);
@@ -451,8 +493,11 @@ export class HeresyGameManager {
     } else {
       this.authorizeChannel(g, player, message.channel, false);
     }
+    // Counts only manual (auto=0) rows — its own budget, independent of the
+    // auto-filed cap in autoBookmark above, so the engine's own night-report
+    // filing can never crowd out a player's hand-picked saves.
     const { n } = /** @type {{n:number}} */ (this.db.prepare(
-      'SELECT COUNT(*) AS n FROM hr_bookmarks WHERE game_code=? AND owner_code=?'
+      'SELECT COUNT(*) AS n FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND auto=0'
     ).get(c, ownerCode));
     if (n >= 300) throw new Error('Bookmark limit reached');
     // Subject resolution deliberately does NOT use hr_messages.player_code.
@@ -745,7 +790,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       // while still in the day, so it survives the coming night before that
       // check ever runs against it; a night-phase cripple needs the +1 or it
       // recovers in the same breath it was applied.
-      else{if(victim){const tier=Math.min(this.config.rules.cripple.MAX_TIER,(Number(this.player(c,victim).cripple_tier)||0)+1);this.db.prepare('UPDATE hr_players SET cripple_tier=?,tier1_until_round=? WHERE game_code=? AND player_code=?').run(tier,tier===1?g.round+1:null,c,victim);const victimName=this.displayName(g,this.player(c,victim));const crippleBody=this.flavor('bloodRitualCripple',{victim:victimName});this.privateSystem(c,victim,crippleBody);this.emitAnnouncement(c,{type:'blood-ritual-cripple',title:'BROKEN IN THE NIGHT',message:crippleBody,victim:{name:victimName},round:g.round,phase:'night',targetCode:victim});}this.event(c,'blood-ritual',{round:g.round,attacker:sv.actor_code,target:sv.target_code,outcome:'cripple',landed:!!victim});}}
+      else{if(victim){const tier=Math.min(this.config.rules.cripple.MAX_TIER,(Number(this.player(c,victim).cripple_tier)||0)+1);this.db.prepare('UPDATE hr_players SET cripple_tier=?,tier1_until_round=? WHERE game_code=? AND player_code=?').run(tier,tier===1?g.round+1:null,c,victim);const victimName=this.displayName(g,this.player(c,victim));const crippleBody=this.flavor('bloodRitualCripple',{victim:victimName});this.privateSystem(c,victim,crippleBody,{target:victim});this.emitAnnouncement(c,{type:'blood-ritual-cripple',title:'BROKEN IN THE NIGHT',message:crippleBody,victim:{name:victimName},round:g.round,phase:'night',targetCode:victim});}this.event(c,'blood-ritual',{round:g.round,attacker:sv.actor_code,target:sv.target_code,outcome:'cripple',landed:!!victim});}}
     // H6 Animus (roles/animus.md): resolved LAST, after every other night
     // pass, so the target's drift reflects everything that happened this
     // same night (kills, sermons, Blood Ritual, catalyst) — spec: "confirmed
@@ -761,11 +806,47 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     // consistent with the Animus never learning why an attempt failed.
     for(const pos of actions.filter(x=>x.kind==='possess')){const actorPlayer=this.player(c,pos.actor_code);if(!actorPlayer?.alive)continue;const possRole=this.role(actorPlayer.role_id);nightCharges.set(pos.actor_code,(nightCharges.get(pos.actor_code)||0)+possRole.driftWeight);this.incrementUsage(c,pos.actor_code,'possess');if(traps.has(pos.actor_code)){this.changeDrift(c,pos.actor_code,this.config.drift.TRAP_DRIFT,'trap');continue;}const target=this.player(c,pos.target_code);if(!target?.alive)continue;if(traps.has(pos.target_code))this.changeDrift(c,pos.actor_code,this.config.drift.TRAP_DRIFT,'trap');const zone=driftZone(this.config.drift,target.drift).id;if(zone==='red'&&!protectedIds.has(pos.target_code)){this.db.prepare('UPDATE hr_players SET possessed_by=?,skip_next_night=1 WHERE game_code=? AND player_code=?').run(pos.actor_code,c,pos.target_code);this.privateSystem(c,pos.actor_code,`The summoning takes hold. The Neverborn reaches across the Warp and finds purchase in ${this.displayName(g,target)}. Speak as them tomorrow.`,{intelKind:'animus_possess',outcome:'success',target:pos.target_code});this.privateSystem(c,pos.target_code,'Something cold moves behind your eyes. You cannot speak tomorrow.');}else{this.privateSystem(c,pos.actor_code,'You reach for the Warp. The Neverborn finds no purchase. The ritual wastes.',{intelKind:'animus_possess',outcome:'fail'});}}
     applyProximitySiphon(this.players(c),nightCharges,this.config.rules.proximitySiphon,(pc,delta)=>this.changeDrift(c,pc,delta,'proximity-siphon'));
+    this.reportNightActions(c,g,actions,players);
     if(!this.finishIfWon(c)){this.setPhase(c,'day',g.round+1,'vote');}}
+  // "What you did last night" — resolveIntel already tells a scanning actor
+  // their result; every other night kind (protect, bodyguard, boobytrap,
+  // kill, sermon/corrupt-sermon) resolves completely silently today, so
+  // nothing lands in the actor's dossier even though they made a real choice
+  // (bugfix-round §3b). One private line per actor, auto-filed under their
+  // target as an own_action entry.
+  //
+  // Built from the RAW submitted action row, never from how it resolved —
+  // the line names only the target the actor already chose, nothing the
+  // engine decided. That is the hard constraint (loyalist-kit.md: "Chirurgeon
+  // does not learn whether their protection fired" — they "learn only that
+  // they used their night action"): the SAME line is sent whether a protect
+  // landed or was wasted, whether a kill connected, was blocked by a
+  // Chirurgeon, redirected onto an Arbitrator, or gated by the Murderer's
+  // drift cap, and whether a corrupt-sermon connected or fizzled silently
+  // below Warp Litany's drift floor (the branch above that deliberately
+  // sends "no message to either side" so a Heretic Priest can't probe a
+  // target's hidden drift by reading the ack — this report must never become
+  // a second channel for that same probe, so it is unconditional on outcome).
+  //
+  // possess, interrogate, drift-hint and heretical-catalyst are excluded:
+  // the first three already carry their own actor-facing message (resolveIntel,
+  // the possess loop above); heretical-catalyst and blood-ritual currently
+  // tell their ACTOR nothing at all, on either success or failure — a
+  // pre-existing gap this method does not attempt to close (see report).
+  reportNightActions(c,g,actions,players){
+    const VERB={protect:'protected',bodyguard:'moved to guard',boobytrap:'set a trap for',sermon:'preached to','corrupt-sermon':'preached to',kill:'moved against'};
+    for(const a of actions){const verb=VERB[a.kind];if(!verb)continue;const target=this.player(c,a.target_code);if(!target)continue;this.privateSystem(c,a.actor_code,`Last night you ${verb} ${this.displayName(g,target)}.`,{target:a.target_code},{ownAction:true});}
+    // Sleep only counts as a CHOICE when nothing blocked the actor from
+    // choosing otherwise — skip_next_night (torture, possession) means the
+    // engine took the night away from them, not that they rested; telling
+    // them "you slept" there would misstate what happened, so they get no
+    // report at all rather than a misleading one.
+    for(const p of players){if(p.skip_next_night)continue;if(actions.some(a=>a.actor_code===p.player_code))continue;this.privateSystem(c,p.player_code,`You slept. Drift eased by ${Math.abs(this.config.drift.NIGHTLY_SLEEP_RECOVERY)}.`,null,{ownAction:true});}
+  }
   trapBlocks(c,g,a,traps){if(!traps.has(a.target_code))return false;this.changeDrift(c,a.actor_code,this.config.drift.TRAP_DRIFT,'trap');const trap=traps.get(a.target_code);this.privateSystem(c,trap.actor_code,`Your trap caught ${this.displayName(g,this.player(c,a.actor_code))} targeting ${this.displayName(g,this.player(c,a.target_code))}.`);return !['kill','heretical-catalyst'].includes(a.kind);}
   resolveIntel(c,a,g){const actor=this.player(c,a.actor_code),target=this.player(c,a.target_code),role=this.role(actor.role_id);if(a.kind==='drift-hint'){const targetZone=driftZone(this.config.drift,target.drift);const rate=intelNoiseRate(this.config.drift,this.config.rules,target.drift,role.driftWeight);const truth=targetZone.id;const zones=this.config.drift.zones;const truthIdx=zones.findIndex(z=>z.id===truth);let shown=truth;if(this.random()<rate){const left=truthIdx>0?truthIdx-1:truthIdx+1;const right=truthIdx<zones.length-1?truthIdx+1:truthIdx-1;
       // Unbiased left/right coin — not a tuning knob, so this 0.5 stays literal.
-      const adj=this.random()<0.5?left:right;shown=zones[adj].id;}this.privateSystem(c,a.actor_code,this.hints(c)[shown],{intelKind:'drift-hint',action:'scan_drift',target:a.target_code,zone:shown});return{};}const intensity=Number(String(a.variant||'T1').replace('T',''))||1;const targetZone=driftZone(this.config.drift,target.drift);if(isExecuteOnSight(this.config.rules,intensity,targetZone.id))return{autoKill:true,actorCode:a.actor_code,targetCode:a.target_code,zone:targetZone.id,faction:target.faction};if(intensity===1){const groundTruth=targetZone.id==='green'?'Clean':'Tainted';const isTrue=this.random()<this.config.rules.interrogation.T1_ACCURACY;const display=isTrue?groundTruth:(groundTruth==='Clean'?'Tainted':'Clean');
+      const adj=this.random()<0.5?left:right;shown=zones[adj].id;}this.privateSystem(c,a.actor_code,this.hints(c)[shown],{intelKind:'drift-hint',action:'scan_drift',target:a.target_code,zone:shown},{ownAction:true});return{};}const intensity=Number(String(a.variant||'T1').replace('T',''))||1;const targetZone=driftZone(this.config.drift,target.drift);if(isExecuteOnSight(this.config.rules,intensity,targetZone.id))return{autoKill:true,actorCode:a.actor_code,targetCode:a.target_code,zone:targetZone.id,faction:target.faction};if(intensity===1){const groundTruth=targetZone.id==='green'?'Clean':'Tainted';const isTrue=this.random()<this.config.rules.interrogation.T1_ACCURACY;const display=isTrue?groundTruth:(groundTruth==='Clean'?'Tainted':'Clean');
       // Tiered Lynch v1.3.0: T1 can also clear or reinforce a day-vote
       // torture mark (tortured_before), keyed off the TARGET'S
       // TRUE zone — "the Interrogator's read is treated as definitive" for
@@ -779,7 +860,16 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       let markNote='';
       if(targetZone.id==='green'&&target.tortured_before){this.db.prepare('UPDATE hr_players SET tortured_before=0,mark_public=0 WHERE game_code=? AND player_code=?').run(c,a.target_code);markNote=' Your read is clean enough to absolve them — their torture mark is lifted.';}
       else if(targetZone.id==='red'){if(!target.tortured_before)this.db.prepare('UPDATE hr_players SET tortured_before=1 WHERE game_code=? AND player_code=?').run(c,a.target_code);markNote=' Your read comes back guilty — their next torture will be an execution.';}
-      this.privateSystem(c,a.actor_code,`${this.displayName(g,target)} is ${display.toLowerCase()}.${markNote}`,{intelKind:'interrogate',tier:1,target:a.target_code,zone:targetZone.id,result:display.toLowerCase()});return{};}const effectiveTier=getEffectiveScanTier(this.config.rules,intensity,targetZone.id);const rate=intelNoiseRate(this.config.drift,this.config.rules,actor.drift,role.driftWeight);if(effectiveTier>=3){const name=this.displayName(g,target);const text=target.faction==='loyalist'?`Confirmed: ${name} is a Loyalist. The Emperor's light is unbroken in them.`:`Confirmed: ${name} is a Heretic. The warp taint is undeniable.`;this.privateSystem(c,a.actor_code,text,{intelKind:'interrogate',tier:intensity,effectiveTier,target:a.target_code,zone:targetZone.id,faction:target.faction});return{};}const truth=target.faction==='loyalist';const result=noisyResult(this.config.rules,truth,rate,this.random);let text=result==='unclear'?'You learned nothing.':result?`${this.displayName(g,target)}'s story holds together.`:`${this.displayName(g,target)}'s story does not add up.`;if(effectiveTier>=2)text+=` You sense their drift zone: ${targetZone.id}.`;this.privateSystem(c,a.actor_code,text,{intelKind:'interrogate',tier:intensity,effectiveTier,target:a.target_code,zone:effectiveTier>=2?targetZone.id:null,factionHint:result==='unclear'?null:(result?'loyalist':'heretic')});return{};}
+      this.privateSystem(c,a.actor_code,`${this.displayName(g,target)} is ${display.toLowerCase()}.${markNote}`,{intelKind:'interrogate',tier:1,target:a.target_code,zone:targetZone.id,result:display.toLowerCase()},{ownAction:true});return{};}const effectiveTier=getEffectiveScanTier(this.config.rules,intensity,targetZone.id);const rate=intelNoiseRate(this.config.drift,this.config.rules,actor.drift,role.driftWeight);if(effectiveTier>=3){const name=this.displayName(g,target);const text=target.faction==='loyalist'?`Confirmed: ${name} is a Loyalist. The Emperor's light is unbroken in them.`:`Confirmed: ${name} is a Heretic. The warp taint is undeniable.`;this.privateSystem(c,a.actor_code,text,{intelKind:'interrogate',tier:intensity,effectiveTier,target:a.target_code,zone:targetZone.id,faction:target.faction},{ownAction:true});return{};}const truth=target.faction==='loyalist';const result=noisyResult(this.config.rules,truth,rate,this.random);let text=result==='unclear'?'You learned nothing.':result?`${this.displayName(g,target)}'s story holds together.`:`${this.displayName(g,target)}'s story does not add up.`;
+    // Interrogation-result (faction hint) and drift-zone reading are two
+    // INDEPENDENT signals — a flat concatenation ("...does not add up. You
+    // sense their drift zone: green.") reads as the zone corroborating the
+    // accusation, when a Green Heretic is entirely possible. Appended as its
+    // own clause, explicitly flagged as a separate reading, so neither fact
+    // is mistaken for evidence about the other. Adds no new information —
+    // same two facts the old concatenation carried, meta byte-identical.
+    if(effectiveTier>=2){const zoneLabel=targetZone.id.charAt(0).toUpperCase()+targetZone.id.slice(1);text+=` Separately, your own senses read their drift as ${zoneLabel} — a different measure, not a verdict on the story.`;}
+    this.privateSystem(c,a.actor_code,text,{intelKind:'interrogate',tier:intensity,effectiveTier,target:a.target_code,zone:effectiveTier>=2?targetZone.id:null,factionHint:result==='unclear'?null:(result?'loyalist':'heretic')},{ownAction:true});return{};}
   resolveDay(g){const votingEnabled=g.round>=this.config.rules.day.FIRST_VOTING_ROUND;if(!votingEnabled){const payload={round:g.round,outcome:'skip',target:null,reason:'day1-no-vote',voterResults:[],witnessedDrift:0,alignmentRevealed:null,crippleTier:null};this.event(g.code,'day-resolution',payload);this.system(g.code,`Day ${g.round} concludes with no vote. The conclave disperses.`);this.applyHereticCap(g.code,g.round);this.resolvePossessionDetonation(g.code);if(!this.finishIfWon(g.code))this.setPhase(g.code,'night',g.round);return payload;}const payload=this.resolveDayVote(g);this.resolvePossessionDetonation(g.code);return payload;}
   // H6 Animus: fires unconditionally after the day's vote tally is announced
   // (E4), regardless of that day's outcome (torture/lynch/skip/tie) —
@@ -960,7 +1050,13 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   retractAction(c,p){const g=this.game(c);this.db.prepare('DELETE FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').run(c,g.round,p);}
   forge(c,p,asPlayerCode,body){const g=this.game(c),as=this.requireAlive(c,asPlayerCode);this.requireAlive(c,p);if(g.phase!=='day')throw new Error('Forgery is day-only');if(this.usage(c,p,`forgery-${g.round}`))throw new Error('Forgery already used today');
     // TODO(heresy-spec): Q31 — Conspirator default attributes one daily message to another player.
-    const message=this.insertMessage(c,'public',null,p,this.displayName(g,as),String(body||'').slice(0,500),'player');this.incrementUsage(c,p,`forgery-${g.round}`);this.changeDrift(c,p,this.config.drift.FORGERY,'forgery');return {message};}
+    const message=this.insertMessage(c,'public',null,p,this.displayName(g,as),String(body||'').slice(0,500),'player');this.incrementUsage(c,p,`forgery-${g.round}`);this.changeDrift(c,p,this.config.drift.FORGERY,'forgery');
+    // Forgery resolves synchronously (day-only, no night-report equivalent
+    // needed) and is public, so filing it is pure convenience, not a
+    // hidden-info concern: it lands under the impersonated player's dossier
+    // entry, own_action-flagged since it was the Conspirator's own choice.
+    this.autoBookmark(c,p,message,{target:asPlayerCode},true);
+    return {message};}
   usage(c,p,a){return /** @type {{uses:number}|undefined} */ (this.db.prepare('SELECT uses FROM hr_usage WHERE game_code=? AND player_code=? AND ability=?').get(c,p,a))?.uses||0;}
   incrementUsage(c,p,a){this.db.prepare('INSERT INTO hr_usage VALUES(?,?,?,1) ON CONFLICT(game_code,player_code,ability) DO UPDATE SET uses=uses+1').run(c,p,a);}
   hints(c){const g=this.game(c);return this.config.hintProfiles[g.hint_profile]||this.config.hintProfiles.default;}
@@ -976,19 +1072,27 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   // someone it doesn't actually possess.
   sendMessageAs(c,p,body){const g=this.game(c),actor=this.requireAlive(c,p);this.authorizeChannel(g,actor,'public',true);const target=this.players(c).find(x=>x.possessed_by===p&&x.alive);if(!target)throw new Error('You are not possessing anyone right now');return this.insertMessage(c,'public',null,p,this.displayName(g,target),String(body||'').trim().slice(0,1000),'player');}
   insertMessage(c,ch,recipient,p,author,body,kind,meta=null){if(!body)throw new Error('Message is empty');const x=this.db.prepare('INSERT INTO hr_messages(game_code,channel,recipient_code,player_code,author,body,kind,created_at,meta) VALUES(?,?,?,?,?,?,?,?,?)').run(c,ch,recipient,p,author,body,kind,this.now(),meta?JSON.stringify(meta):null);return this.db.prepare('SELECT id,channel,player_code,recipient_code,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE id=?').get(x.lastInsertRowid);}
-  system(c,b,meta=null){const m=this.insertMessage(c,'public',null,null,'The Vox',b,'system',meta);this.emitChatMessage(c,m);return m;} privateSystem(c,p,b,meta=null,{autoBookmark=true}={}){const m=this.insertMessage(c,'private',p,null,'The Vox',b,'system',meta);if(autoBookmark)this.autoBookmark(c,p,m,meta);this.emitChatMessage(c,m);return m;} factionSystem(c,b){const m=this.insertMessage(c,'faction',null,null,'The Vox',b,'system');this.emitChatMessage(c,m);return m;}
+  system(c,b,meta=null){const m=this.insertMessage(c,'public',null,null,'The Vox',b,'system',meta);this.emitChatMessage(c,m);return m;} privateSystem(c,p,b,meta=null,{autoBookmark=true,ownAction=false}={}){const m=this.insertMessage(c,'private',p,null,'The Vox',b,'system',meta);if(autoBookmark)this.autoBookmark(c,p,m,meta,ownAction);this.emitChatMessage(c,m);return m;} factionSystem(c,b){const m=this.insertMessage(c,'faction',null,null,'The Vox',b,'system');this.emitChatMessage(c,m);return m;}
   flavor(category,vars={}){const list=this.config?.deathFlavor?.[category];if(!list||!list.length)return '';let t=list[Math.floor(this.random()*list.length)];for(const[k,v]of Object.entries(vars))t=t.split(`{${k}}`).join(String(v));return t;}
   /**
    * @param {string} [ch]
    * @param {number|string} [before]
    * @param {number|string} [limit]
    */
-  historyMessages(c,p,ch='public',before=Number.MAX_SAFE_INTEGER,limit=50){const g=this.game(c);const player=this.player(c,p);if(!player){if(g.phase==='lobby'||ch!=='public')throw new Error('Access denied');}else{this.authorizeChannel(g,player,ch,false);}const cap=Math.min(100,Number(limit)||50);const rows=this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel=? AND id<? ORDER BY id DESC LIMIT ?').all(c,ch,Number(before)||Number.MAX_SAFE_INTEGER,cap+1).reverse();const hasMore=rows.length>cap;return {messages:hasMore?rows.slice(0,cap):rows,hasMore};}
+  historyMessages(c,p,ch='public',before=Number.MAX_SAFE_INTEGER,limit=50){const g=this.game(c);const player=this.player(c,p);if(!player){if(g.phase==='lobby'||ch!=='public')throw new Error('Access denied');}else{this.authorizeChannel(g,player,ch,false);}const cap=Math.min(100,Number(limit)||50);const priv=ch==='private';const before2=Number(before)||Number.MAX_SAFE_INTEGER;const rows=this.db.prepare(`SELECT id,channel,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel=?${priv?' AND recipient_code=?':''} AND id<? ORDER BY id DESC LIMIT ?`).all(...(priv?[c,ch,p,before2,cap+1]:[c,ch,before2,cap+1])).reverse();const hasMore=rows.length>cap;return {messages:hasMore?rows.slice(0,cap):rows,hasMore};}
   // Post-game: once the conclave is 'ended', public chat opens up for
   // everyone — dead, possessed, whatever — so the table can talk about the
   // game afterward. The alive/night/possession gates below only ever apply
   // while the game is still running.
-  authorizeChannel(g,p,ch,write){if(!['public','faction','graveyard'].includes(ch))throw new Error('Unknown channel');if(ch==='faction'&&p.faction!=='heretic')throw new Error('Faction channel denied');if(ch==='faction'&&!p.alive)throw new Error('Faction channel denied');if(ch==='graveyard'&&p.alive)throw new Error('Graveyard denied');if(write&&ch==='public'&&g.phase!=='ended'){if(!p.alive||g.phase==='night')throw new Error('Public chat is closed');if(p.possessed_by)throw new Error('You are possessed and cannot speak today');}if(write&&ch==='faction'&&g.phase!=='night')throw new Error('Faction chat is night-only');}
+  // 'private' is READ-ONLY and always self-scoped: historyMessages adds
+  // `AND recipient_code=?` bound to the authenticated player, exactly the way
+  // listNotes scopes a dossier in SQL rather than trusting the caller. Without
+  // it a reload lost every private line a player had ever received — role
+  // reveal, intel returns, night-action reports — because loadHistory only
+  // ever refetched 'public'. Nobody may WRITE to it: private lines are
+  // engine-authored (privateSystem) and a client-authored one would let a
+  // player forge intel into their own log.
+  authorizeChannel(g,p,ch,write){if(!['public','faction','graveyard','private'].includes(ch))throw new Error('Unknown channel');if(ch==='private'&&write)throw new Error('Private channel is read-only');if(ch==='faction'&&p.faction!=='heretic')throw new Error('Faction channel denied');if(ch==='faction'&&!p.alive)throw new Error('Faction channel denied');if(ch==='graveyard'&&p.alive)throw new Error('Graveyard denied');if(write&&ch==='public'&&g.phase!=='ended'){if(!p.alive||g.phase==='night')throw new Error('Public chat is closed');if(p.possessed_by)throw new Error('You are possessed and cannot speak today');}if(write&&ch==='faction'&&g.phase!=='night')throw new Error('Faction chat is night-only');}
   // H6 Animus visibility, per-row on `players[]` (spec: no tell to anyone but
   // the Animus before the reveal): `possessed:true` is included only when
   // (a) viewer IS the Animus who owns this possession, (b) viewer IS the

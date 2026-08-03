@@ -121,7 +121,7 @@
           <div class="dossier-header judgement-header">
             <svg class="judgement-rosette" aria-hidden="true"><use href="#hr-rosette"/></svg>
             <span class="eyebrow">FINAL JUDGEMENT</span>
-            <div class="verdict-seal" :class="game.winner==='loyalist'?'loyalist':'heretic'">
+            <div class="verdict-seal" :class="verdictSealClass">
               <div class="seal-wax" aria-hidden="true"></div>
               <div class="seal-ring" aria-hidden="true"></div>
               <div class="seal-face">{{ game.winner }} Victory<small>Conclave Sealed</small></div>
@@ -236,6 +236,7 @@
       :subject="dossierSubject"
       :notes="notes"
       :bookmarks="bookmarks"
+      :players="players"
       :busy="busy"
       @close="closeDossier"
       @add-note="onAddNote"
@@ -255,14 +256,21 @@ import { settings } from '../settings.js';
 import { DRIFT, DRIFT_ZONE_ORDER, SCALED_COSTS, resolveScaledCost, formatSigned } from '../driftCosts.js';
 import rules from '@game_data/rules.json';
 import PlayerDossier from './PlayerDossier.vue';
-const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true},notes:{type:Array,default:()=>[]},bookmarks:{type:Array,default:()=>[]}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','open-manual','leave','notes-add','notes-edit','notes-delete','bookmark-toggle','bookmark-annotate','notify']);
+const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true},notes:{type:Array,default:()=>[]},bookmarks:{type:Array,default:()=>[]},ensureChannelHistory:{type:Function,default:null}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','open-manual','leave','notes-add','notes-edit','notes-delete','bookmark-toggle','bookmark-annotate','notify']);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 const dayExpanded = ref({});
 const showEarlierDays = ref(false);
 function isDayStart(m){return m.kind==='system'&&/Day\s+\d+(\s*:|\s+begins)/i.test(m.body);}
 function isDayEnd(m){return m.kind==='system'&&/(concludes with no vote|conclave stands down|was tortured and left|was lynched and revealed)/i.test(m.body);}
 function nightStart(msgs,markerIdx,lowerBound){let start=markerIdx;for(let j=markerIdx-1;j>lowerBound;j--){const m=msgs[j];if(m.kind==='player'){start=j+1;break;}if(isDayStart(m)){start=j+1;break;}if(isDayEnd(m)){start=j+1;break;}start=j;}return start;}
-const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),dead=computed(()=>players.value.filter(p=>!p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===effectiveVoterCode.value)),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),maxVoteCount=computed(()=>Math.max(0,...Object.values(voteCounts.value))),votingOpen=computed(()=>props.votingEnabled&&props.game.phase==='day'&&!props.me?.possessed),pastDays=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];const markers=[];for(let i=0;i<msgs.length;i++){if(isDayStart(msgs[i]))markers.push(i);}if(markers.length<2)return[];const sections=[];for(let d=0;d<markers.length-1;d++){const start=d===0?markers[0]:nightStart(msgs,markers[d],d>0?markers[d-1]:-1);const end=nightStart(msgs,markers[d+1],markers[d]);const dayNum=msgs[markers[d]].body.match(/Day\s+(\d+)/i)?.[1]||(d+1);const label=`Day ${dayNum}`;sections.push({label,messages:msgs.slice(start,end),expanded:dayExpanded.value[label]??false});}return sections;}),recentPastDay=computed(()=>pastDays.value.length?pastDays.value[pastDays.value.length-1]:null),earlierPastDays=computed(()=>pastDays.value.slice(0,-1)),visibleDays=computed(()=>[...(showEarlierDays.value?earlierPastDays.value:[]),...(recentPastDay.value?[recentPastDay.value]:[])]),currentMessages=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];let lastMarker=-1;for(let i=msgs.length-1;i>=0;i--){if(isDayStart(msgs[i])){lastMarker=i;break;}}if(lastMarker===-1)return msgs;let prevMarker=-1;for(let i=lastMarker-1;i>=0;i--){if(isDayStart(msgs[i])){prevMarker=i;break;}}const start=nightStart(msgs,lastMarker,prevMarker);return msgs.slice(start);});
+const players=computed(()=>props.game.players||[]),alive=computed(()=>players.value.filter(p=>p.alive)),dead=computed(()=>players.value.filter(p=>!p.alive)),role=computed(()=>props.me?.role||{}),nightAction=computed(()=>role.value.actions?.night),
+// The seal used to be colored by the WINNING faction (loyalist=gold,
+// heretic=red), so a Heretic who won still saw a red "loss" seal. It's
+// colored by the VIEWER's result instead: gold/green for a win, red for a
+// loss. A spectator or a player never assigned a faction (dead before
+// role-seal, or an edge-case reconnect) gets a neutral treatment rather
+// than a color that implies a result they didn't have.
+verdictSealClass=computed(()=>{const myFaction=props.me?.faction;if(!myFaction)return'neutral';return props.game.winner===myFaction?'victory':'defeat';}),hasNightAction=computed(()=>nightAction.value&&nightAction.value.kind!=='sleep'),variants=computed(()=>nightAction.value?.variants||[]),validTargets=computed(()=>alive.value.filter(p=>p.playerCode!==props.me?.playerCode)),myVote=computed(()=>props.game.votes?.find(v=>v.voterCode===effectiveVoterCode.value)),voteCounts=computed(()=>{const counts={};for(const v of props.game.votes||[])counts[v.choice]=(counts[v.choice]||0)+1;return counts;}),maxVoteCount=computed(()=>Math.max(0,...Object.values(voteCounts.value))),votingOpen=computed(()=>props.votingEnabled&&props.game.phase==='day'&&!props.me?.possessed),pastDays=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];const markers=[];for(let i=0;i<msgs.length;i++){if(isDayStart(msgs[i]))markers.push(i);}if(markers.length<2)return[];const sections=[];for(let d=0;d<markers.length-1;d++){const start=d===0?markers[0]:nightStart(msgs,markers[d],d>0?markers[d-1]:-1);const end=nightStart(msgs,markers[d+1],markers[d]);const dayNum=msgs[markers[d]].body.match(/Day\s+(\d+)/i)?.[1]||(d+1);const label=`Day ${dayNum}`;sections.push({label,messages:msgs.slice(start,end),expanded:dayExpanded.value[label]??false});}return sections;}),recentPastDay=computed(()=>pastDays.value.length?pastDays.value[pastDays.value.length-1]:null),earlierPastDays=computed(()=>pastDays.value.slice(0,-1)),visibleDays=computed(()=>[...(showEarlierDays.value?earlierPastDays.value:[]),...(recentPastDay.value?[recentPastDay.value]:[])]),currentMessages=computed(()=>{const msgs=props.messages;if(!msgs.length)return[];let lastMarker=-1;for(let i=msgs.length-1;i>=0;i--){if(isDayStart(msgs[i])){lastMarker=i;break;}}if(lastMarker===-1)return msgs;let prevMarker=-1;for(let i=lastMarker-1;i>=0;i--){if(isDayStart(msgs[i])){prevMarker=i;break;}}const start=nightStart(msgs,lastMarker,prevMarker);return msgs.slice(start);});
 function toggleDay(label){dayExpanded.value[label]=!dayExpanded.value[label];}
 watch(variants,v=>variant.value=v[0]||'',{immediate:true});
 let preChangeHeight=0,preChangeScrollTop=0;
@@ -508,14 +516,35 @@ function startLongPress(p){
 }
 function cancelLongPress(){if(longPressTimer){clearTimeout(longPressTimer);longPressTimer=null}}
 
-// Jump-to-message from a bookmark: the target may be sitting inside a
-// collapsed day-section or behind "Load earlier messages" — expand whatever
-// contains it before querying the DOM, since scrollIntoView on a
-// display:none node (v-show="day.expanded") silently does nothing.
+// Jump-to-message from a bookmark. Two problems, not one:
+// 1. The target may be sitting inside a collapsed day-section or behind
+//    "Load earlier messages" — expand whatever contains it before querying
+//    the DOM, since scrollIntoView on a display:none node
+//    (v-show="day.expanded") silently does nothing. (Original behavior,
+//    unchanged, in performJump below.)
+// 2. The target may not be in THIS channel's messages at all. Messages are
+//    stored per channel and `messages` here is only ever the active one —
+//    a bookmarked faction/graveyard message needs a channel switch first.
+//    Private messages are a special case: chat:history has no 'private'
+//    channel (authorizeChannel deliberately excludes it — see
+//    heresyGameManager.js), so the server can never re-serve one after a
+//    reload. The client's only copy is whatever got folded into the
+//    'public' bucket live when it arrived this session (App.vue's
+//    receiveMessage does that folding) — so a private bookmark's target
+//    channel for lookup purposes is 'public', and if it isn't there, it's
+//    genuinely gone, not just unloaded.
 let jumpHighlightTimer=null;
 const jumpHighlightId=ref(null);
-function onJump({messageId}){
+async function onJump({messageId,channel:bmChannel}){
   dossierOpen.value=false;
+  const targetChannel=bmChannel==='private'?'public':(bmChannel||'public');
+  if(targetChannel!==props.channel&&props.ensureChannelHistory){
+    await props.ensureChannelHistory(targetChannel);
+    await nextTick();
+  }
+  performJump(messageId,bmChannel);
+}
+function performJump(messageId,bmChannel){
   for(const day of pastDays.value){
     if(day.messages.some(m=>m.id===messageId)){
       dayExpanded.value[day.label]=true;
@@ -525,7 +554,12 @@ function onJump({messageId}){
   }
   nextTick(()=>{
     const el=document.getElementById('hr-msg-'+messageId);
-    if(!el){emit('notify','That message is outside the loaded history.');return}
+    if(!el){
+      emit('notify',bmChannel==='private'
+        ?'Private lines are never stored where the server can re-send them — this one only existed in memory while you were online to receive it.'
+        :"That message isn't in this conclave's history — the channel has been fully loaded and it truly isn't there.");
+      return;
+    }
     el.scrollIntoView({block:'center'});
     clearTimeout(jumpHighlightTimer);
     jumpHighlightId.value=messageId;
@@ -1580,7 +1614,8 @@ button.ghost.wide.stand-down-leading {
   filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .7));
   animation: seal-press .7s cubic-bezier(.18, .9, .24, 1.02) both;
 }
-.verdict-seal.loyalist { --wax: #9c7c2e; }
+.verdict-seal.victory { --wax: #9c7c2e; }
+.verdict-seal.neutral { --wax: #6b6d64; }
 .seal-wax { position: absolute; inset: 0; filter: url(#hr-roughen); }
 .seal-wax::before {
   content: ''; position: absolute; inset: 0;

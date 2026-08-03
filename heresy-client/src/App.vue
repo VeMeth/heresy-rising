@@ -32,7 +32,7 @@
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :has-more="hasMoreByChannel[channel]"
         :busy="busy" :now="now" :spectator="spectator" :voting-enabled="game?.votingEnabled"
-        :notes="notes" :bookmarks="bookmarks"
+        :notes="notes" :bookmarks="bookmarks" :ensure-channel-history="ensureChannelHistory"
         @channel="changeChannel" @send="sendMessage" @send-as="sendMessageAs" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @vote-as="submitVoteAs" @retract-vote-as="retractVoteAs" @action="submitAction"
         @faction-action="submitFactionAction"
@@ -160,7 +160,7 @@ async function sendMessage(body) { try { await command('chat:send', { code: game
 // (the server derives who you're speaking as from its own live
 // possessed_by record, never from anything the client sends).
 async function sendMessageAs(body) { try { await command('chat:send-as', { code: game.value.code, body }); } catch {} }
-async function loadHistory(before) { try { if (before == null) { let all = []; let cursor; let hasMore = true; while (hasMore) { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before: cursor, limit: 100 }); const batch = data?.messages || []; if (!batch.length) break; all = [...batch, ...all]; hasMore = !!data?.hasMore; cursor = batch[0]?.id; if (!cursor) break; } messagesByChannel.value = { ...messagesByChannel.value, [channel.value]: all }; hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: hasMore }; } else { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before, limit: 50 }); mergeMessages(channel.value, data?.messages || [], true); hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: !!data?.hasMore }; } } catch {} }
+async function loadHistory(before) { try { if (before == null) { let all = []; let cursor; let hasMore = true; while (hasMore) { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before: cursor, limit: 100 }); const batch = data?.messages || []; if (!batch.length) break; all = [...batch, ...all]; hasMore = !!data?.hasMore; cursor = batch[0]?.id; if (!cursor) break; } messagesByChannel.value = { ...messagesByChannel.value, [channel.value]: all }; hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: hasMore }; if (channel.value === 'public') await loadPrivateHistory(); } else { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before, limit: 50 }); mergeMessages(channel.value, data?.messages || [], true); hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: !!data?.hasMore }; } } catch {} }
 // Private notes & bookmarks. Never called for a spectator — the server's
 // notes:*/bookmark:* handlers all require a real seat (requirePlayer) and
 // throw otherwise, and command() would just surface that as a toast for
@@ -177,6 +177,49 @@ async function deleteNote({ noteId }) { try { await command('notes:delete', { co
 // mirrors that directly rather than assuming "toggle" always means "add".
 async function toggleBookmark({ messageId }) { try { const data = await command('bookmark:toggle', { code: game.value.code, messageId }); if (data?.bookmark == null) { bookmarks.value = bookmarks.value.filter(b => b.messageId !== messageId); } else { const b = data.bookmark; bookmarks.value = bookmarks.value.some(x => x.messageId === b.messageId) ? bookmarks.value.map(x => x.messageId === b.messageId ? b : x) : [...bookmarks.value, b]; } } catch {} }
 async function annotateBookmark({ messageId, note }) { try { const data = await command('bookmark:note', { code: game.value.code, messageId, note }); if (data?.bookmark) { const b = data.bookmark; bookmarks.value = bookmarks.value.some(x => x.messageId === b.messageId) ? bookmarks.value.map(x => x.messageId === b.messageId ? b : x) : [...bookmarks.value, b]; } } catch {} }
+// The engine auto-files a bookmark straight into SQLite when it sends a
+// private "here's what happened" line (a crippling, a night-action recap,
+// an intel result) — that write never goes through toggleBookmark's ack, so
+// without this listener the entry is invisible until the next loadNotes().
+// Server targets 'bookmark:added' at the owner's own socket only (see
+// broadcastBookmark in index.js) — never a room broadcast — so nothing here
+// needs to check whose bookmark this is. Same replace-if-present/else-append
+// merge as toggleBookmark's handler above, so a replayed event can't
+// duplicate the row.
+function receiveBookmarkAdded(payload) { const b = payload?.bookmark; if (!b) return; bookmarks.value = bookmarks.value.some(x => x.messageId === b.messageId) ? bookmarks.value.map(x => x.messageId === b.messageId ? b : x) : [...bookmarks.value, b]; }
+// Bookmark jump target may be in a channel the view isn't currently
+// showing — private messages are folded into the 'public' bucket on
+// receipt (see receiveMessage below; chat:history has no 'private' channel
+// at all, see heresyGameManager.js's authorizeChannel), faction/graveyard
+// are real channels but only ever loaded on demand. Switches there (if
+// needed) and reloads that channel's FULL history from scratch —
+// loadHistory() with no cursor already loops until hasMore is false, which
+// is exactly "the entire channel" GameView's onJump needs before it can
+// give up and say the message truly isn't there. Whether the id actually
+// turns up is for the caller (GameView) to check in the DOM afterward.
+async function ensureChannelHistory(ch) { if (!game.value?.code) return; if (channel.value !== ch) channel.value = ch; await loadHistory(); }
+// Engine-authored private lines (role reveal, intel returns, night-action
+// reports) arrive live via receiveMessage, which folds them into the 'public'
+// bucket rather than a bucket of their own. That meant a reload silently wiped
+// every one of them: loadHistory only ever refetched channel 'public', and
+// nothing else held them — which is why jumping to a bookmarked private line
+// reported it as "outside the loaded history". Refetch them into the same
+// bucket so a reload restores the full log. The server scopes this channel to
+// `recipient_code = you` in SQL (see authorizeChannel/historyMessages), so it
+// can never return another player's private lines; spectators are refused
+// outright and skipped here too.
+async function loadPrivateHistory() {
+  if (!game.value?.code || spectator.value) return;
+  try {
+    let all = []; let cursor; let hasMore = true;
+    while (hasMore) {
+      const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: 'private', before: cursor, limit: 100 });
+      const batch = data?.messages || []; if (!batch.length) break;
+      all = [...batch, ...all]; hasMore = !!data?.hasMore; cursor = batch[0]?.id; if (!cursor) break;
+    }
+    if (all.length) mergeMessages('public', all);
+  } catch {}
+}
 async function submitVote(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
 async function retractVote() { try { await command('vote:retract', { code: game.value.code }); } catch {} }
 async function submitVoteAs(payload) { try { const vote=typeof payload==='string'?{choice:payload}:payload; const data=await command('vote:submit-as', { code: game.value.code, targetCode: vote.choice, justification: vote.justification }); if(data?.votes) game.value={...game.value,votes:data.votes}; } catch {} }
@@ -273,8 +316,8 @@ async function maybeAutoJoin() {
   if (!target || !savedName || !savedCode) return;
   await joinOrSpectate({ name: savedName, roomCode: target });
 }
-onMounted(() => { if (isAdminRoute) return; loadSettings(); clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); window.addEventListener('click', unlockAudio, { once: true }); window.addEventListener('keydown', unlockAudio, { once: true }); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
-onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
+onMounted(() => { if (isAdminRoute) return; loadSettings(); clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); socket.on('bookmark:added', receiveBookmarkAdded); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); window.addEventListener('click', unlockAudio, { once: true }); window.addEventListener('keydown', unlockAudio, { once: true }); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
+onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); socket.off('bookmark:added', receiveBookmarkAdded); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
 </script>
 
 <style scoped>

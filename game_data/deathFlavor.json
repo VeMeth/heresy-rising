@@ -34,9 +34,9 @@
     "{victim} was interrogated with surgical implements and left {severity}."
   ],
   "bloodRitualCripple": [
-    "{victim} was found broken and bleeding, marks of a coordinated assault plain on their body.",
-    "{victim} was beaten in the dark by hands that knew exactly where to strike.",
-    "{victim} staggered from the shadows, ribs cracked, breath ragged.",
-    "{victim} was left crumpled against a bulkhead, the cabal's warning made flesh."
+    "You woke broken and bleeding, marks of a coordinated assault plain on your body.",
+    "You were beaten in the dark by hands that knew exactly where to strike.",
+    "You staggered from the shadows, ribs cracked, breath ragged.",
+    "You were left crumpled against a bulkhead, the cabal's warning made flesh."
   ]
 }

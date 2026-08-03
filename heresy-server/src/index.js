@@ -130,6 +130,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
   gameManager.onAnnouncement((code,a)=>{broadcastAnnouncement(code,a);});
   gameManager.onBotPrompt((code,payload)=>{broadcastBotPrompt(code,payload);});
   gameManager.onChatMessage((code,message)=>{broadcastMessage(code,message);});
+  gameManager.onBookmark((code,ownerCode,bookmark)=>{broadcastBookmark(code,ownerCode,bookmark);});
   app.get('/api/health',(req,res)=>res.json({status:'ok',time:Date.now()}));
   app.get('/api/game/presets',(req,res)=>{res.set('Cache-Control','no-store').json(publicPresetMetadata(req.query.players));});
   // In production, a default/unchanged admin password must never grant access — fail closed.
@@ -286,6 +287,13 @@ export function createHeresyServer({ databasePath, now } = {}) {
   }
   // Targeted delivery to a single bot socket (identified by payload.playerCode).
   function broadcastBotPrompt(code,payload){const evt=payload.kind;for(const s of socketsInRoom(code)){if(!s.data.playerCode||s.data.playerCode!==payload.playerCode)continue;s.emit(evt,payload);}}
+  // Auto-filed bookmarks (autoBookmark) are hidden information — a dossier
+  // entry the engine filed on one player's behalf — so this mirrors
+  // broadcastBotPrompt's single-socket targeting rather than broadcastMessage's
+  // room fan-out: only the owner's own socket(s) ever see it, never io.to(code).
+  // Lets the client append the row to its bookmarks list live instead of
+  // waiting for the next notes:list reload (bugfix-round §4).
+  function broadcastBookmark(code,ownerCode,bookmark){for(const s of socketsInRoom(code)){if(!s.data.playerCode||s.data.playerCode!==ownerCode)continue;s.emit('bookmark:added',{bookmark});}}
   // Fan-out to every bot socket joined to `code`. `payloadFor(botPlayer)` builds
   // the per-bot payload (so we can stamp botId/role per recipient).
   function broadcastBots(code,event,payloadFor){for(const s of socketsInRoom(code)){if(!s.data.playerCode)continue;try{const player=gameManager.player(code,s.data.playerCode);if(!player||!player.is_bot)continue;s.emit(event,payloadFor(player));}catch{}}}
