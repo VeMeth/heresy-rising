@@ -1,6 +1,7 @@
 import { parseActionBlock, normalizeAction, stripThink } from './parseAction.js';
 import { assembleMessages } from '../prompts/assemble.js';
 import { recordSpend } from './registry.js';
+import { recordThought } from '../thoughts.js';
 
 const NUDGE_PREFIX = 'Your previous response did not include a valid JSON action. Re-emit ONLY the JSON action object (a ```action fenced block is also accepted), matching the schema. Your previous output (truncated):\n';
 const NUDGE_MAX_ECHO = 400;
@@ -12,6 +13,45 @@ const NUDGE_TRUNCATED = 'Do not explain. Emit ONLY the JSON action object.';
 // tokens for prompt assembly; this one estimates OUTPUT tokens and is
 // calibrated independently.
 function estimateTokens(str) { return Math.ceil((str || '').length / 4); }
+
+// Recovers whatever stripThink() (parseAction.js) would have DELETED from a
+// raw response, rather than what it keeps — this is the free reasoning
+// capture for local Qwen3 (BOT_THOUGHTS_FEED_PLAN.md §2.2 item 1): that
+// profile emits stray <think> blocks even under /no_think, and today that
+// text is thrown away entirely. Deliberately NOT implemented as a diff
+// against stripThink's output (fragile — stripThink trims/reflows) and
+// deliberately NOT a change to stripThink itself (not this file's export,
+// and other code depends on its exact surviving-text behaviour). Instead
+// this mirrors stripThink's three cases and captures the opposite side of
+// each one:
+//   1. closed <think>...</think> blocks — capture their inner text.
+//   2. an unclosed trailing <think> (generation cut off mid-thought) —
+//      capture everything from the tag to the end.
+//   3. an orphan </think> with no opener (MiniMax pre-fills the opening tag
+//      server-side) — capture everything up to the last such tag.
+// Returns null (not '') when there was nothing to capture, so callers can
+// cleanly fall back to `response.reasoningText` vs. this vs. null.
+function extractRemovedThink(raw) {
+  if (!raw) return null;
+  const text = String(raw);
+  const closedMatches = [...text.matchAll(/<think>([\s\S]*?)<\/think>/gi)];
+  let removed = closedMatches.map((m) => m[1]).join('\n');
+
+  const afterClosedRemoval = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  const openIdx = afterClosedRemoval.search(/<think>/i);
+  if (openIdx !== -1) {
+    const tail = afterClosedRemoval.slice(openIdx + '<think>'.length);
+    removed = removed ? `${removed}\n${tail}` : tail;
+  } else {
+    const closeIdx = afterClosedRemoval.toLowerCase().lastIndexOf('</think>');
+    if (closeIdx !== -1) {
+      const head = afterClosedRemoval.slice(0, closeIdx);
+      removed = removed ? `${removed}\n${head}` : head;
+    }
+  }
+  const trimmed = removed && removed.trim();
+  return trimmed || null;
+}
 
 // Fallback for the sessionless/test path (existing tests call
 // ActionLLM.generate with minimal fake sessions that have no `_profile`) and
@@ -57,12 +97,14 @@ export class ActionLLM {
     let lastText = '';
     for (let i = 0; i < attempts; i++) {
       let response;
+      const startedAt = Date.now();
       try {
         response = await this._chat.chat(messages);
       } catch (e) {
         console.warn(`[actionLLM] chat call failed (attempt ${i + 1}/${attempts}):`, e.message);
         break;
       }
+      const latencyMs = Date.now() - startedAt;
       lastText = String(response?.content ?? '');
       const usage = response?.usage || {};
 
@@ -94,6 +136,46 @@ export class ActionLLM {
 
       const parsed = parseActionBlock(lastText);
       const action = parsed ? normalizeAction(parsed) : null;
+
+      // Feed capture (plan §2.2 item 1) — one 'thinking' entry per attempt.
+      // reasoningText (MiniMax reasoning_split) wins when present; otherwise
+      // fall back to whatever stripThink() would have discarded (local
+      // Qwen3's stray <think> blocks — free capture). A parse failure
+      // followed by a nudge retry naturally produces two entries here, since
+      // this runs once per loop iteration regardless of outcome. Wrapped
+      // defensively — recordThought() itself never throws, but this call
+      // site must not be able to break a bot's turn either.
+      try {
+        const thought = response?.reasoningText || extractRemovedThink(lastText);
+        recordThought({
+          conclaveCode: session?.conclaveCode,
+          botId: session?.id,
+          playerCode: session?.playerCode,
+          botName: session?.name,
+          profileId: session?.profileId,
+          role: session?.role,
+          faction: session?.faction,
+          round: session?.round,
+          phase: session?.phase,
+          kind: 'thinking',
+          summary: action
+            ? `attempt ${i + 1}: parsed ${action.kind}`
+            : `attempt ${i + 1}: failed to parse${response?.finishReason === 'length' ? ' (truncated)' : ''}`,
+          thought,
+          detail: {
+            promptKind: prompt?.kind,
+            attempt: i + 1,
+            latencyMs,
+            finishReason: response?.finishReason,
+            inTok,
+            outTok,
+            totalTokens,
+            parsed: !!action,
+            actionKind: action ? action.kind : null
+          }
+        });
+      } catch { /* observability must never break a bot's turn */ }
+
       if (action) return action;
 
       // Retry with a short nudge only — reset to [system, user] rather than

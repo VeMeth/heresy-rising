@@ -177,12 +177,24 @@ export function createHeresyServer({ databasePath, now } = {}) {
   const botsLocked = process.env.NODE_ENV === 'production' && isDefaultAdminApiKey();
   if (botsLocked) console.error('[SECURITY] Refusing bot admin proxy: ADMIN_API_KEY is unset in production.');
   function botProxy(req,res,subPath,{method,withBody}){const url=`${config.botManager.url}${subPath}`;const init={method,headers:{'Authorization':`Bearer ${config.botManager.adminApiKey}`,'Content-Type':'application/json','X-Proxied-From':'heresy-server'}};if(withBody)init.body=JSON.stringify(req.body||{});fetch(url,init).then(async upstream=>{const text=await upstream.text();res.status(upstream.status);const ct=upstream.headers.get('content-type');if(ct)res.set('Content-Type',ct);res.send(text);}).catch(e=>{res.status(502).json({error:'Bot manager unreachable',detail:e.message});});}
+  // botProxy builds its upstream URL from subPath alone — it never looks at
+  // req.query, so a GET route that needs to forward query params (like
+  // /thoughts's since/conclave/bot/kinds/limit) must bake them into subPath
+  // itself. new URL(...).search re-serializes req.originalUrl's query string
+  // (or '' if there is none) rather than hand-splicing '?'.
+  function forwardQuery(req){return new URL(req.originalUrl,'http://x').search;}
   function requireBotsAdmin(req,res,next){res.set('Cache-Control','no-store');if(botsLocked)return res.status(503).json({error:'ADMIN_API_KEY is not configured'});if(!constantTimeEquals(req.get('X-Admin-Password'),config.adminPassword))return res.status(401).json({error:'Admin password required'});next();}
   app.post('/api/admin/bots',requireBotsAdmin,(req,res)=>botProxy(req,res,'/bots',{method:'POST',withBody:true}));
   app.get('/api/admin/bots',requireBotsAdmin,(req,res)=>botProxy(req,res,'/bots',{method:'GET',withBody:false}));
   // Must be registered before /api/admin/bots/:id — Express matches route
-  // order, and :id would otherwise swallow 'profiles' as a bot id.
+  // order, and :id would otherwise swallow 'profiles' or 'thoughts' as a bot id.
   app.get('/api/admin/bots/profiles',requireBotsAdmin,(req,res)=>botProxy(req,res,'/profiles',{method:'GET',withBody:false}));
+  // GET /thoughts — the cross-bot admin feed (BOT_THOUGHTS_FEED_PLAN.md §2.3).
+  // Pure hidden information (roles, factions, bot reasoning); requireBotsAdmin
+  // gates it exactly like every other bot route. Query string (since/conclave/
+  // bot/kinds/limit) is forwarded verbatim to the bot-manager, which does all
+  // validation/clamping itself — this hop trusts nothing beyond passing it through.
+  app.get('/api/admin/bots/thoughts',requireBotsAdmin,(req,res)=>botProxy(req,res,`/thoughts${forwardQuery(req)}`,{method:'GET',withBody:false}));
   app.get('/api/admin/bots/:id',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}`,{method:'GET',withBody:false}));
   app.delete('/api/admin/bots/:id',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}`,{method:'DELETE',withBody:false}));
   app.post('/api/admin/bots/:id/notes',requireBotsAdmin,(req,res)=>botProxy(req,res,`/bots/${encodeURIComponent(req.params.id)}/notes`,{method:'POST',withBody:true}));

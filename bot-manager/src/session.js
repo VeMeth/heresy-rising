@@ -5,6 +5,7 @@ import { actionValidator } from './validator.js';
 import { isNearDuplicate } from './textDedup.js';
 import { enqueueLLMCall } from './llm/queue.js';
 import { resolveProfile } from './llm/registry.js';
+import { recordThought } from './thoughts.js';
 
 // Phase 3 wires the engine Socket.IO client + the decision loop against a
 // pluggable `llm` (OpenAIChat / MockChatLLM via ActionLLM). Until configured,
@@ -546,6 +547,34 @@ export class BotSession {
     this.actionLog.push({ ts: Date.now(), phase: this.phase, round: this.round, ...entry });
     // Cap the log to the last 50 entries
     if (this.actionLog.length > 50) this.actionLog.splice(0, this.actionLog.length - 50);
+    this._recordThought(entry);
+  }
+
+  // Mirrors every _act() outcome into the cross-bot thoughts feed
+  // (BOT_THOUGHTS_FEED_PLAN.md §2.2 item 2). _logAction is already the
+  // single funnel for chat/vote/action/pass/rejected/suppressed-duplicate/
+  // invalid_action/llm_error/socket_offline — this is the one place that
+  // mirrors all of them; do NOT scatter recordThought calls elsewhere in
+  // _act(). Never allowed to break a bot's turn: recordThought() itself
+  // never throws, but this call site is wrapped defensively anyway since it
+  // runs on every single outcome of every turn.
+  _recordThought(entry) {
+    try {
+      recordThought({
+        conclaveCode: this.conclaveCode,
+        botId: this.id,
+        playerCode: this.playerCode,
+        botName: this.name,
+        profileId: this.profileId,
+        role: this.role,
+        faction: this.faction,
+        round: this.round,
+        phase: this.phase,
+        kind: feedKindForLogEntry(entry),
+        summary: feedSummaryForLogEntry(entry),
+        detail: feedDetailForLogEntry(entry)
+      });
+    } catch { /* observability must never break a bot's turn */ }
   }
 
   // Unwraps socket.io's `(err, ack)` callback shape so the rest of the session
@@ -601,4 +630,76 @@ function summarizeIntel(meta) {
   if (meta.ownZone) bits.push(`ownZone=${meta.ownZone}`);
   if (bits.length) return bits.join(' ');
   return JSON.stringify(meta).slice(0, 160);
+}
+
+// --- _logAction -> thoughts feed mapping (BOT_THOUGHTS_FEED_PLAN.md §2.2) --
+//
+// _logAction's `entry.kind` is the internal actionLog vocabulary (chat, vote,
+// action, pass, sleep, rejected, invalid_action, llm_error, socket_offline —
+// see every _logAction() call site in _act() above). The feed only has six
+// kinds; these three helpers do the one-time mapping so _recordThought stays
+// a thin dispatcher.
+
+function truncateExcerpt(str, n = 80) {
+  if (typeof str !== 'string' || !str) return '';
+  return str.length > n ? `${str.slice(0, n)}…` : str;
+}
+
+function feedKindForLogEntry(entry) {
+  if (entry?.kind === 'rejected') return 'rejected';
+  if (entry?.kind === 'llm_error' || entry?.kind === 'socket_offline' || entry?.kind === 'invalid_action') return 'error';
+  // A `pass` carrying a note is NOT the model choosing to stay quiet — it is
+  // us blocking something the model actually produced. There are three such
+  // guards in _act(), and an operator reading the feed needs all three to
+  // look different from a genuine pass, otherwise "the bot said nothing"
+  // hides "the bot tried to speak and we stopped it":
+  //   - 'suppressed near-duplicate chat'   (textDedup guard)
+  //   - 'already voted for X this round'   (re-vote guard)
+  //   - 'chat_turn cannot emit vote|night_action' (out-of-turn guard)
+  // Any noted pass is therefore a suppression; a bare pass stays an action.
+  // Keyed on the presence of a note rather than on matching each string, so a
+  // future fourth guard is classified correctly without touching this.
+  if (entry?.kind === 'pass' && typeof entry.note === 'string' && entry.note.trim()) return 'suppressed';
+  return 'action';
+}
+
+function feedSummaryForLogEntry(entry) {
+  switch (entry?.kind) {
+    case 'chat':
+      return `chatted — "${truncateExcerpt(entry.text)}"`;
+    case 'vote': {
+      const target = entry.target || 'skip';
+      const justification = entry.action?.justification;
+      return justification ? `voted ${target} — "${truncateExcerpt(justification)}"` : `voted ${target}`;
+    }
+    case 'action': {
+      const target = entry.targetCode || entry.target;
+      return target ? `${entry.verb || 'acted'} → ${target}` : (entry.verb || 'acted');
+    }
+    case 'rejected':
+      return `rejected — ${entry.reason || 'unknown reason'}`;
+    case 'invalid_action':
+      return 'error — invalid action';
+    case 'llm_error':
+      return `error — ${entry.error || 'llm error'}`;
+    case 'socket_offline':
+      return 'error — socket offline';
+    case 'pass':
+    case 'sleep':
+      return entry.note ? `passed — ${entry.note}` : 'passed';
+    default:
+      return entry?.kind || 'unknown';
+  }
+}
+
+function feedDetailForLogEntry(entry) {
+  return {
+    verb: entry?.verb,
+    target: entry?.target,
+    targetCode: entry?.targetCode,
+    reason: entry?.reason,
+    note: entry?.note,
+    text: entry?.text,
+    error: entry?.error
+  };
 }

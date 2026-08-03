@@ -411,12 +411,16 @@
             <button type="button" :class="{ active: botsPolling }" @click="toggleBotsPolling">{{ botsPolling ? 'Auto: On' : 'Auto: Off' }}</button>
           </div>
         </header>
+        <nav class="tabs">
+          <button type="button" :class="{ active: botsView === 'sessions' }" @click="botsView = 'sessions'">Sessions</button>
+          <button type="button" :class="{ active: botsView === 'thoughts' }" @click="openThoughtsView">Thoughts Feed</button>
+        </nav>
         <p v-if="botError" class="error">{{ botError }}</p>
         <p v-if="cloudBots.length > 0" class="warning-banner">💰 {{ cloudBots.length }} cloud bot{{ cloudBots.length === 1 ? '' : 's' }} active — ${{ cloudSpendUsd.toFixed(2) }} spent this game.</p>
         <p v-if="bots.length > 0 && bots.every(b => b.llmPassive)" class="warning-banner">⚠️ All bots are in <strong>PASSIVE</strong> mode — their model profile has no working LLM endpoint or credentials. They will join games but pass every turn silently.</p>
         <p v-if="bots.length > 0 && bots.some(b => b.llmPassive) && !bots.every(b => b.llmPassive)" class="warning-banner">⚠️ Some bots are in <strong>PASSIVE</strong> mode — their model profile has no working LLM endpoint or credentials.</p>
 
-        <section class="spawn-form">
+        <section v-if="botsView === 'sessions'" class="spawn-form">
           <h3>Spawn bot</h3>
           <div class="spawn-grid">
             <label>Conclave code
@@ -450,7 +454,7 @@
           </p>
         </section>
 
-        <section>
+        <section v-if="botsView === 'sessions'">
           <h3>Active sessions ({{ bots.length }})</h3>
           <div class="table-wrap">
             <table>
@@ -487,7 +491,7 @@
           </div>
         </section>
 
-        <section v-if="selectedBot" class="bot-detail">
+        <section v-if="selectedBot && botsView === 'sessions'" class="bot-detail">
           <header class="detail-head">
             <div>
               <span>BOT</span>
@@ -623,6 +627,50 @@
             <pre>{{ pretty(selectedBot) }}</pre>
           </section>
         </section>
+
+        <!-- Thoughts Feed — cross-bot live feed of thinking/action/rejected/
+             suppressed/error/director entries (BOT_THOUGHTS_FEED_PLAN.md §2.4).
+             Pure hidden information (roles, factions, private reasoning) —
+             admin-only, REST-polled, never surfaced to a player. -->
+        <section v-if="botsView === 'thoughts'" class="thoughts-feed">
+          <p class="feed-hint">Hidden information — bot roles, factions, and private reasoning. Admin-only; never surfaced to players.</p>
+          <p v-if="thoughtsError" class="error">{{ thoughtsError }}</p>
+          <p v-if="thoughtsDropped" class="warning-banner">⚠️ The feed fell behind its 500-entry server buffer and skipped older matching entries. Narrow the filters below to keep up — some history here is permanently lost.</p>
+
+          <div class="thoughts-toolbar">
+            <label>Conclave<input v-model="thoughtsFilterConclave" @change="applyThoughtsFilters" placeholder="ABC123" maxlength="8" /></label>
+            <label>Bot ID<input v-model="thoughtsFilterBot" @change="applyThoughtsFilters" placeholder="P-03" /></label>
+            <div class="thoughts-kind-checks">
+              <label v-for="k in THOUGHT_KINDS" :key="k" class="thoughts-kind-check">
+                <input type="checkbox" :checked="thoughtsSelectedKinds.includes(k)" @change="toggleThoughtKind(k)" />
+                <span class="badge" :class="kindBadgeClass(k)">{{ kindLabel(k) }}</span>
+              </label>
+            </div>
+            <button type="button" :class="{ active: autoFollow }" @click="toggleThoughtsFollow">
+              {{ autoFollow ? 'Auto-follow: On' : (newThoughtsCount > 0 ? `Resume (${newThoughtsCount} new)` : 'Resume auto-follow') }}
+            </button>
+          </div>
+
+          <div class="scroll-list thoughts-list">
+            <div v-for="entry in displayedThoughts" :key="entry.seq" class="thought-entry">
+              <div class="thought-head">
+                <span class="thought-time">{{ formatDate(entry.ts) }}</span>
+                <strong>{{ entry.botName || entry.botId || '-' }}</strong>
+                <span class="badge" :class="modelBadgeClass(entry.profileId)" :title="entry.profileId || 'local'">{{ profileLabel(entry.profileId) }}</span>
+                <span class="thought-round">R{{ entry.round ?? '-' }} · {{ entry.phase || '-' }}</span>
+                <span class="badge" :class="kindBadgeClass(entry.kind)">{{ kindLabel(entry.kind) }}</span>
+              </div>
+              <p class="thought-summary">{{ entry.summary }}</p>
+              <button v-if="entry.thought" type="button" class="thought-toggle" @click="toggleThoughtExpanded(entry.seq)">{{ expandedThoughts.has(entry.seq) ? 'Hide reasoning ▲' : 'Show reasoning ▼' }}</button>
+              <pre v-if="entry.thought && expandedThoughts.has(entry.seq)" class="thought-text">{{ entry.thought }}</pre>
+              <pre v-if="expandedThoughts.has(entry.seq) && entry.detail && Object.keys(entry.detail).length" class="thought-detail">{{ pretty(entry.detail) }}</pre>
+            </div>
+            <p v-if="!displayedThoughts.length" class="empty">
+              No feed entries{{ (thoughtsFilterConclave || thoughtsFilterBot || thoughtsSelectedKinds.length < THOUGHT_KINDS.length) ? ' match these filters.' : ' yet.' }}
+              This is expected, not broken: local-profile bots run with <code>/no_think</code> and a tight token cap, so they mostly show up as <strong>action</strong> entries with little or no reasoning text. MiniMax-profile bots produce full <strong>thinking</strong> entries — spawn or watch one of those to see reasoning traces here.
+            </p>
+          </div>
+        </section>
       </section>
 
       <section v-if="tab === 'simulator'" class="simulator">
@@ -712,7 +760,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { pickBotName } from '../botNames.js';
 import { validRoles, hardRules, presetFlavor } from '../compositionData.js';
 import { validateComposition } from '../server-composition-validator.js';
@@ -762,6 +810,133 @@ const botTabs = [
   { id: 'notes', label: 'Notes' },
   { id: 'inspect', label: 'Inspect' }
 ];
+// Sessions table + per-bot detail (unchanged) vs. the new cross-bot Thoughts
+// Feed — a third view inside the same Bots tab (BOT_THOUGHTS_FEED_PLAN.md §2.4).
+const botsView = ref('sessions');
+
+// ── Thoughts Feed state ──────────────────────────────────────────────────
+// GET /api/admin/bots/thoughts proxies the bot-manager's ring buffer (500
+// entries max, memory-only, admin-gated — see thoughts.js on that side).
+// `thoughtsAll` mirrors it client-side, oldest-first, capped at the same 500
+// so the DOM never grows unboundedly; `thoughtsSince` is the poll cursor and
+// MUST be set from the response's `latestSeq`, never from the last entry's
+// seq — an empty poll (nothing new since `since`) would otherwise stall the
+// cursor forever (see the API contract note in the plan/task brief).
+const THOUGHT_KINDS = ['thinking', 'action', 'rejected', 'suppressed', 'error', 'director'];
+const THOUGHT_KIND_LABELS = { thinking: 'Thinking', action: 'Action', rejected: 'Rejected', suppressed: 'Suppressed', error: 'Error', director: 'Director' };
+const THOUGHT_KIND_BADGE = { thinking: 'badge-thinking', action: 'badge-active', rejected: 'badge-rejected', suppressed: 'badge-suppressed', error: 'badge-error', director: 'badge-director' };
+const thoughtsAll = ref([]); // oldest-first, length <= 500
+const thoughtsSince = ref(0);
+const thoughtsError = ref('');
+const thoughtsDropped = ref(false);
+const thoughtsFilterConclave = ref('');
+const thoughtsFilterBot = ref('');
+const thoughtsSelectedKinds = ref([...THOUGHT_KINDS]);
+const expandedThoughts = ref(new Set()); // per-entry expand state, keyed by seq — thought text is collapsed by default
+// Auto-follow: while on, the feed always shows the live buffer. Pausing
+// freezes the *displayed* list at the seq it was paused on — polling and
+// buffering continue underneath so nothing is lost, only the view stops
+// rearranging itself while the operator is mid-read (plan §2.4).
+const autoFollow = ref(true);
+const pausedAtSeq = ref(null);
+let thoughtsPollTimer = null;
+const THOUGHTS_BUFFER_CAP = 500;
+
+function kindLabel(kind) { return THOUGHT_KIND_LABELS[kind] || kind; }
+function kindBadgeClass(kind) { return THOUGHT_KIND_BADGE[kind] || 'badge-na'; }
+
+const displayedThoughts = computed(() => {
+  const source = (!autoFollow.value && pausedAtSeq.value != null)
+    ? thoughtsAll.value.filter((e) => e.seq <= pausedAtSeq.value)
+    : thoughtsAll.value;
+  return source.slice().reverse();
+});
+const newThoughtsCount = computed(() => {
+  if (autoFollow.value || pausedAtSeq.value == null) return 0;
+  return thoughtsAll.value.filter((e) => e.seq > pausedAtSeq.value).length;
+});
+
+function toggleThoughtExpanded(seq) {
+  if (expandedThoughts.value.has(seq)) expandedThoughts.value.delete(seq);
+  else expandedThoughts.value.add(seq);
+}
+function toggleThoughtsFollow() {
+  if (autoFollow.value) {
+    pausedAtSeq.value = thoughtsAll.value.length ? thoughtsAll.value[thoughtsAll.value.length - 1].seq : thoughtsSince.value;
+    autoFollow.value = false;
+  } else {
+    pausedAtSeq.value = null;
+    autoFollow.value = true;
+  }
+}
+function toggleThoughtKind(kind) {
+  const idx = thoughtsSelectedKinds.value.indexOf(kind);
+  if (idx === -1) thoughtsSelectedKinds.value.push(kind);
+  // Never let the last kind be unchecked — an empty kinds filter is
+  // ambiguous (match nothing, or match everything?) so we just disallow it.
+  else if (thoughtsSelectedKinds.value.length > 1) thoughtsSelectedKinds.value.splice(idx, 1);
+  applyThoughtsFilters();
+}
+// Changing any filter must reset the cursor and refetch from scratch — showing
+// a stale mix of pre-filter-change and post-filter-change entries in one list
+// would be actively misleading, not just incomplete.
+function applyThoughtsFilters() {
+  thoughtsSince.value = 0;
+  thoughtsAll.value = [];
+  thoughtsDropped.value = false;
+  thoughtsError.value = '';
+  pausedAtSeq.value = null;
+  autoFollow.value = true;
+  expandedThoughts.value = new Set();
+  pollThoughts();
+}
+async function pollThoughts() {
+  try {
+    const params = new URLSearchParams();
+    params.set('since', String(thoughtsSince.value));
+    params.set('limit', String(THOUGHTS_BUFFER_CAP));
+    if (thoughtsFilterConclave.value.trim()) params.set('conclave', thoughtsFilterConclave.value.trim().toUpperCase());
+    if (thoughtsFilterBot.value.trim()) params.set('bot', thoughtsFilterBot.value.trim());
+    if (thoughtsSelectedKinds.value.length < THOUGHT_KINDS.length) params.set('kinds', thoughtsSelectedKinds.value.join(','));
+    const data = await adminFetch(`/api/admin/bots/thoughts?${params.toString()}`);
+    // Always advance the cursor to latestSeq, even on an empty/zero-match
+    // poll — using the last *entry's* seq instead would stall the cursor
+    // whenever a poll returns nothing new.
+    thoughtsSince.value = data.latestSeq ?? thoughtsSince.value;
+    thoughtsDropped.value = !!data.dropped;
+    if (Array.isArray(data.entries) && data.entries.length) {
+      thoughtsAll.value = thoughtsAll.value.concat(data.entries);
+      if (thoughtsAll.value.length > THOUGHTS_BUFFER_CAP) {
+        thoughtsAll.value.splice(0, thoughtsAll.value.length - THOUGHTS_BUFFER_CAP);
+      }
+    }
+    thoughtsError.value = '';
+  } catch (err) {
+    thoughtsError.value = err.message;
+  }
+}
+function startThoughtsPolling() {
+  if (thoughtsPollTimer) return;
+  pollThoughts();
+  thoughtsPollTimer = setInterval(pollThoughts, 3000);
+}
+function stopThoughtsPolling() {
+  if (thoughtsPollTimer) { clearInterval(thoughtsPollTimer); thoughtsPollTimer = null; }
+}
+async function openThoughtsView() {
+  botsView.value = 'thoughts';
+}
+// Poll only while the feed is actually the visible view — leaving the Bots
+// tab, or switching back to Sessions within it, must stop the interval
+// (mirrors the botsPollTimer teardown pattern used for the sessions table).
+watch(() => `${tab.value}:${botsView.value}`, (key) => {
+  if (key === 'bots:thoughts') startThoughtsPolling();
+  else stopThoughtsPolling();
+});
+onUnmounted(() => {
+  if (botsPollTimer) { clearInterval(botsPollTimer); botsPollTimer = null; }
+  stopThoughtsPolling();
+});
 const phaseSummaries = computed(() => {
   const notes = botNotes.value || {};
   return Object.fromEntries(
@@ -860,6 +1035,9 @@ function logout() {
   authenticated.value = false;
   if (botsPollTimer) { clearInterval(botsPollTimer); botsPollTimer = null; }
   botsPolling.value = false;
+  stopThoughtsPolling();
+  thoughtsAll.value = [];
+  thoughtsSince.value = 0;
 }
 async function loadOverview() {
   error.value = '';
@@ -1437,4 +1615,28 @@ if (authenticated.value) loadOverview();
 .ev-align { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
 .ev-align.loyalist { color: #9fbf8a; border: 1px solid #3a5a30; background: #0d1a0a; }
 .ev-align.heretic { color: #d58c75; border: 1px solid #5a3a36; background: #1f0d0b; }
+
+/* Thoughts Feed (BOT_THOUGHTS_FEED_PLAN.md §2.4) */
+.badge-thinking { display: inline-block; background: #1a2c38; color: #7ab8e0; border: 1px solid #35566d; padding: 2px 6px; font-size: 9px; font-weight: 700; letter-spacing: .12em; border-radius: 2px; white-space: nowrap; }
+.badge-suppressed { display: inline-block; background: #3a2410; color: #e0a15c; border: 1px solid #8a5a28; padding: 2px 6px; font-size: 9px; font-weight: 700; letter-spacing: .12em; border-radius: 2px; white-space: nowrap; }
+.badge-error { display: inline-block; background: #4a1210; color: #ff8a75; border: 1px solid #a83f30; padding: 2px 6px; font-size: 9px; font-weight: 700; letter-spacing: .12em; border-radius: 2px; white-space: nowrap; }
+.badge-director { display: inline-block; background: #241a38; color: #b89ae0; border: 1px solid #5c3f80; padding: 2px 6px; font-size: 9px; font-weight: 700; letter-spacing: .12em; border-radius: 2px; white-space: nowrap; }
+.feed-hint { color: #8f9287; font-size: 11px; margin: 0 0 10px; }
+.thoughts-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin-bottom: 14px; }
+.thoughts-toolbar label { min-width: 130px; }
+.thoughts-kind-checks { display: flex; flex-wrap: wrap; gap: 8px; }
+.thoughts-kind-check { display: flex; flex-direction: row; align-items: center; gap: 4px; text-transform: none; font-weight: 400; }
+.thoughts-kind-check input { width: auto; }
+.thoughts-toolbar > button { align-self: flex-end; }
+.thoughts-toolbar > button.active { background: #1f3a25; border-color: #3a6d4a; color: #74c68a; }
+.thoughts-list { max-height: 640px; display: grid; gap: 8px; padding: 10px; }
+.thought-entry { border-bottom: 1px solid #252820; padding: 10px 4px; white-space: normal; }
+.thought-entry:last-child { border-bottom: none; }
+.thought-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 5px; }
+.thought-time { color: #8f9287; font-size: 10px; }
+.thought-round { color: #8f9287; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.thought-summary { margin: 0; font-size: 12px; line-height: 1.5; color: #e7e3d5; }
+.thought-toggle { margin-top: 6px; background: transparent; border: 1px solid #34372f; color: #b69a5c; padding: 3px 8px; font-size: 9px; }
+.thought-text { margin-top: 6px; max-height: 260px; white-space: pre-wrap; font-size: 11px; }
+.thought-detail { margin-top: 6px; max-height: 160px; font-size: 10px; color: #8f9287; }
 </style>

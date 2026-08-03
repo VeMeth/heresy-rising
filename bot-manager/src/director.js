@@ -6,6 +6,7 @@
 // load on an already-serialized local model (one call to pick a speaker,
 // another to speak).
 import { queueDepth } from './llm/queue.js';
+import { recordThought } from './thoughts.js';
 
 const RING_SIZE = 30;
 
@@ -150,7 +151,7 @@ export class ConversationDirector {
     const top = scored[0];
     const lane = top.session._profile?.lane || 'local';
     if (queueDepth(lane) > threshold) return; // let this lane's in-flight calls drain first
-    await this._speak(top.session, top.st, 'reactive');
+    await this._speak(top.session, top.st, 'reactive', top.score);
   }
 
   _score(session, st) {
@@ -183,7 +184,7 @@ export class ConversationDirector {
     return weighted >= threshold ? weighted : 0;
   }
 
-  async _speak(session, st, reason) {
+  async _speak(session, st, reason, score = null) {
     this._turnInFlight = true;
     try {
       // Staleness re-check at dequeue time — state may have moved on while
@@ -191,6 +192,28 @@ export class ConversationDirector {
       if (!session.alive || this._lastPhase !== 'day') return;
       if ((session._chatSentThisPhase || 0) >= (Number(this._config.botChatPerPhaseMax) || 3)) return;
       st.lastSpokeAt = this._now();
+      // Feed capture (plan §2.2 item 3) — one entry per actual speak
+      // decision (not per tick, which would flood the buffer at a 4s
+      // cadence): this is the only place a bot is actually about to speak,
+      // so it's the answer to "why did that bot just talk / why is that bot
+      // silent" that today only exists as the ephemeral `reason` string.
+      // Defensive: this must never be able to block the actual speak.
+      try {
+        recordThought({
+          conclaveCode: this.conclaveCode,
+          botId: session.id,
+          playerCode: session.playerCode,
+          botName: session.name,
+          profileId: session.profileId,
+          role: session.role,
+          faction: session.faction,
+          round: session.round,
+          phase: session.phase,
+          kind: 'director',
+          summary: `chose ${session.name || session.playerCode} to speak — ${reason}${typeof score === 'number' ? ` (score ${score.toFixed(2)})` : ''}`,
+          detail: { reason, score: typeof score === 'number' ? score : null }
+        });
+      } catch { /* observability must never break a bot's turn */ }
       await session.takeChatTurn(reason);
     } catch (e) {
       console.warn(`[director] speak failed for ${session.playerCode}:`, e.message);

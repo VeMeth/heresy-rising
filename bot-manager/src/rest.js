@@ -2,6 +2,10 @@ import { requireManagerAuth } from './auth.js';
 import { BotSession } from './session.js';
 import { resolveProfile, llmFor, listProfiles, spentLast24h } from './llm/registry.js';
 import { PROFILES } from './llm/profiles.js';
+import { readThoughts } from './thoughts.js';
+
+const THOUGHTS_LIMIT_DEFAULT = 200;
+const THOUGHTS_LIMIT_MAX = 500; // matches thoughts.js's own READ_LIMIT_MAX cap
 
 // True for a stored session's profileId if that profile is a cloud (paid)
 // provider. A session with no profileId (pre-profile snapshot, or a `local`
@@ -115,6 +119,32 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
   // Never includes baseUrl/apiKey (see llm/registry.js::listProfiles).
   app.get('/profiles', auth, (_req, res) => {
     res.json(listProfiles());
+  });
+
+  // GET /thoughts — the cross-bot admin feed (BOT_THOUGHTS_FEED_PLAN.md §2.1/§3).
+  // Pure hidden information (roles, factions, a bot's private reasoning) —
+  // admin-gated like every other route here, never proxied to a player.
+  // Registered as a standalone top-level path so there's no risk of Express
+  // matching it against a `/bots/:id`-shaped route (the trap the /profiles
+  // route hit); the proxy hop in heresy-server still needs its own ordering
+  // care against '/api/admin/bots/:id', but that's this route's caller's problem.
+  app.get('/thoughts', auth, (req, res) => {
+    const since = Number(req.query.since);
+    const limitRaw = Number(req.query.limit);
+    const limit = Number.isFinite(limitRaw)
+      ? Math.max(1, Math.min(THOUGHTS_LIMIT_MAX, Math.trunc(limitRaw)))
+      : THOUGHTS_LIMIT_DEFAULT;
+    const kinds = typeof req.query.kinds === 'string'
+      ? req.query.kinds.split(',').map((k) => k.trim()).filter(Boolean)
+      : undefined;
+    const { entries, latestSeq, dropped } = readThoughts({
+      since: Number.isFinite(since) ? since : 0,
+      conclaveCode: req.query.conclave || undefined,
+      botId: req.query.bot || undefined,
+      kinds,
+      limit
+    });
+    res.json({ entries, latestSeq, dropped });
   });
 
   // GET /bots/:id — inspect one session.
