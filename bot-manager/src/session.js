@@ -4,6 +4,7 @@ import { buildEnginePayload } from './actionDispatch.js';
 import { actionValidator } from './validator.js';
 import { isNearDuplicate } from './textDedup.js';
 import { enqueueLLMCall } from './llm/queue.js';
+import { resolveProfile } from './llm/registry.js';
 
 // Phase 3 wires the engine Socket.IO client + the decision loop against a
 // pluggable `llm` (OpenAIChat / MockChatLLM via ActionLLM). Until configured,
@@ -22,19 +23,34 @@ export class BotSession {
    * @param {string} [params.name]
    * @param {object} [params.personaOverrides]
    * @param {number} [params.costCeiling]
+   * @param {number} [params.costCeilingUsd]
    * @param {object} [params.config]
    * @param {object} [params.llm]
+   * @param {string} [params.profileId]
    * @param {string} [params.engineBaseUrl]
    * @param {object} [params.persistence]
    * @param {object} [params.snapshot]
    */
   constructor(params) {
-    const { id, conclaveCode, playerCode, name, personaOverrides, costCeiling, config, llm, engineBaseUrl, persistence, snapshot: snap } = params;
+    const { id, conclaveCode, playerCode, name, personaOverrides, costCeiling, costCeilingUsd, config, llm, profileId, engineBaseUrl, persistence, snapshot: snap } = params;
     this.id = id;
     this.playerCode = playerCode || id;
     this.conclaveCode = conclaveCode;
     this.name = name || 'Heretic Bot';
     this._persistence = persistence || null;
+    // Resolve the model profile FIRST, before anything else — agent C's
+    // prompt-assembly code reads session._profile for budget scaling, and it
+    // must be set before any LLM call can possibly happen. A restored
+    // snapshot's profile wins over a constructor-passed profileId (a restart
+    // must bring a bot back on the profile it was actually spawned with);
+    // resolveProfile(undefined) falls back through BOT_DEFAULT_PROFILE to
+    // 'local', matching a pre-profile snapshot or a spawn with no `profile`.
+    // rest.js already validates the profile before construction, so a throw
+    // here in practice only fires for a stale/renamed profile id in an old
+    // snapshot — index.js's restore loop already wraps `new BotSession(...)`
+    // in try/catch and skips that session, which is the right failure mode.
+    this._profile = resolveProfile(snap ? snap.profile : profileId);
+    this.profileId = this._profile.id;
     if (snap) {
       // Restore from a previously-saved snapshot.
       this.role = snap.role ?? null;
@@ -48,13 +64,21 @@ export class BotSession {
       this.personaOverrides = snap.personaOverrides ?? null;
       this.costCeiling = snap.costCeiling ?? (config?.maxTokensPerGame || 50000);
       this.tokensUsed = snap.tokensUsed ?? 0;
+      // USD side of the budget gate (plan §3.5). snap.costCeilingUsd carries
+      // forward a per-spawn override across a restart; falling back to the
+      // resolved profile's default (Infinity for `local`, so the gate below
+      // can never fire on cost for a local bot) rather than to `costCeiling`
+      // param — a restore doesn't get a fresh constructor override.
+      this.costCeilingUsd = snap.costCeilingUsd ?? this._profile.costCeilingUsd;
+      this.costUsd = snap.costUsd ?? 0;
+      this.reasoningTokens = snap.reasoningTokens ?? 0; // admin visibility only — already inside tokensUsed/costUsd, never billed twice
       this.lastAction = snap.lastAction || 'restored';
       this.startedAt = snap.startedAt ?? Date.now();
-      this.shortTermMemory = new BufferWindow({ windowSize: 20 });
+      this.shortTermMemory = new BufferWindow({ windowSize: this._profile.memoryWindow });
       if (Array.isArray(snap.shortTermMemory)) {
         for (const item of snap.shortTermMemory) this.shortTermMemory.append(item);
       }
-      this.notes = new StructuredNotes();
+      this.notes = new StructuredNotes({ maxKeys: this._profile.noteKeys });
       if (snap.notes && typeof snap.notes === 'object') {
         for (const [k, v] of Object.entries(snap.notes)) this.notes.set(k, v);
       }
@@ -78,11 +102,22 @@ export class BotSession {
       this.sessionInit = null;
       this.personaOverrides = personaOverrides || null;
       this.costCeiling = costCeiling || config.maxTokensPerGame;
+      // costCeilingUsd is overridable per-spawn the same way costCeiling is;
+      // `??` (not `||`) so an explicit 0 override (e.g. a test wanting an
+      // immediately-exhausted cloud bot) isn't silently replaced by the
+      // profile default.
+      this.costCeilingUsd = costCeilingUsd ?? this._profile.costCeilingUsd;
       this.tokensUsed = 0;
+      this.costUsd = 0;
+      this.reasoningTokens = 0;
       this.lastAction = 'init';
       this.startedAt = Date.now();
-      this.shortTermMemory = new BufferWindow({ windowSize: 20 });
-      this.notes = new StructuredNotes();
+      // Memory depth is per-profile: an 8k local model keeps the original
+      // 20-event window / 15-key note ledger, while a big-context cloud
+      // profile can afford to remember proportionally more of the game
+      // (see llm/profiles.js memoryWindow/noteKeys, plan §3.6).
+      this.shortTermMemory = new BufferWindow({ windowSize: this._profile.memoryWindow });
+      this.notes = new StructuredNotes({ maxKeys: this._profile.noteKeys });
       this.rollingSummary = new RollingSummary();
       this.deadPlayers = [];
       this.lastOwnZone = null;
@@ -123,8 +158,12 @@ export class BotSession {
       botIds: this.botIds,
       sessionInit: this.sessionInit,
       personaOverrides: this.personaOverrides,
+      profile: this.profileId,
       costCeiling: this.costCeiling,
+      costCeilingUsd: this.costCeilingUsd,
       tokensUsed: this.tokensUsed,
+      costUsd: this.costUsd,
+      reasoningTokens: this.reasoningTokens,
       lastAction: this.lastAction,
       startedAt: this.startedAt,
       shortTermMemory: this.shortTermMemory.items,
@@ -160,8 +199,14 @@ export class BotSession {
       roundActionDetail: this.roundActionDetail,
       memoryBytes: this.shortTermMemory.length,
       notesCount: this.notes.size,
+      // profileId only — never this._profile (see plan §3.8: the profile
+      // object carries apiKey and must never reach an HTTP response).
+      profile: this.profileId,
       tokensUsed: this.tokensUsed,
       costCeiling: this.costCeiling,
+      costUsd: this.costUsd,
+      costCeilingUsd: this.costCeilingUsd,
+      reasoningTokens: this.reasoningTokens,
       startedAt: this.startedAt,
       connected: !!(this._socket && this._socket.connected),
       llmPassive: !!(this._llm && (this._llm.label === 'passthrough' || this._llm._label === 'passthrough')),
@@ -346,14 +391,25 @@ export class BotSession {
 
   async _act(prompt) {
     if (!this.alive || this._closing) return;
+    // Two independent budget gates (plan §3.5): token ceiling (today's
+    // MAX_TOKENS_PER_GAME behaviour, unchanged) and a USD ceiling for paid
+    // profiles. `local`'s costCeilingUsd is Infinity (see profiles.js), so
+    // costUsd (which never accrues for local — usdPerMTokIn/Out are both 0)
+    // can never reach it; this branch is dead weight for local bots by
+    // construction, not by a special-case check here.
     if (this.tokensUsed >= this.costCeiling) {
       this.lastAction = 'budget_exhausted';
-      this._markRoundAction(prompt, 'error', { reason: 'budget_exhausted' });
+      this._markRoundAction(prompt, 'error', { reason: 'budget_exhausted_tokens' });
+      return;
+    }
+    if (this.costUsd >= this.costCeilingUsd) {
+      this.lastAction = 'budget_exhausted';
+      this._markRoundAction(prompt, 'error', { reason: 'budget_exhausted_usd' });
       return;
     }
     let action;
     try {
-      action = await enqueueLLMCall(() => this._llm.generate({ session: this, prompt }));
+      action = await enqueueLLMCall(() => this._llm.generate({ session: this, prompt }), { lane: this._profile.lane });
     } catch (e) {
       console.warn(`[bot-manager] LLM generate failed for ${this.id}:`, e.message);
       this.lastAction = 'llm_error';

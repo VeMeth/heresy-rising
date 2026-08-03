@@ -45,3 +45,54 @@ test('parseActionBlock: preamble text + closed think block + fenced action block
   assert.equal(r.kind, 'vote');
   assert.equal(r.target, 'P-02');
 });
+
+// --- MiniMax cases (plan §3.9 case 3 & 4) ---
+
+test('stripThink: orphan </think> with no opener drops everything up to and including the closing tag', () => {
+  assert.equal(
+    stripThink('the killer is probably P-02 based on their pattern</think>{"kind":"pass"}'),
+    '{"kind":"pass"}'
+  );
+});
+
+test('stripThink: orphan </think> — multiple stray closers drop up to the LAST one', () => {
+  const text = 'first thought</think> stray text </think>{"kind":"pass"}';
+  assert.equal(stripThink(text), '{"kind":"pass"}');
+});
+
+test('stripThink: a lone </think> with nothing after it strips to empty', () => {
+  assert.equal(stripThink('some reasoning that trails off</think>'), '');
+});
+
+test('parseActionBlock: orphan </think> case parses cleanly end to end', () => {
+  const text = 'reasoning about P-03 being suspicious</think>{"kind":"vote","target":"P-03"}';
+  assert.deepEqual(parseActionBlock(text), { kind: 'vote', target: 'P-03' });
+});
+
+test('parseActionBlock: last-resort balanced-brace scan finds a trailing action after prose with no fence', () => {
+  const text = 'I have considered the evidence carefully. {"kind":"vote","target":"P-01","notes":{"suspicion":"high","reason":"quiet"}} That is my choice.';
+  const r = parseActionBlock(text);
+  assert.deepEqual(r, { kind: 'vote', target: 'P-01', notes: { suspicion: 'high', reason: 'quiet' } });
+});
+
+test('parseActionBlock: last-resort scan prefers the LAST balanced object when more than one is present', () => {
+  const text = 'Draft: {"kind":"pass"} — actually, final answer: {"kind":"vote","target":"P-04"}';
+  const r = parseActionBlock(text);
+  assert.deepEqual(r, { kind: 'vote', target: 'P-04' });
+});
+
+test('parseActionBlock: last-resort scan does not fire on prose that merely contains braces', () => {
+  assert.equal(parseActionBlock('The score was {2-1} and {3-0} in the other match.'), null);
+});
+
+test('parseActionBlock: last-resort scan is not confused by apostrophes in surrounding prose', () => {
+  const text = "I don't think it's P-01. My real answer: {\"kind\":\"vote\",\"target\":\"P-02\"}";
+  const r = parseActionBlock(text);
+  assert.deepEqual(r, { kind: 'vote', target: 'P-02' });
+});
+
+test('parseActionBlock: last-resort scan combined with orphan </think> stripping', () => {
+  const text = 'reasoning about P-03 being suspicious</think>Final decision: {"kind":"vote","target":"P-03"} — locking it in.';
+  const r = parseActionBlock(text);
+  assert.deepEqual(r, { kind: 'vote', target: 'P-03' });
+});

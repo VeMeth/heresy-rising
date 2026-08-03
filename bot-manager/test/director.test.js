@@ -180,6 +180,112 @@ test('director: backpressure — high LLM queue depth skips the tick', async () 
   _resetQueueForTests();
 });
 
+// --- Per-lane backpressure (director.js's queueDepth() restructure) ------
+//
+// The backpressure check used to run before speaker selection, keyed on the
+// single global queue depth — wrong once lanes exist, because it would
+// silence a local bot over cloud traffic and vice versa. These tests pick a
+// candidate bot first (as the real _tick() now does) and assert the check is
+// scoped to that bot's own lane, via session._profile?.lane.
+
+test('director: backpressure — cloud-lane queue depth does not silence a local bot', async () => {
+  _resetQueueForTests();
+  let release;
+  const blocker = new Promise((r) => { release = r; });
+  enqueueLLMCall(() => blocker, { lane: 'cloud' });
+  enqueueLLMCall(() => blocker, { lane: 'cloud' });
+  enqueueLLMCall(() => blocker, { lane: 'cloud' }); // cloud depth 3, over the >2 default threshold
+
+  const { d } = makeDirector();
+  const bob = fakeSession('bob'); // no _profile -> defaults to the 'local' lane
+  d.registerBot(bob);
+  d._botState.get('bob').introduced = true;
+  d.onPhaseChange('day');
+  d.observe({ id: 1, from: 'human-1', author: 'Human', isBot: false, text: 'hello?', round: 2 });
+  await d._tick();
+  assert.equal(bob._calls.length, 1, 'local bot speaks — cloud backpressure is not its problem');
+
+  release();
+  await new Promise((r) => setTimeout(r, 0));
+  _resetQueueForTests();
+});
+
+test('director: backpressure — local-lane queue depth does not silence a cloud bot', async () => {
+  _resetQueueForTests();
+  let release;
+  const blocker = new Promise((r) => { release = r; });
+  enqueueLLMCall(() => blocker, { lane: 'local' }); // local depth 1 (concurrency 1, so this alone saturates it)
+  enqueueLLMCall(() => blocker, { lane: 'local' });
+  enqueueLLMCall(() => blocker, { lane: 'local' }); // local depth 3, over the >2 default threshold
+
+  const { d } = makeDirector();
+  const bob = fakeSession('bob');
+  bob._profile = { lane: 'cloud' };
+  d.registerBot(bob);
+  d._botState.get('bob').introduced = true;
+  d.onPhaseChange('day');
+  d.observe({ id: 1, from: 'human-1', author: 'Human', isBot: false, text: 'hello?', round: 2 });
+  await d._tick();
+  assert.equal(bob._calls.length, 1, 'cloud bot speaks — local backpressure is not its problem');
+
+  release();
+  await new Promise((r) => setTimeout(r, 0));
+  _resetQueueForTests();
+});
+
+test('director: backpressure — a cloud bot is still silenced by its own lane\'s depth', async () => {
+  _resetQueueForTests();
+  let release;
+  const blocker = new Promise((r) => { release = r; });
+  enqueueLLMCall(() => blocker, { lane: 'cloud' });
+  enqueueLLMCall(() => blocker, { lane: 'cloud' });
+  enqueueLLMCall(() => blocker, { lane: 'cloud' }); // cloud depth 3, over threshold
+
+  const { d } = makeDirector();
+  const bob = fakeSession('bob');
+  bob._profile = { lane: 'cloud' };
+  d.registerBot(bob);
+  d._botState.get('bob').introduced = true;
+  d.onPhaseChange('day');
+  d.observe({ id: 1, from: 'human-1', author: 'Human', isBot: false, text: 'hello?', round: 2 });
+  await d._tick();
+  assert.equal(bob._calls.length, 0, 'cloud bot stays silent under its own lane\'s backpressure');
+
+  release();
+  await new Promise((r) => setTimeout(r, 0));
+  _resetQueueForTests();
+});
+
+test('director: backpressure on the intro path re-queues the bot instead of dropping the intro', async () => {
+  _resetQueueForTests();
+  let release;
+  const blocker = new Promise((r) => { release = r; });
+  enqueueLLMCall(() => blocker, { lane: 'cloud' });
+  enqueueLLMCall(() => blocker, { lane: 'cloud' });
+  enqueueLLMCall(() => blocker, { lane: 'cloud' }); // cloud depth 3, over threshold
+
+  const { d, advance } = makeDirector({ botIntroGapMs: 1000 });
+  const bob = fakeSession('bob');
+  bob._profile = { lane: 'cloud' };
+  d.registerBot(bob);
+  d.onPhaseChange('day');
+
+  await d._tick();
+  assert.equal(bob._calls.length, 0, 'intro deferred — bot\'s cloud lane is backed up');
+  assert.equal(d._introQueue.length, 1, 'the intro was put back, not dropped');
+  assert.equal(d._botState.get('bob').introduced, false);
+
+  // Clear the backpressure and let the (re-queued) intro go through next tick.
+  release();
+  await new Promise((r) => setTimeout(r, 0));
+  _resetQueueForTests();
+  advance(1000);
+  await d._tick();
+  assert.equal(bob._calls.length, 1, 'intro fires once the lane clears');
+  assert.equal(bob._calls[0], 'introduce yourself on Day 1');
+  assert.equal(d._botState.get('bob').introduced, true);
+});
+
 test('director: staleness re-check aborts a stale speak (bot died between scoring and dequeue)', async () => {
   const { d } = makeDirector();
   const bob = fakeSession('bob');

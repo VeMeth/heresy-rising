@@ -1,5 +1,15 @@
 import { requireManagerAuth } from './auth.js';
 import { BotSession } from './session.js';
+import { resolveProfile, llmFor, listProfiles, spentLast24h } from './llm/registry.js';
+import { PROFILES } from './llm/profiles.js';
+
+// True for a stored session's profileId if that profile is a cloud (paid)
+// provider. A session with no profileId (pre-profile snapshot, or a `local`
+// spawn) is never counted as cloud — matches the 'local' default.
+function isCloudProfileId(id) {
+  const p = id && PROFILES[id];
+  return !!(p && p.provider !== 'local');
+}
 
 // All non-/health endpoints are auth-gated. The router is mounted under '/'
 // and each route individually calls the auth middleware — keeping /health open.
@@ -18,7 +28,36 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
     try {
       if (!req.body || !req.body.conclaveCode) return res.status(400).json({ error: 'conclaveCode is required' });
       if (sessionStore.count() >= config.maxBotSessions) return res.status(503).json({ error: `MAX_BOT_SESSIONS (${config.maxBotSessions}) reached` });
-      const { conclaveCode, seatHint, name, personaOverrides, costCeiling } = req.body;
+      const { conclaveCode, seatHint, name, personaOverrides, costCeiling, profile: profileName } = req.body;
+
+      // Resolve the requested model profile BEFORE reserving an engine seat —
+      // an unknown/unavailable/over-cap profile should fail cheap, with
+      // nothing to roll back. Unknown name -> 400; known but not spawnable
+      // (missing credentials) -> 409, explicitly NOT a silent PASSIVE bot;
+      // over the per-conclave cloud cap or the rolling daily USD cap -> 409.
+      let profile;
+      try {
+        profile = resolveProfile(profileName);
+      } catch (e) {
+        return res.status(400).json({ error: e.message });
+      }
+      if (profile.available === false) {
+        return res.status(409).json({ error: `Profile '${profile.id}' is unavailable (missing credentials)` });
+      }
+      const isCloud = profile.provider !== 'local';
+      if (isCloud) {
+        const cloudInConclave = sessionStore.list()
+          .filter((s) => s.conclaveCode === conclaveCode && isCloudProfileId(s.profileId))
+          .length;
+        if (cloudInConclave >= config.maxCloudBotsPerGame) {
+          return res.status(409).json({ error: `MAX_CLOUD_BOTS_PER_GAME (${config.maxCloudBotsPerGame}) reached for this Conclave` });
+        }
+        const spent = spentLast24h();
+        if (spent >= config.botDailyUsdCap) {
+          return res.status(409).json({ error: `BOT_DAILY_USD_CAP ($${config.botDailyUsdCap.toFixed(2)}) exceeded — rolling 24h spend $${spent.toFixed(2)}` });
+        }
+      }
+
       let spawn;
       try {
         spawn = await engineClient.spawn({ conclaveCode, name, seatHint });
@@ -40,7 +79,8 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
         personaOverrides,
         costCeiling,
         config,
-        llm: req.app.get('llm'),
+        llm: llmFor(profile.id),
+        profileId: profile.id,
         engineBaseUrl: engineClient.baseUrl,
         persistence: req.app.get('persistence')
       });
@@ -65,8 +105,16 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
       roundActionStatus: s.roundActionStatus, roundActionDetail: s.roundActionDetail,
       llmPassive: !!(s._llm && (s._llm.label === 'passthrough' || s._llm._label === 'passthrough')),
       memoryBytes: s.shortTermMemory?.length ?? 0,
-      tokensUsed: s.tokensUsed
+      tokensUsed: s.tokensUsed,
+      profile: s.profileId,
+      costUsd: s.costUsd ?? 0
     })));
+  });
+
+  // GET /profiles — credential-free profile list for the admin spawn form.
+  // Never includes baseUrl/apiKey (see llm/registry.js::listProfiles).
+  app.get('/profiles', auth, (_req, res) => {
+    res.json(listProfiles());
   });
 
   // GET /bots/:id — inspect one session.

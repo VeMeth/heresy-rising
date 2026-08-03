@@ -4,9 +4,7 @@ import { SessionStore } from './sessionStore.js';
 import { EngineClient } from './engineClient.js';
 import { healthHandler } from './health.js';
 import { registerRestRoutes } from './rest.js';
-import { PassThroughLLM } from './llm/passthroughLLM.js';
-import { OpenAIChat } from './llm/openaiChat.js';
-import { ActionLLM } from './llm/actionLLM.js';
+import { llmFor } from './llm/registry.js';
 import { BotPersistence } from './persistence.js';
 import { BotSession } from './session.js';
 
@@ -22,32 +20,16 @@ app.set('engineClient', engineClient);
 app.set('persistence', persistence);
 app.set('config', config);
 
-// Pick the LLM at boot: an OpenAI-compatible client via ActionLLM if
-// OPENAI_BASE_URL is set (e.g. LM Studio at http://host.docker.internal:1234/v1),
-// otherwise the PassThroughLLM (bots spawn but pass every turn). Tests can
+// Pick the default LLM at boot via the profile registry (llm/registry.js) —
+// BOT_DEFAULT_PROFILE, or 'local' if unset, which resolves to an
+// OpenAI-compatible client via ActionLLM if OPENAI_BASE_URL is set (e.g. LM
+// Studio at http://host.docker.internal:1234/v1), otherwise the
+// PassThroughLLM (bots spawn but pass every turn). This is still what a
+// fresh spawn with no `profile` in the body gets, and what the restore loop
+// below falls back to for pre-profile snapshots. Per-spawn/per-session
+// profile resolution happens in rest.js and (once restored) below. Tests can
 // inject a mock at any time via `app.set('llm', ...)`.
-/** @type {PassThroughLLM|ActionLLM} */
-let llm = new PassThroughLLM();
-if (hasLLMConfig(config)) {
-  try {
-    const chat = new OpenAIChat({
-      baseUrl: config.openaiBaseUrl,
-      apiKey: config.openaiApiKey,
-      model: config.openaiModel,
-      temperature: config.llmTemperature,
-      maxTokens: config.maxTokens,
-      topP: config.topP,
-      timeoutMs: config.llmTimeoutMs,
-      maxRetries: config.maxRetries,
-      structuredOutput: config.llmStructuredOutput
-    });
-    llm = new ActionLLM({ chatModel: chat, maxRetries: config.maxRetries });
-    console.info(`[bot-manager] LLM ready: ${chat.model} via ${config.openaiBaseUrl}`);
-  } catch (e) {
-    console.warn(`[bot-manager] OpenAIChat init failed; falling back to PassThroughLLM:`, e.message);
-    llm = new PassThroughLLM();
-  }
-}
+const llm = llmFor(config.botDefaultProfile);
 app.set('llm', llm);
 
 // Restore any previously-persisted bot sessions. This reconnects them to
@@ -56,13 +38,21 @@ const savedSessions = persistence.loadAll();
 let restored = 0;
 for (const snap of savedSessions) {
   try {
+    // Restore each bot on the LLM profile it was spawned with (snap.profile,
+    // written by A2's session.js work) rather than always falling back to
+    // the process default — a restarted manager must bring a MiniMax bot
+    // back as a MiniMax bot, not silently downgrade it to local. Pre-profile
+    // snapshots have no `profile` field, so llmFor(undefined) resolves
+    // BOT_DEFAULT_PROFILE the same way a fresh spawn with no `profile` in
+    // the body would — same object as the `llm` above in that case.
     const session = new BotSession({
       id: snap.id,
       playerCode: snap.playerCode,
       conclaveCode: snap.conclaveCode,
       name: snap.name,
       config,
-      llm,
+      llm: llmFor(snap.profile),
+      profileId: snap.profile,
       engineBaseUrl: config.heresyGameHost,
       persistence,
       snapshot: snap

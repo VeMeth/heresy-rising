@@ -5,6 +5,47 @@
 // role block contradicts a kit file or data/roles-40k.json, the kit wins —
 // this compression only cuts flavor text and restates the binding facts
 // tersely; see docs/specs/mechanics/heresy-bot.DRIFT.md for spec drift.
+//
+// `ROLE_BLOCKS` / `roleBlock()` below are unchanged and stay byte-identical
+// — the `local` profile depends on them (see BOT_MODEL_PROFILES_PLAN.md
+// §3.6/§5, agent F).
+//
+// `ROLE_BLOCKS_FULL` / `roleBlockFor(role, profile)` add a restored, full-
+// prose variant for `richPrompt: true` profiles (MiniMax M2.7/M3), sourced
+// from docs/specs/mechanics/heresy-bot.md's "Block 2 — Role block (per-bot)"
+// section. That mirror section, however, only ever hand-wrote ONE role in
+// full — L2 Interrogator (its own worked example) — and explicitly defers
+// the rest: "(Blocks for the other 10 roles follow the same template,
+// derived from the kits. Coder generates them.)" That deferral was never
+// resolved in the mirror itself, so no restorable prose exists there for any
+// role but the Interrogator. Per the agent F brief, a role the mirror lacks
+// text for falls back to the compressed block rather than getting invented
+// prose — so ROLE_BLOCKS_FULL currently has exactly one entry, and
+// `roleBlockFor` falls back to `roleBlock()` for every other role
+// (imperial-citizen, chirurgeon, novice-psychic, arbitrator, priest,
+// sanctioned-psyker, murderer, heretic-priest, conspirator, saboteur,
+// recruiter, and animus — animus (H6) additionally postdates the spec lock
+// entirely, per the plan's own example). See this task's final report for
+// the full list.
+//
+// The restored Interrogator text also corrects one stale mirror fact against
+// the locked kit (kit wins, per the header above): the mirror's Execute on
+// Sight threshold is "Orange+ drift target"; `loyalist-kit.md` v1.8.0 (Q25,
+// 2026-07-25) moved this to Red+ (drift >= 15) — Orange now returns
+// confirmed-warp-taint intel with no kill. The compressed ROLE_BLOCKS entry
+// above still says Orange+ and is untouched here (out of scope, and a
+// pre-existing conflict, not one introduced by this change) — see the task
+// report for detail.
+//
+// Cripple language is intentionally NOT "modernized": `interrogation.md`
+// v2.0.0 (2026-07-28) replaced the day-vote torture outcome with a two-strike
+// Cripple/Death model (no T1/T2/T3 tiers), but it is undocumented whether the
+// engine's per-role night-action cripple gating (what ROLE_BLOCKS already
+// describes as T1/T2/T3) was ever migrated to match. Per the agent F brief —
+// "if the mirror's text describes a mechanic that no longer matches the
+// engine, keep the compressed version's statement of that mechanic" — the
+// restored Interrogator block keeps the same T1/T2/T3 cripple language the
+// compressed block already uses, rather than guessing at a rewrite.
 
 export const ROLE_BLOCKS = new Map([
   ['imperial-citizen', `## YOUR ROLE: IMPERIAL CITIZEN (Loyalist)
@@ -120,4 +161,88 @@ export function roleBlock(roleId) {
   if (!roleId) return '## YOUR ROLE\nRole not yet assigned. Wait for game:start before deciding.';
   const b = ROLE_BLOCKS.get(roleId);
   return b || `## YOUR ROLE: ${roleId}\nRole template missing — refer to docs/mechanics/*.md for canonical rules. Stay defensible in chat.`;
+}
+
+// Full-prose restoration — see the header comment above for why this map
+// currently has exactly one entry. Text is derived from
+// docs/specs/mechanics/heresy-bot.md's Interrogator worked example, with the
+// Execute on Sight threshold corrected to Red+ per loyalist-kit.md v1.8.0
+// (kit wins over the mirror's stale Orange+, per this file's own
+// kit-wins-over-mirror rule) and the cripple section left matching the
+// compressed block's existing T1/T2/T3 language (see header comment).
+export const ROLE_BLOCKS_FULL = new Map([
+  ['interrogator', `## YOUR ROLE: INTERROGATOR (Loyalist)
+
+**Claim (public):** "I am an Interrogator." This is a self-claim you cannot lie about — if asked directly whether you are the Interrogator, you must answer truthfully.
+
+**Lore:** A junior agent of the Inquisition. Political, not psyker — you catch heretics through memory, contradiction, and conversation, not warp-magic. And when your intel confirms someone warp-touched at high enough drift, you kill them on sight. No tribunal needed.
+
+### Your night action
+
+Each night you may Interrogate one target, choosing one of three intensities:
+
+- **T1 (Soft):** +1 own drift. Returns a binary check only — "Tainted" (target's drift >= Yellow) or "Clean" (Green) — at a 70% true / 30% flipped rate. You cannot tell a true result from a flipped one; only repeat scanning narrows it down.
+- **T2 (Active):** +2 own drift. Returns the target's drift zone directly. Also adds +1 to the target's own drift (the pressure of being investigated).
+- **T3 (Brutal):** +3 own drift. Returns the target's confirmed faction (Heretic or Loyalist) — no ambiguity. Also adds +2 to the target's own drift.
+
+### Target-zone upgrade
+
+The target's own drift zone auto-upgrades the effective intensity of your scan, regardless of what you chose:
+
+- Green (0-4): as-chosen — T1 stays soft, T2 stays standard, T3 stays brutal.
+- Yellow (5-9): +1 effective (T1 -> T2, T2 -> T3).
+- Orange (10-14): +2 effective. An effective T2/T3 against an Orange target returns confirmed warp-taint intel — but does NOT kill them; Orange is survivable and can still be recovered.
+- Red (15-19) or Black (20): +2 effective. An effective T2+ scan against a Red-or-Black target is Execute on Sight — the target is killed automatically. You do not choose this; the engine applies it, and you learn "target executed, warp-touched confirmed."
+
+You don't need to spend more than T1 on a target who's already Red or Black — they're exposed regardless of what tier you pick.
+
+### Intel noise on your OWN scans
+
+Your intel is also noisy based on YOUR OWN current drift zone — climbing drift doesn't just cost you, it makes your weapon less reliable, on top of making you a bigger target for a Saboteur's trap:
+
+- Green: 0% noise (exact).
+- Yellow: 20% noise.
+- Orange: 40% noise (coin-flip).
+- Red: 80% noise (mostly unreliable).
+- Black: 100% noise.
+
+You are never told whether a given result was noisy. Alternate interrogation nights with sleep nights if you want to stay reliable.
+
+### Saboteur traps
+
+If your target was booby-trapped by the Saboteur, your action fails silently — no intel, no kill — and the Saboteur privately learns their trap sprung on you. You learn nothing; you are not told the scan failed for this reason.
+
+### Special rules
+
+- You cannot investigate yourself.
+- Day 1 is chat only for you, same as everyone else — no night action, no vote.
+- If you have no target, or all targets are invalid, you sleep (-1 own drift) instead of acting.
+
+### Cripple profile
+
+- T1: lose access to one night action this round.
+- T2: lose all night actions for the rest of the game, and you must publicly justify every vote you cast.
+- T3: you must confess your role if asked directly, and take no further night actions.
+
+### Strategy
+
+Prefer T1/T2 for routine probing — save T3 for confirming a lynch target's faction when the vote is close and the stakes justify the drift and the target's-drift cost. Chaining T1 against a target you already suspect is Red-zone is the cheapest way to keep them pinned without spending your own drift budget on T2/T3 every night.`]
+]);
+
+/**
+ * Profile-aware selector. Returns the full-prose variant when
+ * `profile.richPrompt` is true AND a full variant exists for this role;
+ * otherwise (no profile, `richPrompt: false`, or no full variant for this
+ * role — see ROLE_BLOCKS_FULL's header comment) falls back to the
+ * compressed `roleBlock()` output. Never throws for any role id `roleBlock`
+ * itself wouldn't throw for.
+ * @param {string|null} roleId
+ * @param {object|undefined|null} profile
+ */
+export function roleBlockFor(roleId, profile) {
+  if (profile?.richPrompt) {
+    const full = roleId && ROLE_BLOCKS_FULL.get(roleId);
+    if (full) return full;
+  }
+  return roleBlock(roleId);
 }

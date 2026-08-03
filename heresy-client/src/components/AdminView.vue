@@ -412,8 +412,9 @@
           </div>
         </header>
         <p v-if="botError" class="error">{{ botError }}</p>
-        <p v-if="bots.length > 0 && bots.every(b => b.llmPassive)" class="warning-banner">⚠️ All bots are in <strong>PASSIVE</strong> mode — no LLM endpoint configured (set OPENAI_BASE_URL and rebuild the bot-manager). They will join games but pass every turn silently.</p>
-        <p v-if="bots.length > 0 && bots.some(b => b.llmPassive) && !bots.every(b => b.llmPassive)" class="warning-banner">⚠️ Some bots are in <strong>PASSIVE</strong> mode.</p>
+        <p v-if="cloudBots.length > 0" class="warning-banner">💰 {{ cloudBots.length }} cloud bot{{ cloudBots.length === 1 ? '' : 's' }} active — ${{ cloudSpendUsd.toFixed(2) }} spent this game.</p>
+        <p v-if="bots.length > 0 && bots.every(b => b.llmPassive)" class="warning-banner">⚠️ All bots are in <strong>PASSIVE</strong> mode — their model profile has no working LLM endpoint or credentials. They will join games but pass every turn silently.</p>
+        <p v-if="bots.length > 0 && bots.some(b => b.llmPassive) && !bots.every(b => b.llmPassive)" class="warning-banner">⚠️ Some bots are in <strong>PASSIVE</strong> mode — their model profile has no working LLM endpoint or credentials.</p>
 
         <section class="spawn-form">
           <h3>Spawn bot</h3>
@@ -430,6 +431,11 @@
             </label>
             <label>Per-game token budget
               <input v-model.number="spawnForm.costCeiling" type="number" min="1000" max="500000" />
+            </label>
+            <label>Model
+              <select v-model="spawnForm.profile">
+                <option v-for="p in profiles" :key="p.id" :value="p.id" :disabled="p.available === false">{{ p.label }}{{ p.available === false ? ' — no API key' : '' }}</option>
+              </select>
             </label>
             <label>Persona overrides (freeform)
               <textarea v-model="spawnForm.personaOverrides" rows="3" placeholder="e.g. speak in clipped, terse sentences; never claim Citizen; vote with the Heretic consensus"></textarea>
@@ -450,7 +456,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>botId</th><th>Conclave</th><th>Name</th><th>Role</th><th>Faction</th><th>Phase</th><th>Round</th><th>Alive</th><th>Mode</th><th>Round Action</th><th>Last</th><th>Tokens</th><th>Mem</th><th></th>
+                  <th>botId</th><th>Conclave</th><th>Name</th><th>Role</th><th>Faction</th><th>Phase</th><th>Round</th><th>Alive</th><th>Mode</th><th>Model</th><th>Round Action</th><th>Last</th><th>Tokens</th><th>Cost</th><th>Mem</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -464,16 +470,18 @@
                   <td>{{ bot.round ?? '-' }}</td>
                   <td>{{ bot.alive === false ? 'no' : 'yes' }}</td>
                   <td><span v-if="bot.llmPassive" class="badge badge-passive" title="No LLM configured — bot passes every turn">PASSIVE</span><span v-else class="badge badge-active" title="LLM is active">ACTIVE</span></td>
+                  <td><span class="badge" :class="modelBadgeClass(bot.profile)" :title="bot.profile || 'local'">{{ profileLabel(bot.profile) }}</span></td>
                   <td><span class="badge" :class="roundActionBadgeClass(bot)" :title="roundActionTitle(bot)">{{ roundActionLabel(bot) }}</span></td>
                   <td><code>{{ bot.lastAction || '-' }}</code></td>
                   <td>{{ bot.tokensUsed ?? 0 }} / {{ bot.costCeiling ?? '?' }}</td>
+                  <td>{{ botCostLabel(bot) }}</td>
                   <td>{{ bot.memoryBytes ?? 0 }}</td>
                   <td class="actions">
                     <button type="button" @click="selectBot(bot.botId)">Notes</button>
                     <button type="button" class="danger" @click="despawnBot(bot)">Despawn</button>
                   </td>
                 </tr>
-                <tr v-if="!bots.length"><td colspan="13"><p class="empty">No bots currently spawned.</p></td></tr>
+                <tr v-if="!bots.length"><td colspan="15"><p class="empty">No bots currently spawned.</p></td></tr>
               </tbody>
             </table>
           </div>
@@ -507,6 +515,7 @@
             <span>Round Action <strong><span class="badge" :class="roundActionBadgeClass(selectedBot)" :title="roundActionTitle(selectedBot)">{{ roundActionLabel(selectedBot) }}</span></strong></span>
             <span>Last <strong><code>{{ selectedBot.lastAction || '-' }}</code></strong></span>
             <span>Tokens <strong>{{ selectedBot.tokensUsed ?? 0 }} / {{ selectedBot.costCeiling ?? '?' }}</strong></span>
+            <span>Cost <strong>{{ botCostLabel(selectedBot) }}</strong></span>
             <span>Memory <strong>{{ selectedBot.memoryBytes ?? 0 }} events</strong></span>
             <span>Connected <strong>{{ selectedBot.connected ? 'Yes' : 'No' }}</strong></span>
             <span>Winner <strong>{{ selectedBot.winner || '-' }}</strong></span>
@@ -737,7 +746,11 @@ const botsPolling = ref(false);
 let botsPollTimer = null;
 const loadingBots = ref(false);
 const botError = ref('');
-const spawnForm = ref({ conclaveCode:'', name:'', seatHint:null, costCeiling:50000, personaOverrides:'' });
+// Model profiles (local + cloud) — server-driven, never hardcoded here. See
+// GET /api/admin/bots/profiles (proxies bot-manager's GET /profiles, which
+// never includes baseUrl/apiKey).
+const profiles = ref([]);
+const spawnForm = ref({ conclaveCode:'', name:'', seatHint:null, costCeiling:50000, personaOverrides:'', profile:'local' });
 const lastSpawnResult = ref(null);
 const selectedBot = ref(null);
 const botNotes = ref({});
@@ -755,6 +768,11 @@ const phaseSummaries = computed(() => {
     Object.entries(notes).filter(([k]) => k.startsWith('phase-'))
   );
 });
+// Cloud-spend visibility — cloud bots spend real money, so this is a safety
+// surface, not decoration. `bots` is already the live-session list, so this
+// reflects money being spent right now, not archived games.
+const cloudBots = computed(() => bots.value.filter(bot => isCloudProfile(bot.profile)));
+const cloudSpendUsd = computed(() => cloudBots.value.reduce((sum, bot) => sum + Number(bot.costUsd || 0), 0));
 const averageDrift = computed(() => {
   const players = detail.value?.players || [];
   return players.length ? players.reduce((sum, player) => sum + Number(player.drift || 0), 0) / players.length : 0;
@@ -976,7 +994,17 @@ async function deletePlayer(player) {
 // spawn body per the locked v1.1.0 spec.
 async function openBots() {
   tab.value = 'bots';
+  if (!profiles.value.length) await loadProfiles();
   if (!bots.value.length) await loadBots();
+}
+async function loadProfiles() {
+  try {
+    profiles.value = await adminFetch('/api/admin/bots/profiles');
+  } catch (err) {
+    // Non-fatal: the spawn form just falls back to a bare "local" option and
+    // the Model/Cost columns fall back to raw profile ids.
+    botError.value = err.message;
+  }
 }
 async function loadBots() {
   botError.value = '';
@@ -1008,7 +1036,8 @@ async function spawnBot() {
       name: (rawName || pickBotName()).slice(0, 20),
       seatHint: spawnForm.value.seatHint != null && spawnForm.value.seatHint !== '' ? Number(spawnForm.value.seatHint) : null,
       costCeiling: Number(spawnForm.value.costCeiling) > 0 ? Number(spawnForm.value.costCeiling) : null,
-      personaOverrides: spawnForm.value.personaOverrides || null
+      personaOverrides: spawnForm.value.personaOverrides || null,
+      profile: spawnForm.value.profile || 'local'
     };
     if (!body.conclaveCode) throw new Error('Conclave code is required');
     const data = await adminFetch('/api/admin/bots', { method: 'POST', body: JSON.stringify(body) });
@@ -1242,11 +1271,45 @@ function roundActionTitle(bot) {
   return d.reason || JSON.stringify(d);
 }
 
+// ── Model profile display (backs the Model/Cost columns + spawn picker) ───
+// `profiles` is the only source of labels/ceilings — never hardcode a model
+// id or price here (see plan §3.7/§3.8: credentials/endpoints stay server-side).
+function profileFor(id) {
+  return profiles.value.find(p => p.id === id) || null;
+}
+function isCloudProfile(id) {
+  const p = profileFor(id);
+  // Unknown/undefined (pre-profile session, or profiles not loaded yet)
+  // is never treated as cloud — matches the bot-manager's own default.
+  return !!(p && p.provider !== 'local');
+}
+function profileLabel(id) {
+  return profileFor(id)?.label || id || 'local';
+}
+function modelBadgeClass(id) {
+  return isCloudProfile(id) ? 'badge-cloud' : 'badge-local';
+}
+function costCeilingFor(bot) {
+  // GET /bots/:id (inspect()) puts costCeilingUsd directly on the session —
+  // prefer that, it reflects any per-session override. GET /bots (the list)
+  // doesn't carry it, so fall back to the profile's default ceiling. Either
+  // way this can arrive as JSON `null` (Infinity on the `local` profile) —
+  // never render that as "$0.00", the caller handles the null case.
+  if (bot.costCeilingUsd != null) return bot.costCeilingUsd;
+  return profileFor(bot.profile)?.costCeilingUsd ?? null;
+}
+function botCostLabel(bot) {
+  if (!isCloudProfile(bot.profile)) return 'free';
+  const ceiling = costCeilingFor(bot);
+  const ceilingLabel = ceiling != null ? `$${Number(ceiling).toFixed(2)}` : '—';
+  return `$${Number(bot.costUsd || 0).toFixed(4)} / ${ceilingLabel}`;
+}
+
 if (authenticated.value) loadOverview();
 </script>
 
 <style scoped>
-.admin-shell{min-height:100vh;background:#101312;color:#e7e3d5;padding:24px;font-family:Inter,system-ui,sans-serif}.login-panel,.control-room{max-width:1500px;margin:0 auto}.login-panel{width:min(440px,100%);margin-top:12vh;background:#171a16;border:1px solid #34372f;padding:28px}.login-panel span,.topbar span,.detail-head span{color:#b69a5c;font-size:11px;font-weight:800;letter-spacing:.16em}.login-panel h1,.topbar h1,.detail-head h2{margin:6px 0 18px;font-family:Cinzel,serif}.login-panel form{display:grid;gap:14px}label{display:grid;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa99d}input,select{background:#0d0f0d;border:1px solid #3a3c34;color:#e7e3d5;padding:9px;border-radius:2px}button{background:#8f7543;border:1px solid #b99c62;color:#0b0c0a;padding:9px 12px;text-transform:uppercase;font-size:10px;font-weight:800;letter-spacing:.1em;cursor:pointer}button.danger{background:#7a2a25;border-color:#a8463d;color:#fff}button:disabled{opacity:.5}.error{border:1px solid #70352f;background:#321916;color:#d99b95;padding:10px}.topbar,.detail-head,.actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.actions{justify-content:flex-end}.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:20px 0}.metrics div,.detail,.logs,.cell-list button{background:#171a16;border:1px solid #34372f}.metrics div{padding:14px}.metrics span,.facts span{display:block;color:#8f9287;font-size:10px;text-transform:uppercase;letter-spacing:.12em}.metrics strong{display:block;margin-top:5px;font-size:24px}.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs .active,.cell-list .selected{background:#2b271b;color:#dfc27c;border-color:#b69a5c}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}.cell-list{display:grid;align-content:start;gap:8px}.cell-list button{text-align:left;color:#e7e3d5;padding:14px}.cell-list strong,.cell-list span,.cell-list small{display:block}.cell-list span{margin-top:4px;color:#c8c0aa}.cell-list small{margin-top:5px;color:#8f9287}.detail,.logs{padding:18px;min-width:0}.facts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:16px 0}.facts span{background:#0d0f0d;border:1px solid #2c3028;padding:10px}.facts strong{display:block;color:#e7e3d5;margin-top:4px;text-transform:none;letter-spacing:0}.table-wrap{overflow:auto;border:1px solid #34372f}table{width:100%;border-collapse:collapse;min-width:900px}th,td{border-bottom:1px solid #2c3028;padding:9px;text-align:left;vertical-align:top}th{color:#b69a5c;font-size:10px;text-transform:uppercase;letter-spacing:.12em;background:#11130f}td code{display:block;margin-top:4px;color:#8f9287;font-size:10px}.checks{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:6px}.checks label{display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;letter-spacing:0}.checks input{width:auto}.columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}pre,.scroll-list{max-height:360px;overflow:auto;background:#0b0d0b;border:1px solid #2c3028;color:#d9d7cc;padding:12px;font-size:12px;line-height:1.5}.scroll-list p{border-bottom:1px solid #252820;margin:0;padding:9px 0;white-space:pre-wrap}.scroll-list span{display:block;color:#8f9287;font-size:10px;margin-bottom:4px}.badge-passive{display:inline-block;background:#5a3e1f;color:#f0c674;border:1px solid #8f6d3a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-active{display:inline-block;background:#1f3a25;color:#74c68a;border:1px solid #3a6d4a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-pending{display:inline-block;background:#2c2e28;color:#c8c0aa;border:1px solid #4a4c42;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-rejected{display:inline-block;background:#3a1c1a;color:#e08a80;border:1px solid #70352f;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-na{display:inline-block;background:#1a1c18;color:#6c6f64;border:1px solid #34372f;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.warning-banner{background:#3a2a0f;border:1px solid #8f6d3a;color:#f0c674;padding:10px;margin:10px 0;font-size:12px;border-radius:2px}.empty{color:#8f9287}.bot-detail{background:#171a16;border:1px solid #34372f;padding:18px;margin-top:14px}.bot-detail .facts{grid-template-columns:repeat(5,minmax(0,1fr))}.bot-tab-content h4{margin:0 0 10px;font-family:Cinzel,serif;color:#c8c0aa}.bot-tab-content h4 small{font-size:10px;color:#8f9287;font-weight:400}.mem-item{padding:7px 0;border-bottom:1px solid #252820;font-size:12px;line-height:1.5;white-space:pre-wrap}.mem-meta{display:block;color:#8f9287;font-size:10px;margin-bottom:3px}.mem-announce{color:#b69a5c}.mem-intel{color:#c67a5c}.action-detail{font-size:12px}.bot-notes-panel pre{max-height:200px}.bot-notes-panel .columns{gap:20px}@media(max-width:900px){.metrics,.facts,.columns,.layout{grid-template-columns:1fr}.topbar,.detail-head{align-items:flex-start;flex-direction:column}}
+.admin-shell{min-height:100vh;background:#101312;color:#e7e3d5;padding:24px;font-family:Inter,system-ui,sans-serif}.login-panel,.control-room{max-width:1500px;margin:0 auto}.login-panel{width:min(440px,100%);margin-top:12vh;background:#171a16;border:1px solid #34372f;padding:28px}.login-panel span,.topbar span,.detail-head span{color:#b69a5c;font-size:11px;font-weight:800;letter-spacing:.16em}.login-panel h1,.topbar h1,.detail-head h2{margin:6px 0 18px;font-family:Cinzel,serif}.login-panel form{display:grid;gap:14px}label{display:grid;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa99d}input,select{background:#0d0f0d;border:1px solid #3a3c34;color:#e7e3d5;padding:9px;border-radius:2px}button{background:#8f7543;border:1px solid #b99c62;color:#0b0c0a;padding:9px 12px;text-transform:uppercase;font-size:10px;font-weight:800;letter-spacing:.1em;cursor:pointer}button.danger{background:#7a2a25;border-color:#a8463d;color:#fff}button:disabled{opacity:.5}.error{border:1px solid #70352f;background:#321916;color:#d99b95;padding:10px}.topbar,.detail-head,.actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.actions{justify-content:flex-end}.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:20px 0}.metrics div,.detail,.logs,.cell-list button{background:#171a16;border:1px solid #34372f}.metrics div{padding:14px}.metrics span,.facts span{display:block;color:#8f9287;font-size:10px;text-transform:uppercase;letter-spacing:.12em}.metrics strong{display:block;margin-top:5px;font-size:24px}.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs .active,.cell-list .selected{background:#2b271b;color:#dfc27c;border-color:#b69a5c}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}.cell-list{display:grid;align-content:start;gap:8px}.cell-list button{text-align:left;color:#e7e3d5;padding:14px}.cell-list strong,.cell-list span,.cell-list small{display:block}.cell-list span{margin-top:4px;color:#c8c0aa}.cell-list small{margin-top:5px;color:#8f9287}.detail,.logs{padding:18px;min-width:0}.facts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:16px 0}.facts span{background:#0d0f0d;border:1px solid #2c3028;padding:10px}.facts strong{display:block;color:#e7e3d5;margin-top:4px;text-transform:none;letter-spacing:0}.table-wrap{overflow:auto;border:1px solid #34372f}table{width:100%;border-collapse:collapse;min-width:900px}th,td{border-bottom:1px solid #2c3028;padding:9px;text-align:left;vertical-align:top}th{color:#b69a5c;font-size:10px;text-transform:uppercase;letter-spacing:.12em;background:#11130f}td code{display:block;margin-top:4px;color:#8f9287;font-size:10px}.checks{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:6px}.checks label{display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;letter-spacing:0}.checks input{width:auto}.columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}pre,.scroll-list{max-height:360px;overflow:auto;background:#0b0d0b;border:1px solid #2c3028;color:#d9d7cc;padding:12px;font-size:12px;line-height:1.5}.scroll-list p{border-bottom:1px solid #252820;margin:0;padding:9px 0;white-space:pre-wrap}.scroll-list span{display:block;color:#8f9287;font-size:10px;margin-bottom:4px}.badge-passive{display:inline-block;background:#5a3e1f;color:#f0c674;border:1px solid #8f6d3a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-active{display:inline-block;background:#1f3a25;color:#74c68a;border:1px solid #3a6d4a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-pending{display:inline-block;background:#2c2e28;color:#c8c0aa;border:1px solid #4a4c42;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-rejected{display:inline-block;background:#3a1c1a;color:#e08a80;border:1px solid #70352f;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-na{display:inline-block;background:#1a1c18;color:#6c6f64;border:1px solid #34372f;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-cloud{display:inline-block;background:#5a3e1f;color:#f0c674;border:1px solid #8f6d3a;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.badge-local{display:inline-block;background:#1a1c18;color:#8f9287;border:1px solid #34372f;padding:2px 6px;font-size:9px;font-weight:700;letter-spacing:.12em;border-radius:2px;white-space:nowrap}.warning-banner{background:#3a2a0f;border:1px solid #8f6d3a;color:#f0c674;padding:10px;margin:10px 0;font-size:12px;border-radius:2px}.empty{color:#8f9287}.bot-detail{background:#171a16;border:1px solid #34372f;padding:18px;margin-top:14px}.bot-detail .facts{grid-template-columns:repeat(5,minmax(0,1fr))}.bot-tab-content h4{margin:0 0 10px;font-family:Cinzel,serif;color:#c8c0aa}.bot-tab-content h4 small{font-size:10px;color:#8f9287;font-weight:400}.mem-item{padding:7px 0;border-bottom:1px solid #252820;font-size:12px;line-height:1.5;white-space:pre-wrap}.mem-meta{display:block;color:#8f9287;font-size:10px;margin-bottom:3px}.mem-announce{color:#b69a5c}.mem-intel{color:#c67a5c}.action-detail{font-size:12px}.bot-notes-panel pre{max-height:200px}.bot-notes-panel .columns{gap:20px}@media(max-width:900px){.metrics,.facts,.columns,.layout{grid-template-columns:1fr}.topbar,.detail-head{align-items:flex-start;flex-direction:column}}
 
 /* Simulator tab */
 .simulator { max-width: 1100px; }

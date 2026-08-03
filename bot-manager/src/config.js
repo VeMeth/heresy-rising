@@ -41,6 +41,27 @@ export const config = {
   llmStructuredOutput: parseBool(process.env.LLM_STRUCTURED_OUTPUT, true),
   maxRetries: parseNum(process.env.MAX_RETRIES, 2),
 
+  // Bot model profiles (llm/profiles.js, llm/registry.js) — selectable
+  // per-spawn backends layered on top of the OPENAI_* local config above.
+  // All unset => today's behaviour unchanged (default profile is 'local').
+  botDefaultProfile: process.env.BOT_DEFAULT_PROFILE || 'local',
+
+  // MiniMax OpenAI-compatible endpoint. Unset MINIMAX_API_KEY => the
+  // minimax-* profiles report available:false and spawning one is refused
+  // with 409 (never a silent PASSIVE bot — see rest.js).
+  minimaxApiKey: process.env.MINIMAX_API_KEY || '',
+  minimaxBaseUrl: process.env.MINIMAX_BASE_URL || 'https://api.minimax.io/v1',
+  minimaxModelM27: process.env.MINIMAX_MODEL_M27 || 'MiniMax-M2.7',
+  minimaxModelM3: process.env.MINIMAX_MODEL_M3 || 'MiniMax-M3',
+  minimaxUsdPerMTokIn: parseNum(process.env.MINIMAX_USD_PER_MTOK_IN, 0.30),
+  minimaxUsdPerMTokOut: parseNum(process.env.MINIMAX_USD_PER_MTOK_OUT, 1.20),
+
+  // Cloud-bot manager-level guards (rest.js, llm/queue.js cloud lane).
+  botCloudConcurrency: parseNum(process.env.BOT_CLOUD_CONCURRENCY, 3),
+  maxCloudBotsPerGame: parseNum(process.env.MAX_CLOUD_BOTS_PER_GAME, 2),
+  botDailyUsdCap: parseNum(process.env.BOT_DAILY_USD_CAP, 5.00),
+  botCostCeilingUsd: parseNum(process.env.BOT_COST_CEILING_USD, 0.50), // per bot per game, cloud profiles only
+
   // Per-manager caps and tuning.
   maxBotSessions: parseNum(process.env.MAX_BOT_SESSIONS, 12),
   maxBotsPerGame: parseNum(process.env.MAX_BOTS_PER_GAME, 4),
@@ -54,7 +75,12 @@ export const config = {
   botChatPerPhaseMax: parseNum(process.env.BOT_CHAT_PER_PHASE_MAX, 3),
   botIntroGapMs: parseNum(process.env.BOT_INTRO_GAP_MS, 12000),
   botReactiveThreshold: parseNum(process.env.BOT_REACTIVE_THRESHOLD, 1.0),
-  botFactionChat: parseBool(process.env.BOT_FACTION_CHAT, false)
+  botFactionChat: parseBool(process.env.BOT_FACTION_CHAT, false),
+  // Director backpressure: skip a chat turn when the chosen bot's OWN queue
+  // lane already has this many calls queued/in flight. Checked per lane
+  // (llm/queue.js), so a busy local GPU never silences a cloud bot and vice
+  // versa. Default 2 preserves the pre-lane global behaviour.
+  botQueueBackpressureThreshold: parseNum(process.env.BOT_QUEUE_BACKPRESSURE_THRESHOLD, 2)
 };
 
 // Required before any spawn/despawn may succeed. The control endpoints accept

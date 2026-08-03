@@ -9,13 +9,17 @@
 //
 // `user` is the volatile turn: state digest, rolling summary, notes, recent
 // chat, and the turn instruction — each trimmed to its own token budget by
-// prompts/budget.js, so the whole user message targets ~3,000 input tokens
-// even in a long, chatty game on an 8k-context local model.
+// prompts/budget.js. For the `local` profile (scale 1) that targets ~3,000
+// input tokens even in a long, chatty game on an 8k-context model. Cloud
+// profiles (MiniMax M2.7/M3) carry a `budgetScale` on `session._profile`
+// that scales every one of those per-section budgets up uniformly, so a
+// big-context bot sees proportionally more of the game instead of the same
+// 8k-shaped tail — see prompts/budget.js and BOT_MODEL_PROFILES_PLAN.md §3.6.
 
-import { STATIC_RULES } from './staticRules.js';
-import { roleBlock } from './roleBlocks.js';
+import { staticRulesFor } from './staticRules.js';
+import { roleBlockFor } from './roleBlocks.js';
 import { gameStateBlock, factionChatBlock, personaBlock } from './gameState.js';
-import { BUDGETS, MIN_CHAT_LINES, estimateTokens, fitLines, fitToBudget } from './budget.js';
+import { budgetsFor, minChatLinesFor, estimateTokens, fitLines, fitToBudget } from './budget.js';
 
 /** @param {{session:object,prompt:object}} params */
 export function assembleMessages(params) {
@@ -28,13 +32,18 @@ export function assembleMessages(params) {
 
 function getOrBuildSystemPrompt(session) {
   if (!session) return buildSystemPrompt(null);
+  // A profile change implies a prompt change (different noThinkSuffix,
+  // different downstream budgets that don't live in `system` but still mark
+  // this as "a different bot shape") — key on profile.id, not the old
+  // _config.llmNoThink term, so the cache never serves a local-shaped
+  // prompt to a cloud bot (or vice versa) after a profile switch.
   const key = [
     session.role || 'none',
     session.faction || 'none',
     session.talkativeness ?? '',
     JSON.stringify(session.personaOverrides || null),
     session._config?.botFactionChat ? 1 : 0,
-    session._config?.llmNoThink === false ? 0 : 1
+    session._profile?.id || session.profileId || 'local'
   ].join('|');
   if (session._systemPromptCache && session._systemPromptCacheKey === key) return session._systemPromptCache;
   const built = buildSystemPrompt(session);
@@ -44,7 +53,7 @@ function getOrBuildSystemPrompt(session) {
 }
 
 export function buildSystemPrompt(session) {
-  const blocks = [STATIC_RULES, roleBlock(session?.role || null)];
+  const blocks = [staticRulesFor(session?._profile), roleBlockFor(session?.role || null, session?._profile)];
   if (session?._config?.botFactionChat) {
     const faction = factionChatBlock(session);
     if (faction) blocks.push(faction);
@@ -52,7 +61,11 @@ export function buildSystemPrompt(session) {
   const persona = personaBlock(session);
   if (persona) blocks.push(persona);
   let out = blocks.filter(Boolean).join('\n\n---\n\n');
-  if (session?._config?.llmNoThink !== false) out += '\n\n/no_think';
+  // `/no_think` is a Qwen3 convention; MiniMax cannot disable thinking and
+  // it would just be junk tokens in the cached prefix. Default true (the
+  // `local` profile's value) when no profile is resolved, so a bare/legacy
+  // session behaves exactly as before.
+  if (session?._profile?.noThinkSuffix ?? true) out += '\n\n/no_think';
   return out;
 }
 
@@ -60,25 +73,29 @@ export function buildSystemPrompt(session) {
 function buildUserMessage(params) {
   const { session, prompt } = params;
   const parts = [];
+  const budgets = budgetsFor(session?._profile);
+  const minChatLines = minChatLinesFor(session?._profile);
 
-  // 1. State digest (~150 tok).
+  // 1. State digest (~150 tok at scale 1, scaled per profile).
   parts.push(gameStateBlock(session));
 
-  // 2. Rolling summary (~200 tok) — deterministic, code-built (memory.js).
+  // 2. Rolling summary (~200 tok at scale 1) — deterministic, code-built (memory.js).
   const summaryText = typeof session?.rollingSummary?.render === 'function' ? session.rollingSummary.render() : '';
-  if (summaryText) parts.push(`## WHAT HAS HAPPENED SO FAR\n${fitToBudget(summaryText, BUDGETS.rollingSummary)}`);
+  if (summaryText) parts.push(`## WHAT HAS HAPPENED SO FAR\n${fitToBudget(summaryText, budgets.rollingSummary)}`);
 
-  // 3. Notes (~150 tok) — StructuredNotes is already capped at 15 keys.
+  // 3. Notes (~150 tok at scale 1) — StructuredNotes is capped per-instance
+  // (default 15 keys, scaled per profile — see memory.js).
   const notesLines = renderNotes(session);
-  if (notesLines.length) parts.push(`## YOUR NOTES\n${fitLines(notesLines, BUDGETS.notes).join('\n')}`);
+  if (notesLines.length) parts.push(`## YOUR NOTES\n${fitLines(notesLines, budgets.notes).join('\n')}`);
 
-  // 4. Recent chat (~800 tok, min 6 kept, newest last) — the ONLY place chat
-  // history appears; gameStateBlock deliberately does not duplicate it.
+  // 4. Recent chat (~800 tok at scale 1, min N kept, newest last) — the ONLY
+  // place chat history appears; gameStateBlock deliberately does not
+  // duplicate it. N (minChatLines) scales per profile: 6 local / 20 m2.7 / 40 m3.
   const chatLines = renderRecentChat(session);
-  const kept = fitLines(chatLines, BUDGETS.recentChat, { minKeep: Math.min(MIN_CHAT_LINES, chatLines.length) });
+  const kept = fitLines(chatLines, budgets.recentChat, { minKeep: Math.min(minChatLines, chatLines.length) });
   if (kept.length) parts.push(`## RECENT CHAT\n${kept.join('\n')}`);
 
-  // 5. Turn instruction (~120 tok).
+  // 5. Turn instruction (~120 tok at scale 1).
   parts.push(turnInstruction({ session, prompt }));
 
   return parts.filter(Boolean).join('\n\n');

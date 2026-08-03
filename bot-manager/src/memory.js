@@ -13,18 +13,26 @@ export class BufferWindow {
 }
 
 // Structured notes — bot-curated key-value, capped to spec (key 64, value
-// 500 chars) and to a maximum of 15 keys. Oldest-set key evicts first (FIFO)
-// once the cap is exceeded, keeping the notes block within its ~150 tok
-// prompt budget without an extra LLM consolidation pass.
+// 500 chars) and to a maximum key count. Oldest-set key evicts first (FIFO)
+// once the cap is exceeded, keeping the notes block within its prompt
+// budget without an extra LLM consolidation pass. The cap defaults to the
+// `MAX_KEYS` static (15, the `local`/scale-1 value) but is settable
+// per-instance via the constructor so a profile with a larger `noteKeys`
+// (40 m2.7 / 60 m3) can carry a longer note ledger — see
+// BOT_MODEL_PROFILES_PLAN.md §3.6. Existing call sites that construct with
+// no argument are unaffected.
 export class StructuredNotes {
   static MAX_KEYS = 15;
-  constructor() { this.map = new Map(); }
+  constructor({ maxKeys = StructuredNotes.MAX_KEYS } = {}) {
+    this.map = new Map();
+    this.maxKeys = maxKeys;
+  }
   set(key, value) {
     if (!key) return false;
     const k = String(key).slice(0, 64);
     this.map.delete(k); // re-insert at the end so overwriting an existing key doesn't count as "old"
     this.map.set(k, String(value || '').slice(0, 500));
-    while (this.map.size > StructuredNotes.MAX_KEYS) {
+    while (this.map.size > this.maxKeys) {
       const oldestKey = this.map.keys().next().value;
       this.map.delete(oldestKey);
     }

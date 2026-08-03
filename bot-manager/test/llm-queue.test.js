@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BotSession } from '../src/session.js';
+import { enqueueLLMCall, queueDepth, _resetQueueForTests } from '../src/llm/queue.js';
+import { config } from '../src/config.js';
 
 // Build a session whose underlying LLM takes a configurable amount of time
 // and tracks how many calls are in flight at once. The session queue is
@@ -113,4 +115,142 @@ test('stagger: an LLM error in one session does not poison the queue for the nex
 
   await failing.session.close();
   await succeeding.session.close();
+});
+
+// --- Lane isolation (queue.js's Map<lane, {...}> restructure) ------------
+//
+// The tests above exercise the module through BotSession, which today only
+// ever enqueues on the (default) 'local' lane. The tests below talk to
+// enqueueLLMCall()/queueDepth() directly to cover the cross-lane behaviour
+// the plan calls for: a slow call in one lane must not delay a call in
+// another lane, cloud concurrency must be honoured, rejections must stay
+// lane-local, and queueDepth()'s per-lane / no-arg-total contract must hold.
+
+test('queue: lane isolation — a slow cloud call does not delay a local call queued after it', async () => {
+  _resetQueueForTests();
+  let releaseCloud;
+  const cloudGate = new Promise((r) => { releaseCloud = r; });
+  const order = [];
+
+  const cloudCall = enqueueLLMCall(async () => { await cloudGate; order.push('cloud'); return 'cloud-done'; }, { lane: 'cloud' });
+  const localCall = enqueueLLMCall(async () => { order.push('local'); return 'local-done'; }, { lane: 'local' });
+
+  const localResult = await localCall;
+  assert.equal(localResult, 'local-done');
+  assert.deepEqual(order, ['local'], 'local call resolved without waiting on the still-blocked cloud call');
+
+  releaseCloud();
+  assert.equal(await cloudCall, 'cloud-done');
+  assert.deepEqual(order, ['local', 'cloud']);
+  _resetQueueForTests();
+});
+
+test('queue: lane isolation — a slow local call does not delay a cloud call queued after it', async () => {
+  _resetQueueForTests();
+  let releaseLocal;
+  const localGate = new Promise((r) => { releaseLocal = r; });
+  const order = [];
+
+  const localCall = enqueueLLMCall(async () => { await localGate; order.push('local'); return 'local-done'; }, { lane: 'local' });
+  const cloudCall = enqueueLLMCall(async () => { order.push('cloud'); return 'cloud-done'; }, { lane: 'cloud' });
+
+  const cloudResult = await cloudCall;
+  assert.equal(cloudResult, 'cloud-done');
+  assert.deepEqual(order, ['cloud'], 'cloud call resolved without waiting on the still-blocked local call');
+
+  releaseLocal();
+  assert.equal(await localCall, 'local-done');
+  assert.deepEqual(order, ['cloud', 'local']);
+  _resetQueueForTests();
+});
+
+// Gated call helper for the concurrency tests below: fn() flips
+// startedFlags[i] the instant it actually starts (not when it's merely
+// enqueued), and blocks on `gate` until release() is called — so a test can
+// assert exactly how many calls a lane let through before any of them finish.
+function gatedCall(lane, i, startedFlags) {
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const promise = enqueueLLMCall(async () => { startedFlags[i] = true; await gate; return i; }, { lane });
+  return { promise, release };
+}
+
+test('queue: cloud lane honours its concurrency limit — extra calls queue until a slot frees', async () => {
+  _resetQueueForTests();
+  const limit = config.botCloudConcurrency; // default 3
+  const total = limit + 2;
+  const startedFlags = new Array(total).fill(false);
+  const gated = Array.from({ length: total }, (_, i) => gatedCall('cloud', i, startedFlags));
+
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(startedFlags.filter(Boolean).length, limit, `exactly ${limit} cloud calls run concurrently`);
+
+  for (let i = 0; i < limit; i++) gated[i].release();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(startedFlags.filter(Boolean).length, total, 'freed slots let the rest of the cloud calls start');
+
+  for (let i = limit; i < total; i++) gated[i].release();
+  const results = await Promise.all(gated.map((g) => g.promise));
+  assert.deepEqual(results.sort((a, b) => a - b), Array.from({ length: total }, (_, i) => i));
+  _resetQueueForTests();
+});
+
+test('queue: an unrecognized lane name is created on demand with concurrency 1', async () => {
+  _resetQueueForTests();
+  const startedFlags = [false, false];
+  const gated = [gatedCall('experimental', 0, startedFlags), gatedCall('experimental', 1, startedFlags)];
+
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(startedFlags, [true, false], 'only the first call in the unknown lane starts');
+
+  gated[0].release();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(startedFlags, [true, true], 'the second starts only once the first settles');
+
+  gated[1].release();
+  await Promise.all(gated.map((g) => g.promise));
+  _resetQueueForTests();
+});
+
+test('queue: a rejected call in one lane does not block subsequent calls in the same lane', async () => {
+  _resetQueueForTests();
+  const failing = enqueueLLMCall(async () => { throw new Error('cloud blip'); }, { lane: 'cloud' });
+  const succeeding = enqueueLLMCall(async () => 'ok', { lane: 'cloud' });
+
+  await assert.rejects(failing, /cloud blip/);
+  assert.equal(await succeeding, 'ok', 'the cloud lane kept moving after a failed call');
+  _resetQueueForTests();
+});
+
+test('queue: rejections in one lane are invisible to a different lane', async () => {
+  _resetQueueForTests();
+  const failing = enqueueLLMCall(async () => { throw new Error('local blip'); }, { lane: 'local' });
+  const cloudOk = enqueueLLMCall(async () => 'cloud-ok', { lane: 'cloud' });
+
+  await assert.rejects(failing, /local blip/);
+  assert.equal(await cloudOk, 'cloud-ok');
+  _resetQueueForTests();
+});
+
+test('queue: queueDepth() with no argument sums across lanes; per-lane args isolate', async () => {
+  _resetQueueForTests();
+  assert.equal(queueDepth(), 0, 'starts at zero after reset');
+  assert.equal(queueDepth('local'), 0);
+  assert.equal(queueDepth('cloud'), 0, 'querying a lane that has never been used does not create it or lie about its depth');
+
+  let releaseLocal, releaseCloud;
+  const localGate = new Promise((r) => { releaseLocal = r; });
+  const cloudGate = new Promise((r) => { releaseCloud = r; });
+  const localP = enqueueLLMCall(() => localGate, { lane: 'local' });
+  const cloudP = enqueueLLMCall(() => cloudGate, { lane: 'cloud' });
+
+  assert.equal(queueDepth('local'), 1);
+  assert.equal(queueDepth('cloud'), 1);
+  assert.equal(queueDepth(), 2, 'no-arg queueDepth sums across all lanes (back-compat with the pre-lanes API)');
+
+  releaseLocal();
+  releaseCloud();
+  await Promise.all([localP, cloudP]);
+  assert.equal(queueDepth(), 0);
+  _resetQueueForTests();
 });

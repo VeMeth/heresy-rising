@@ -101,8 +101,19 @@ export class ConversationDirector {
 
   async _tick() {
     if (this._turnInFlight) return;
-    if (queueDepth() > 2) return; // backpressure — let engine prompts drain first
     if (this._lastPhase !== 'day') return; // public chat is night-closed
+
+    // Backpressure threshold — configurable, defaulting to today's `> 2`.
+    // The check itself moved: it used to run here, before we even knew which
+    // bot (if any) we'd pick, keyed on the single process-wide queue depth.
+    // With lanes, that global check is wrong on both sides of a mixed game —
+    // it would silence a `local` bot because cloud calls are in flight, and
+    // just as wrongly silence a `cloud` bot because the local GPU is busy.
+    // So each path below picks its candidate bot first, then checks
+    // backpressure on *that bot's own lane* (session._profile?.lane,
+    // defaulting to 'local' for sessions that predate profiles or don't
+    // carry one in tests).
+    const threshold = Number(this._config.botQueueBackpressureThreshold) || 2;
 
     // 1) Day-1 introductions: one bot per >= BOT_INTRO_GAP_MS, guarantees a
     // staggered intro even in a completely silent lobby.
@@ -112,11 +123,18 @@ export class ConversationDirector {
       const session = this._bots.get(id);
       const st = this._botState.get(id);
       if (session && st) {
+        const lane = session._profile?.lane || 'local';
+        if (queueDepth(lane) > threshold) {
+          this._introQueue.unshift(id); // this bot's lane is busy — retry next tick, don't lose the intro
+          return;
+        }
         this._lastIntroAt = this._now();
         await this._speak(session, st, 'introduce yourself on Day 1');
         st.introduced = true; // set even on error/pass — never re-queue
         return;
       }
+      // Stale id (bot no longer registered) — already dropped by the shift
+      // above, same as before lanes existed. Fall through to reactive scoring.
     }
 
     // 2) Reactive scoring — silence is the default.
@@ -130,6 +148,8 @@ export class ConversationDirector {
     if (!scored.length) return;
     scored.sort((a, b) => b.score - a.score);
     const top = scored[0];
+    const lane = top.session._profile?.lane || 'local';
+    if (queueDepth(lane) > threshold) return; // let this lane's in-flight calls drain first
     await this._speak(top.session, top.st, 'reactive');
   }
 
