@@ -40,6 +40,10 @@ const LOCAL_PROFILE = freezeProfile({
   // 8k-budget compression it was written for.
   richPrompt: false,
   budgetScale: 1,
+  // Chat/justification trim length. Deliberately the SAME on every profile:
+  // this is about game feel — a social-deduction table where humans type one
+  // or two lines — not about what the model is capable of. ~40 words.
+  maxChatChars: 400,
   memoryWindow: 20,
   noteKeys: 15,
   minChatLines: 6,
@@ -79,6 +83,7 @@ const MINIMAX_M27_PROFILE = freezeProfile({
   // that point eviction stops binding and further scale buys nothing but
   // latency, which is the real cost on a token plan.
   budgetScale: 12,
+  maxChatChars: 400,   // same as local — game feel, not model capability
   memoryWindow: 120,
   noteKeys: 40,
   minChatLines: 40,
@@ -111,6 +116,7 @@ const MINIMAX_M3_PROFILE = freezeProfile({
   // long Conclave — M3's 1M context means there's no reason to be tight, but
   // there's also no gain past the point where nothing gets evicted.
   budgetScale: 20,
+  maxChatChars: 400,   // same as local — game feel, not model capability
   memoryWindow: 200,
   noteKeys: 60,
   minChatLines: 60,

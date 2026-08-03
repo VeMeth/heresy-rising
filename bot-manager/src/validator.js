@@ -52,7 +52,14 @@ function validateChat(action, gameState) {
   const phase = gameState.phase;
   if (phase === 'night') return { ok: false, reason: 'public chat is closed at night' };
   if (!action.text || !String(action.text).trim()) return { ok: false, reason: 'empty chat text' };
-  if (String(action.text).length > 1000) return { ok: false, reason: 'chat too long (>1000 chars)' };
+  // Length is TRIMMED, not rejected — see actionDispatch.js's trimForChat().
+  // Rejecting a chatty message used to make the bot say nothing at all for
+  // that turn (a verbose model went mute for a whole game while the admin
+  // panel showed `rejected:chat too long`), and silence is a far worse
+  // outcome than a message cut to length. What survives here is an absurdity
+  // guard: past this the model has clearly malfunctioned rather than just
+  // rambled, and there is nothing worth salvaging.
+  if (String(action.text).length > 4000) return { ok: false, reason: 'chat absurdly long (>4000 chars)' };
   return { ok: true };
 }
 

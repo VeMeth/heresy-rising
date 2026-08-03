@@ -123,3 +123,52 @@ test('buildEnginePayload: forge includes asPlayerCode and body', () => {
   assert.equal(r.payload.asPlayerCode, 'P-zzz');
   assert.match(r.payload.body, /never said/);
 });
+// ── Chat brevity / trimming (MiniMax M2.7/M3 are verbose) ────────────────
+import { trimForChat } from '../src/actionDispatch.js';
+
+const longSession = { conclaveCode: 'ABCDEF', _profile: { maxChatChars: 400 } };
+
+test('trimForChat: leaves a short message untouched', () => {
+  assert.equal(trimForChat('P-04 dodged the question twice.', 400), 'P-04 dodged the question twice.');
+});
+
+test('trimForChat: cuts at a sentence boundary when one is well-placed', () => {
+  const text = 'A'.repeat(250) + '. ' + 'B'.repeat(400);
+  const out = trimForChat(text, 400);
+  assert.ok(out.endsWith('.'), `expected sentence end, got: ${out.slice(-30)}`);
+  assert.ok(out.length <= 400);
+});
+
+test('trimForChat: falls back to a word boundary with an ellipsis', () => {
+  const text = ('word '.repeat(200)).trim(); // no sentence terminators at all
+  const out = trimForChat(text, 400);
+  assert.ok(out.endsWith('…'), `expected ellipsis, got: ${out.slice(-20)}`);
+  assert.ok(!out.includes('  '));
+  assert.ok(out.length <= 401); // limit + the ellipsis char
+});
+
+test('trimForChat: never returns empty for non-empty input (crippled bots must keep a justification)', () => {
+  const out = trimForChat('x'.repeat(3000), 400);
+  assert.ok(out.length > 0);
+});
+
+test('trimForChat: never exceeds the engine body limit even if a profile asks for more', () => {
+  const out = trimForChat('y'.repeat(5000), 99999);
+  assert.ok(out.length <= 1001, `got ${out.length}`);
+});
+
+test('buildEnginePayload: a rambling chat is TRIMMED and still sent, not dropped', () => {
+  const action = { kind: 'chat', text: 'Z'.repeat(2000) };
+  const dispatch = buildEnginePayload(action, longSession);
+  assert.equal(dispatch.type, 'chat');
+  assert.ok(dispatch.payload.body.length <= 401, `body was ${dispatch.payload.body.length}`);
+  assert.ok(dispatch.payload.body.length > 0);
+});
+
+test('buildEnginePayload: a rambling vote justification is trimmed but never emptied', () => {
+  const action = { kind: 'vote', target: 'P-04', justification: 'Q'.repeat(2000) };
+  const dispatch = buildEnginePayload(action, longSession);
+  assert.equal(dispatch.payload.targetCode, 'P-04');
+  assert.ok(dispatch.payload.justification.length > 0);
+  assert.ok(dispatch.payload.justification.length <= 401);
+});

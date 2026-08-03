@@ -124,13 +124,13 @@ function turnInstruction(params) {
   const kind = prompt?.kind;
   if (kind === 'chat_turn') {
     const reason = prompt.reason ? ` (${prompt.reason})` : '';
-    return `## YOUR TURN TO SPEAK${reason}\nYou may post ONE public chat message, or pass. ${ALWAYS}\n\nRespond with a JSON action object.`;
+    return `## YOUR TURN TO SPEAK${reason}\nYou may post ONE public chat message, or pass. Keep it to 1-3 sentences (~40 words), making a single point — no recaps, no summaries. ${ALWAYS}\n\nRespond with a JSON action object.`;
   }
   if (kind === 'day_vote_prompt') {
     const legal = Array.isArray(prompt.legalTargets) && prompt.legalTargets.length
       ? `${prompt.legalTargets.join(', ')}, or "skip"`
       : 'any living player, or "skip"';
-    return `## VOTE\nRound ${session?.round ?? '?'}. Cast your vote: ${legal}. Justify it briefly. ${ALWAYS}\n\nRespond with a JSON action object.`;
+    return `## VOTE\nRound ${session?.round ?? '?'}. Cast your vote: ${legal}. Justify it in ONE short sentence. ${ALWAYS}\n\nRespond with a JSON action object.`;
   }
   if (kind === 'night_action_prompt') {
     return `## NIGHT ACTION\nRound ${session?.round ?? '?'}. Take your night action (see YOUR ROLE above), or sleep. ${ALWAYS}\n\nRespond with a JSON action object.`;
