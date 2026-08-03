@@ -667,7 +667,7 @@
             </div>
             <p v-if="!displayedThoughts.length" class="empty">
               No feed entries{{ (thoughtsFilterConclave || thoughtsFilterBot || thoughtsSelectedKinds.length < THOUGHT_KINDS.length) ? ' match these filters.' : ' yet.' }}
-              This is expected, not broken: local-profile bots run with <code>/no_think</code> and a tight token cap, so they mostly show up as <strong>action</strong> entries with little or no reasoning text. MiniMax-profile bots produce full <strong>thinking</strong> entries — spawn or watch one of those to see reasoning traces here.
+              This is expected, not broken: local-profile bots contribute <strong>actions only</strong> by design — they run <code>/no_think</code> at a tight token cap, so there is no reasoning worth showing. MiniMax-profile bots contribute full <strong>thinking</strong> entries as well — spawn or watch one of those to see reasoning traces here.
             </p>
           </div>
         </section>

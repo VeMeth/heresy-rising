@@ -39,6 +39,11 @@ const LOCAL_PROFILE = freezeProfile({
   // full spec text only fits a big-context profile; local keeps the
   // 8k-budget compression it was written for.
   richPrompt: false,
+  // No 'thinking' entries in the admin thoughts feed for local bots: /no_think
+  // at a 350-token cap means there is no reasoning worth showing, and emitting
+  // a thought-less entry per call would evict real content from the shared
+  // 500-entry ring. Local bots still show their ACTIONS in the feed.
+  captureThoughts: false,
   budgetScale: 1,
   // Chat/justification trim length. Deliberately the SAME on every profile:
   // this is about game feel — a social-deduction table where humans type one
@@ -82,6 +87,7 @@ const MINIMAX_M27_PROFILE = freezeProfile({
   // full Conclave produces (12 players, bots capped at 3 msgs/phase). Past
   // that point eviction stops binding and further scale buys nothing but
   // latency, which is the real cost on a token plan.
+  captureThoughts: true,   // full reasoning capture — this is the model that has something to say
   budgetScale: 12,
   maxChatChars: 400,   // same as local — game feel, not model capability
   memoryWindow: 120,
@@ -115,6 +121,7 @@ const MINIMAX_M3_PROFILE = freezeProfile({
   // Same "whole game fits" reasoning as M2.7, with headroom for an unusually
   // long Conclave — M3's 1M context means there's no reason to be tight, but
   // there's also no gain past the point where nothing gets evicted.
+  captureThoughts: true,   // full reasoning capture — this is the model that has something to say
   budgetScale: 20,
   maxChatChars: 400,   // same as local — game feel, not model capability
   memoryWindow: 200,

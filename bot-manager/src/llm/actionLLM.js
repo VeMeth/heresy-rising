@@ -137,43 +137,53 @@ export class ActionLLM {
       const parsed = parseActionBlock(lastText);
       const action = parsed ? normalizeAction(parsed) : null;
 
-      // Feed capture (plan §2.2 item 1) — one 'thinking' entry per attempt.
+      // Feed capture (plan §2.2 item 1) — one 'thinking' entry per attempt,
+      // but ONLY for profiles that actually reason (profile.captureThoughts:
+      // the MiniMax profiles). The `local` profile runs /no_think at a
+      // 350-token cap and has essentially nothing to say here, so recording
+      // it would emit a thought-less entry on every single LLM call and, in a
+      // 500-entry SHARED ring buffer, steadily evict the MiniMax reasoning
+      // and the action history that are the point of the feed. Local bots
+      // still appear in the feed via session.js's _logAction mirror — actions,
+      // rejections and suppressions — just without thinking noise.
+      //
       // reasoningText (MiniMax reasoning_split) wins when present; otherwise
-      // fall back to whatever stripThink() would have discarded (local
-      // Qwen3's stray <think> blocks — free capture). A parse failure
-      // followed by a nudge retry naturally produces two entries here, since
-      // this runs once per loop iteration regardless of outcome. Wrapped
-      // defensively — recordThought() itself never throws, but this call
-      // site must not be able to break a bot's turn either.
+      // fall back to whatever stripThink() would have discarded. A parse
+      // failure followed by a nudge retry naturally produces two entries
+      // here, since this runs once per loop iteration regardless of outcome.
+      // Wrapped defensively — recordThought() itself never throws, but this
+      // call site must not be able to break a bot's turn either.
       try {
-        const thought = response?.reasoningText || extractRemovedThink(lastText);
-        recordThought({
-          conclaveCode: session?.conclaveCode,
-          botId: session?.id,
-          playerCode: session?.playerCode,
-          botName: session?.name,
-          profileId: session?.profileId,
-          role: session?.role,
-          faction: session?.faction,
-          round: session?.round,
-          phase: session?.phase,
-          kind: 'thinking',
-          summary: action
-            ? `attempt ${i + 1}: parsed ${action.kind}`
-            : `attempt ${i + 1}: failed to parse${response?.finishReason === 'length' ? ' (truncated)' : ''}`,
-          thought,
-          detail: {
-            promptKind: prompt?.kind,
-            attempt: i + 1,
-            latencyMs,
-            finishReason: response?.finishReason,
-            inTok,
-            outTok,
-            totalTokens,
-            parsed: !!action,
-            actionKind: action ? action.kind : null
-          }
-        });
+        if (!session?._profile || session._profile.captureThoughts) {
+          const thought = response?.reasoningText || extractRemovedThink(lastText);
+          recordThought({
+            conclaveCode: session?.conclaveCode,
+            botId: session?.id,
+            playerCode: session?.playerCode,
+            botName: session?.name,
+            profileId: session?.profileId,
+            role: session?.role,
+            faction: session?.faction,
+            round: session?.round,
+            phase: session?.phase,
+            kind: 'thinking',
+            summary: action
+              ? `attempt ${i + 1}: parsed ${action.kind}`
+              : `attempt ${i + 1}: failed to parse${response?.finishReason === 'length' ? ' (truncated)' : ''}`,
+            thought,
+            detail: {
+              promptKind: prompt?.kind,
+              attempt: i + 1,
+              latencyMs,
+              finishReason: response?.finishReason,
+              inTok,
+              outTok,
+              totalTokens,
+              parsed: !!action,
+              actionKind: action ? action.kind : null
+            }
+          });
+        }
       } catch { /* observability must never break a bot's turn */ }
 
       if (action) return action;

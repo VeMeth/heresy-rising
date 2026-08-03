@@ -313,3 +313,47 @@ test('_logAction mirroring: a chat turn that emits a vote is "suppressed"', asyn
   assert.match(entries[0].summary, /chat_turn cannot emit vote/i);
   await session.close();
 });
+
+// ── Per-profile thought capture ──────────────────────────────────────────
+// Local bots contribute ACTIONS to the feed but not thinking entries: with
+// /no_think at a 350-token cap there is no reasoning worth showing, and a
+// thought-less entry per LLM call would evict real content from the shared
+// 500-entry ring buffer. MiniMax profiles capture in full.
+import { PROFILES } from '../src/llm/profiles.js';
+
+function fakeSessionWithProfile(profile) {
+  return { ...fakeSession(), _profile: profile, profileId: profile.id };
+}
+
+test('captureThoughts: a local-profile session records NO thinking entry, even when the model emits <think>', async () => {
+  const chat = new MockChatLLM(['<think>pondering at length</think>{"kind":"pass"}']);
+  const a = new ActionLLM({ chatModel: chat });
+  await a.generate({ session: fakeSessionWithProfile(PROFILES.local), prompt: {} });
+
+  const { entries } = readThoughts({ kinds: ['thinking'] });
+  assert.equal(entries.length, 0, 'local must not add thinking noise to the shared ring buffer');
+});
+
+test('captureThoughts: a MiniMax-profile session does record its reasoning', async () => {
+  const chat = { async chat() { return { content: '{"kind":"pass"}', usage: {}, reasoningText: 'P-07 contradicted themselves.' }; } };
+  const a = new ActionLLM({ chatModel: chat });
+  await a.generate({ session: fakeSessionWithProfile(PROFILES['minimax-m2.7']), prompt: {} });
+
+  const { entries } = readThoughts({ kinds: ['thinking'] });
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].thought, 'P-07 contradicted themselves.');
+});
+
+test('captureThoughts: local bots still contribute ACTION entries to the feed', async () => {
+  const scripts = ['```action\n{"kind":"vote","target":"human-p1","justification":"quiet all round"}\n```'];
+  const { session, emitted } = makeSession({ chatScripts: scripts, role: 'imperial-citizen' });
+  assert.equal(session.profileId, 'local', 'fixture should be on the local profile');
+  session.phase = 'day'; session.round = 2;
+  await session._act({ kind: 'day_vote_prompt', round: 2, votingEnabled: true });
+  assert.ok(emitted.find((e) => e.event === 'vote:submit'));
+
+  const thinking = readThoughts({ botId: session.id, kinds: ['thinking'] }).entries;
+  const actions = readThoughts({ botId: session.id, kinds: ['action'] }).entries;
+  assert.equal(thinking.length, 0, 'no thoughts from a local bot');
+  assert.ok(actions.some((e) => /voted human-p1/.test(e.summary)), 'but its action is in the feed');
+});
