@@ -1,0 +1,7 @@
+{
+  "_comment": "H7 Poxwalker (roles/poxwalker.md v1.0.0) zone-crossing cues. These REPLACE the ordinary hints.json line for a player who is currently infected — Patient Zero or a downstream carrier — so that crossing a zone still produces exactly ONE private message. A second, extra message would let an infected player deduce their state from the message COUNT alone, and the spec is explicit that the cue must read identically for Patient Zero and for carriers so neither can tell which they are. Green has no entry on purpose: the spec's cue table starts at Yellow, and an infected player falling back to Green is being cleansed, which should read as the ordinary line.",
+  "yellow": "A chill settles in your chest. You feel watched — but by what?",
+  "orange": "Your veins darken at the wrist. Something pulses behind your eyes. You know you are changed. You don't yet know by what.",
+  "red": "The Warp breathes through you. You are no longer alone in your own flesh. Someone is with you.",
+  "black": "You convulse. The host has given way. The plague takes you whole."
+}

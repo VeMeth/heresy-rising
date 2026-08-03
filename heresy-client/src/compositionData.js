@@ -88,6 +88,11 @@ export const validRoles = new Map([
     claim: 'Imperial Citizen',
     abilityTemplate: 'One-shot speculation: target a non-Heretic you believe is in Red drift. If right, you possess them for a day (speak in their name, their vote is voided, their night is skipped) — the body detonates at day\'s end, revealing full role and faction. Wrong guess just wastes the attempt.'
   }],
+  ['poxwalker', {
+    id: 'poxwalker', displayName: 'Poxwalker', faction: 'heretic', tier: 'T3',
+    claim: 'Imperial Citizen',
+    abilityTemplate: 'Once per game, infect a living non-Heretic for {driftWeight} self-drift. They become Patient Zero and gain +2 drift every night. Anyone whose night action touches Patient Zero — or who is touched by Patient Zero\'s own night action — catches a milder +1 per night on top of their own costs, and keeps carrying it for the rest of the game. Nobody dies of it: a carrier who reaches Black ({blackMin}) sits there, rolling a coin each night to lose their night action. A Chirurgeon\'s protection cleanses whoever it lands on; landing it on Patient Zero ends the whole contagion.'
+  }],
 ]);
 
 // Shared cost placeholders every role's abilityTemplate may reference,

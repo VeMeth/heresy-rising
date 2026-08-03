@@ -57,7 +57,7 @@ test('renderAbility falls back to a role\'s plain `ability` string if it has no 
 
 test('loadGameConfig renders every shipped role\'s ability text with no leftover {placeholder} and no thrown error', () => {
   const cfg = loadGameConfig();
-  assert.equal(cfg.roleList.length, 13, 'sanity: still the 13-role roster this test was written against');
+  assert.equal(cfg.roleList.length, 14, 'sanity: still the 14-role roster this test was written against (13 + H7 Poxwalker)');
   for (const role of cfg.roleList) {
     assert.equal(typeof role.ability, 'string');
     assert.ok(role.ability.length > 0, `${role.id} has empty ability text`);

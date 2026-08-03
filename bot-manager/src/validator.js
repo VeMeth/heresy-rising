@@ -26,7 +26,8 @@ const ROLES_VERBS = new Map([
   ['conspirator', { verbs: ['forge', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
   ['saboteur', { verbs: ['trap', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
   ['recruiter', { verbs: ['recruit', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
-  ['animus', { verbs: ['possess', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }]
+  ['animus', { verbs: ['possess', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
+  ['poxwalker', { verbs: ['infect', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }]
 ]);
 
 const SERMON_USAGE_LIMITS = {
@@ -166,6 +167,20 @@ function validateNightAction(roleId, action, gameState) {
       if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'possess target not alive' };
       if (gameState.targetsByFaction && gameState.targetsByFaction.heretic?.includes(action.target)) {
         return { ok: false, reason: 'animus cannot target a fellow Heretic' };
+      }
+      return { ok: true };
+    }
+    case 'infect': {
+      // H7 Poxwalker: manager-side check mirrors possess's — engine is still
+      // the real gate (hostile-faction target lock covers alive/non-Heretic/
+      // not-self; targetsByFaction only populated when known). One-shot per
+      // game, mirroring sanctioned-psyker's kill usage check.
+      const uses = (gameState.usage && gameState.usage.infect) || 0;
+      if (uses >= 1) return { ok: false, reason: 'poxwalker infect already used (once per game)' };
+      if (!action.target) return { ok: false, reason: 'infect requires a target' };
+      if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'infect target not alive' };
+      if (gameState.targetsByFaction && gameState.targetsByFaction.heretic?.includes(action.target)) {
+        return { ok: false, reason: 'poxwalker cannot target a fellow Heretic' };
       }
       return { ok: true };
     }

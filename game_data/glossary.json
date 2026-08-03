@@ -17,7 +17,8 @@
     "conspirator": ["conspirator", "conspirators", "forgery", "forged"],
     "saboteur": ["saboteur", "saboteurs", "trap", "trapped", "booby-trap", "trapper"],
     "recruiter": ["recruiter", "recruiters", "rec"],
-    "animus": ["animus", "neverborn"]
+    "animus": ["animus", "neverborn"],
+    "poxwalker": ["poxwalker", "pox", "plague"]
   },
   "roleGlossOverrides": {
     "heretic-priest": "Wears the Priest's vestments and preaches the same sermons — but drift rises where it should fall. Finding one means noticing who got worse after a blessing.",

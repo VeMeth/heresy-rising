@@ -19,6 +19,7 @@ const SIGIL_PATHS = {
   'recruiter': `<circle cx="6.2" cy="6.4" r="3.4"/><path d="M8.8 8.8C10.4 11 11.8 12.6 13.6 14.2"/><path d="M10.7 13.8 13.6 14.2 12.2 11.6"/><circle cx="17.4" cy="17" r="3.4"/><path d="m15.2 14.6-1.2-2.6M19.6 14.6l1.2-2.6"/><circle cx="17.4" cy="17" r="1" fill="currentColor" stroke="none"/>`,
   'conspirator': `<rect x="8.6" y="3.2" width="11.8" height="8" stroke-dasharray="3 2.4" stroke-width="1"/><path d="M3.6 8.2h11.8v8H8.2l-3 3.2V16.2H3.6z"/><path d="M6.2 11h7M6.2 13.6h4.4" stroke-width="1"/>`,
   'animus': `<path d="M6.8 1.6v3.4M12 1.4v3M17.2 1.6v3.4"/><path d="M6 5.6h12v5.8c0 4.4-2.5 6.8-6 9-3.5-2.2-6-4.6-6-9z"/><path d="m8.8 9.6 2.6 1M15.2 9.6l-2.6 1"/><path d="M9.8 15.2h4.4"/><path d="M11 14.4v1.6M13 14.4v1.6" stroke-width="1"/>`,
+  'poxwalker': `<circle cx="12" cy="12" r="2.8" stroke-width="1"/><path d="M12 9.2v-4M12 14.8v4M9.2 12h-4M14.8 12h4"/><circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>`,
   'roster': `<circle cx="12" cy="12" r="4.2" stroke-width="1"/><circle cx="12" cy="3.6" r="1.9"/><circle cx="19.4" cy="8.2" r="1.9"/><circle cx="16.6" cy="18.4" r="1.9"/><circle cx="7.4" cy="18.4" r="1.9"/><circle cx="4.6" cy="8.2" r="1.9"/>`,
   // Non-role sigils: manual sections and the two faction rosters.
   'how-to-play': `<path d="M12 6.6C10.1 5 7.5 4.4 4.4 4.6v12.8c3.1-.2 5.7.4 7.6 2 1.9-1.6 4.5-2.2 7.6-2V4.6c-3.1-.2-5.7.4-7.6 2z"/><path d="M12 6.6v12.8"/><path d="M7 9.2h2.6M7 12h2.6" stroke-width="1"/><path d="M14.4 9.2H17M14.4 12H17" stroke-width="1"/>`,
@@ -100,6 +101,7 @@ export default defineConfig({
               roleItem('recruiter', 'Recruiter', '/roles/recruiter'),
               roleItem('conspirator', 'Conspirator', '/roles/conspirator'),
               roleItem('animus', 'Animus', '/roles/animus'),
+              roleItem('poxwalker', 'Poxwalker', '/roles/poxwalker'),
             ],
           },
         ],

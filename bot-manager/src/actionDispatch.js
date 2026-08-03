@@ -58,7 +58,8 @@ function verbToIntent(verb, session) {
     case 'trap':
     case 'kill':
     case 'recruit':
-    case 'possess':    return { engineType: 'action', variantFrom: null };
+    case 'possess':
+    case 'infect':     return { engineType: 'action', variantFrom: null };
     case 'forge':      return { engineType: 'action', variantFrom: null, day: true, forge: true };
     // Faction-wide Heretic attack -> its own engine event (action:submit-faction).
     case 'blood_ritual': return { engineType: 'faction-action' };

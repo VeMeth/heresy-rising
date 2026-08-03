@@ -260,6 +260,16 @@ export class HeresyGameManager {
     // 0-1439); unused/null for live games. See nextScheduleBoundary above.
     this.ensureColumn('hr_games','day_start_minute_utc',"INTEGER");
     this.ensureColumn('hr_players','death_cause',"TEXT");
+    // H7 Poxwalker (roles/poxwalker.md v1.0.0). Two columns, not the seven the
+    // dispatch sketched: `plague_source` is derivable (it is whoever
+    // hr_games.patient_zero names), `sourceGone` is derivable (patient_zero
+    // set + that player dead), `activePoxwalker` is derivable (the roster's
+    // poxwalker), and the per-night cripple roll is a transient inside one
+    // resolve pass, not state. What genuinely has to persist is who Patient
+    // Zero is, and which players have ever touched them — carriers keep
+    // climbing for the rest of the game, including after the source dies.
+    this.ensureColumn('hr_games','patient_zero',"TEXT");
+    this.ensureColumn('hr_players','plague_carrier',"INTEGER NOT NULL DEFAULT 0");
     this.now = now; this.random = random; this.config = loadGameConfig();
     this._announcementListeners = [];
     this._botPromptListeners = [];
@@ -735,8 +745,29 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     // alive-only count) — the "cell" a scaled role is working against
     // doesn't shrink as people die, it's the table size chosen at setup.
     for(const p of players){const a=actions.find(x=>x.actor_code===p.player_code),role=this.role(p.role_id);if(p.skip_next_night){this.db.prepare('UPDATE hr_players SET skip_next_night=0 WHERE game_code=? AND player_code=?').run(c,p.player_code);continue;}if(!a){this.changeDrift(c,p.player_code,this.config.drift.NIGHTLY_SLEEP_RECOVERY,'sleep');continue;}if(a.kind==='kill'||a.kind==='blood-ritual'||a.kind==='possess'||a.kind==='sermon'||a.kind==='corrupt-sermon')continue;const cost=role.scaledCostKey?resolveScaledCost(this.config.drift.scaledCosts,role.scaledCostKey,'t'+(Number(String(a.variant||'T1').replace('T',''))||1),totalPlayers):role.driftWeight;this.changeDrift(c,p.player_code,cost,'night-action');if(cost>0)nightCharges.set(p.player_code,(nightCharges.get(p.player_code)||0)+cost);}
-    for(const a of actions.filter(x=>x.kind==='protect'))if(!this.trapBlocks(c,g,a,traps))protectedIds.add(a.target_code);
+    // H7 Poxwalker cure: a landed protect cleanses whoever it lands on. There
+    // is no separate `cure` action — ruled 2026-08-03, deliberately diverging
+    // from poxwalker.md v1.0.0's one-shot T3 Chirurgeon cure (see
+    // POXWALKER_PLAN.md § 9; the source spec needs a v1.0.1 re-lock).
+    // Consequences that are load-bearing here:
+    //   - SILENT. clearPlague emits nothing, and reportNightActions still
+    //     sends the same "Last night you protected X." either way. The
+    //     Chirurgeon must not be able to read plague state off their own
+    //     action — same law as "does not learn whether their protection
+    //     fired" (see the comment above reportNightActions).
+    //   - A trapped protect cures nothing, exactly as it protects nothing.
+    //   - Runs BEFORE the infect pass below, so a protect cannot pre-empt an
+    //     infection landing the same night — it only lifts plague already
+    //     carried. And before the plague pass, so a cure stops tonight's tick.
+    for(const a of actions.filter(x=>x.kind==='protect'))if(!this.trapBlocks(c,g,a,traps)){protectedIds.add(a.target_code);this.clearPlague(c,g,a.target_code);}
     for(const a of actions.filter(x=>x.kind==='bodyguard'))if(!this.trapBlocks(c,g,a,traps))bodyguards.set(a.target_code,a.actor_code);
+    // H7 Poxwalker infect. Only sets Patient Zero — the +3 self-drift is
+    // charged by the generic per-action loop above (kind 'infect' is not in
+    // its exclusion list), so nothing is charged here or this would double.
+    // The one shot is consumed on use regardless of outcome, matching Animus:
+    // a trapped infect still burns the game's only infection. g.patient_zero
+    // is updated in memory too — resolvePlague below reads it this same pass.
+    for(const a of actions.filter(x=>x.kind==='infect')){if(!this.player(c,a.actor_code)?.alive)continue;this.incrementUsage(c,a.actor_code,'infect');if(this.trapBlocks(c,g,a,traps))continue;if(!this.player(c,a.target_code)?.alive)continue;this.db.prepare('UPDATE hr_games SET patient_zero=? WHERE code=?').run(a.target_code,c);g.patient_zero=a.target_code;this.event(c,'night-action',{round:g.round,kind:'poxwalker:infect',actor:a.actor_code,target:a.target_code});}
     for(const a of actions.filter(x=>['sermon','corrupt-sermon'].includes(x.kind))){if(this.trapBlocks(c,g,a,traps))continue;const s=this.config.drift.sermons[a.variant],actorRole=this.role(this.player(c,a.actor_code).role_id);
       // Warp Litany's drift gate, enforced here rather than at submission so a
       // Heretic Priest can't probe a target's hidden drift by reading the ack.
@@ -745,7 +776,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       if(a.kind==='corrupt-sermon'&&a.variant==='warp-litany'&&(this.player(c,a.target_code)?.drift??0)<(s.target_zone_min_drift??10))continue;
       const selfCost=actorRole.scaledCostKey?resolveScaledCost(this.config.drift.scaledCosts,actorRole.scaledCostKey,a.variant,totalPlayers):s.self;this.changeDrift(c,a.actor_code,selfCost,'sermon-self');if(selfCost>0)nightCharges.set(a.actor_code,(nightCharges.get(a.actor_code)||0)+selfCost);this.changeDrift(c,a.target_code,s.target,'sermon-target');this.incrementUsage(c,a.actor_code,a.variant);}
     const autoKills=[];for(const a of actions.filter(x=>['investigate','drift-hint'].includes(x.kind))){if(this.trapBlocks(c,g,a,traps))continue;const result=this.resolveIntel(c,a,g);if(result?.autoKill)autoKills.push(result);}for(const k of autoKills){const victim=this.player(c,k.targetCode);if(!victim?.alive)continue;this.db.prepare("UPDATE hr_players SET alive=0,death_cause='execute-on-sight' WHERE game_code=? AND player_code=?").run(c,k.targetCode);const victimName=this.displayName(g,victim);this.system(c,`${victimName} was executed by Interrogator. Confirmed warp-touched.`);this.system(c,`${victimName}'s alignment: ${victim.faction}.`);if(k.actorCode)this.privateSystem(c,k.actorCode,`Your scan executed ${victimName}. Warp-touched confirmed.`,{intelKind:'execute_on_sight',action:'interrogate',target:k.targetCode,zone:k.zone,faction:k.faction});this.emitAnnouncement(c,{type:'execution',title:'SUMMARY EXECUTION',message:`${victimName} was executed by order of the Interrogator.`,victim:{name:victimName,faction:victim.faction},round:g.round,phase:'night'});for(const w of players)this.changeDrift(c,w.player_code,this.config.drift.WITNESSED_VIOLENCE,'witnessed-violence');}
-    for(const a of actions.filter(x=>x.kind==='heretical-catalyst')){const target=this.player(c,a.target_code);if(traps.has(a.target_code))this.changeDrift(c,a.actor_code,this.config.drift.TRAP_DRIFT,'trap');if(target?.drift>=g.max_drift&&!protectedIds.has(a.target_code)){this.db.prepare("UPDATE hr_players SET faction='heretic' WHERE game_code=? AND player_code=?").run(c,a.target_code);this.privateSystem(c,a.target_code,'The catalyst takes hold. Your loyalty has burned away.');}}
+    for(const a of actions.filter(x=>x.kind==='heretical-catalyst')){const target=this.player(c,a.target_code);if(traps.has(a.target_code))this.changeDrift(c,a.actor_code,this.config.drift.TRAP_DRIFT,'trap');if(target?.drift>=g.max_drift&&!protectedIds.has(a.target_code)){this.clearPlague(c,g,a.target_code);this.db.prepare("UPDATE hr_players SET faction='heretic' WHERE game_code=? AND player_code=?").run(c,a.target_code);this.privateSystem(c,a.target_code,'The catalyst takes hold. Your loyalty has burned away.');}}
     // H1 Murderer drift-gated kill (heretic-kit.md v1.5.0): self-drift cost is
     // charged HERE (not in the generic per-player loop above) so the gate can
     // be checked against the pre-kill drift value. Only the Murderer is
@@ -805,6 +836,13 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     // protected Red-zone target is indistinguishable from a bad read —
     // consistent with the Animus never learning why an attempt failed.
     for(const pos of actions.filter(x=>x.kind==='possess')){const actorPlayer=this.player(c,pos.actor_code);if(!actorPlayer?.alive)continue;const possRole=this.role(actorPlayer.role_id);nightCharges.set(pos.actor_code,(nightCharges.get(pos.actor_code)||0)+possRole.driftWeight);this.incrementUsage(c,pos.actor_code,'possess');if(traps.has(pos.actor_code)){this.changeDrift(c,pos.actor_code,this.config.drift.TRAP_DRIFT,'trap');continue;}const target=this.player(c,pos.target_code);if(!target?.alive)continue;if(traps.has(pos.target_code))this.changeDrift(c,pos.actor_code,this.config.drift.TRAP_DRIFT,'trap');const zone=driftZone(this.config.drift,target.drift).id;if(zone==='red'&&!protectedIds.has(pos.target_code)){this.db.prepare('UPDATE hr_players SET possessed_by=?,skip_next_night=1 WHERE game_code=? AND player_code=?').run(pos.actor_code,c,pos.target_code);this.privateSystem(c,pos.actor_code,`The summoning takes hold. The Neverborn reaches across the Warp and finds purchase in ${this.displayName(g,target)}. Speak as them tomorrow.`,{intelKind:'animus_possess',outcome:'success',target:pos.target_code});this.privateSystem(c,pos.target_code,'Something cold moves behind your eyes. You cannot speak tomorrow.');}else{this.privateSystem(c,pos.actor_code,'You reach for the Warp. The Neverborn finds no purchase. The ritual wastes.',{intelKind:'animus_possess',outcome:'fail'});}}
+    // H7 Poxwalker plague tick — LAST of the drift passes, after every action
+    // has resolved and paid its own cost, because the spec prices visitor
+    // drift as "on top of their own action's normal drift cost" and evaluates
+    // the black-zone roll "after applying drift at night-end". Deliberately
+    // not folded into nightCharges: the proximity siphon prices night actions,
+    // and the plague is not one.
+    this.resolvePlague(c,g,actions);
     applyProximitySiphon(this.players(c),nightCharges,this.config.rules.proximitySiphon,(pc,delta)=>this.changeDrift(c,pc,delta,'proximity-siphon'));
     this.reportNightActions(c,g,actions,players);
     if(!this.finishIfWon(c)){this.setPhase(c,'day',g.round+1,'vote');}}
@@ -834,7 +872,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
   // tell their ACTOR nothing at all, on either success or failure — a
   // pre-existing gap this method does not attempt to close (see report).
   reportNightActions(c,g,actions,players){
-    const VERB={protect:'protected',bodyguard:'moved to guard',boobytrap:'set a trap for',sermon:'preached to','corrupt-sermon':'preached to',kill:'moved against'};
+    const VERB={protect:'protected',bodyguard:'moved to guard',boobytrap:'set a trap for',sermon:'preached to','corrupt-sermon':'preached to',kill:'moved against',infect:'breathed the pox over'};
     for(const a of actions){const verb=VERB[a.kind];if(!verb)continue;const target=this.player(c,a.target_code);if(!target)continue;this.privateSystem(c,a.actor_code,`Last night you ${verb} ${this.displayName(g,target)}.`,{target:a.target_code},{ownAction:true});}
     // Sleep only counts as a CHOICE when nothing blocked the actor from
     // choosing otherwise — skip_next_night (torture, possession) means the
@@ -842,6 +880,72 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     // them "you slept" there would misstate what happened, so they get no
     // report at all rather than a misleading one.
     for(const p of players){if(p.skip_next_night)continue;if(actions.some(a=>a.actor_code===p.player_code))continue;this.privateSystem(c,p.player_code,`You slept. Drift eased by ${Math.abs(this.config.drift.NIGHTLY_SLEEP_RECOVERY)}.`,null,{ownAction:true});}
+  }
+  // H7 Poxwalker (roles/poxwalker.md v1.0.0). Persistent contagion: Patient
+  // Zero climbs, and anyone who has ever TOUCHED Patient Zero — visited them
+  // with a night action, or been the target of Patient Zero's own — keeps
+  // climbing a milder tick for the rest of the game. Detection is purely
+  // mechanical: hr_actions already stores one (actor, kind, target) row per
+  // actor per round, so "who visited Patient Zero tonight" is a filter over
+  // this round's rows and needs no new plumbing.
+  //
+  // Carrier marking is CUMULATIVE and never re-derived: once marked, a player
+  // carries it until cured, converted, or dead. That is what makes Patient
+  // Zero's death survivable for the plague — new infections stop (the visit
+  // scan below only runs while the source lives) but existing carriers tick on.
+  resolvePlague(c,g,actions){
+    if(!g.patient_zero)return;
+    const d=this.config.drift,pz=this.player(c,g.patient_zero);
+    if(pz?.alive){
+      const touched=new Set();
+      for(const a of actions){
+        // The infection itself is not a visit. Without this the Poxwalker
+        // catches their own plague the moment they cast it — the infect row
+        // targets Patient Zero like any other action — and spec is explicit
+        // that the Poxwalker is the carrier, not the infected.
+        if(!a.target_code||a.kind==='infect')continue;
+        if(a.target_code===g.patient_zero&&a.actor_code!==g.patient_zero)touched.add(a.actor_code);
+        if(a.actor_code===g.patient_zero)touched.add(a.target_code);
+      }
+      for(const code of touched)if(this.player(c,code)?.alive)this.db.prepare('UPDATE hr_players SET plague_carrier=1 WHERE game_code=? AND player_code=?').run(c,code);
+      this.changeDrift(c,g.patient_zero,d.PLAGUE_SOURCE_DRIFT,'plague-source');
+    }
+    for(const p of this.players(c))if(p.alive&&p.plague_carrier&&p.player_code!==g.patient_zero)this.changeDrift(c,p.player_code,d.PLAGUE_CARRIER_DRIFT,'plague-carrier');
+    // Black-zone roll. No death — the plague disables. Re-rolled every night,
+    // but skipped entirely for anyone already carrying any cripple tier, which
+    // is what "no stacking, just binary on/off" means here AND what keeps the
+    // roll from ever downgrading permanent (tier 2+) torture damage. Tier 1
+    // with tier1_until_round = round+1 is the same one-night cripple Blood
+    // Ritual uses; see the comment in that branch for why it is +1 and not
+    // g.round (setPhase's T1-recovery check fires moments later in this call).
+    for(const p of this.players(c)){
+      if(!p.alive||(Number(p.cripple_tier)||0)>0)continue;
+      if(p.player_code!==g.patient_zero&&!p.plague_carrier)continue;
+      if(driftZone(d,p.drift).id!=='black')continue;
+      if(this.random()>=d.PLAGUE_BLACK_CRIPPLE_CHANCE)continue;
+      this.db.prepare('UPDATE hr_players SET cripple_tier=1,tier1_until_round=? WHERE game_code=? AND player_code=?').run(g.round+1,c,p.player_code);
+      this.privateSystem(c,p.player_code,'Your body will not answer you. Whatever is in you has the reins tonight.');
+      this.event(c,'plague-cripple',{round:g.round,playerCode:p.player_code});
+    }
+  }
+  // Lifts the plague off one player. SILENT by contract — the only caller is
+  // the protect pass, and the Chirurgeon must never be able to read plague
+  // state off their own action (see reportNightActions' comment). Curing
+  // Patient Zero ends the contagion outright, including every downstream
+  // carrier; curing a carrier ends only theirs.
+  //
+  // Cripple lifting is capped at tier 1 on purpose. Plague-cripple and
+  // torture-cripple share cripple_tier, so an uncapped clear would let a
+  // nightly protect launder permanent lynch damage off an ally and defeat the
+  // Tiered Lynch entirely. Tier 1 is temporary either way — it expires at the
+  // next day transition — so clearing it is worth at most one night, whatever
+  // set it. Tier 2+ is never touched.
+  clearPlague(c,g,code){
+    if(!code)return;
+    if(g.patient_zero===code){this.db.prepare('UPDATE hr_games SET patient_zero=NULL WHERE code=?').run(c);g.patient_zero=null;this.db.prepare('UPDATE hr_players SET plague_carrier=0 WHERE game_code=?').run(c);}
+    else if(this.player(c,code)?.plague_carrier)this.db.prepare('UPDATE hr_players SET plague_carrier=0 WHERE game_code=? AND player_code=?').run(c,code);
+    else return;
+    this.db.prepare('UPDATE hr_players SET cripple_tier=0,tier1_until_round=NULL WHERE game_code=? AND player_code=? AND cripple_tier=1').run(c,code);
   }
   trapBlocks(c,g,a,traps){if(!traps.has(a.target_code))return false;this.changeDrift(c,a.actor_code,this.config.drift.TRAP_DRIFT,'trap');const trap=traps.get(a.target_code);this.privateSystem(c,trap.actor_code,`Your trap caught ${this.displayName(g,this.player(c,a.actor_code))} targeting ${this.displayName(g,this.player(c,a.target_code))}.`);return !['kill','heretical-catalyst'].includes(a.kind);}
   resolveIntel(c,a,g){const actor=this.player(c,a.actor_code),target=this.player(c,a.target_code),role=this.role(actor.role_id);if(a.kind==='drift-hint'){const targetZone=driftZone(this.config.drift,target.drift);const rate=intelNoiseRate(this.config.drift,this.config.rules,target.drift,role.driftWeight);const truth=targetZone.id;const zones=this.config.drift.zones;const truthIdx=zones.findIndex(z=>z.id===truth);let shown=truth;if(this.random()<rate){const left=truthIdx>0?truthIdx-1:truthIdx+1;const right=truthIdx<zones.length-1?truthIdx+1:truthIdx-1;
@@ -1010,6 +1114,13 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
    * without a balance decision first. Cripple never gates voting; see vote().
    */
   submitAction(c,p,params={}){const{targetCode,variant,data,body,asPlayerCode}=params;const g=this.requireGame(c),actor=this.requireAlive(c,p),role=this.role(actor.role_id),action=g.phase==='night'?role.actions.night:role.actions.day;if(!action||action.kind==='sleep')throw new Error('Your role has no active action now');if(action.kind==='protect'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'protect',targetCode,silent:true};if(action.kind==='bodyguard'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'bodyguard',targetCode,silent:true};if(action.kind==='drift-hint'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'drift-hint',targetCode,silent:true};if(effectiveCrippleTier(this.config.rules,actor,g.round)>0)throw new Error('Torture damage blocks this action');if(action.kind==='kill'&&role.killLimit){const killUses=this.usage(c,p,'kill');if(killUses>=1)throw new Error('You can only use your kill once per game');}if(action.kind==='possess'&&role.possessLimit&&this.usage(c,p,'possess')>=1)throw new Error('The Animus is spent — one possession per game');
+    // H7 Poxwalker: one infect per game, and no re-target while Patient Zero
+    // still lives (poxwalker.md § Targeting rules). Both are submission-time
+    // rejections with no cost, per the spec's targeting table. The "alive,
+    // non-Heretic, not self" rules need no code here — actions.night.target
+    // is 'hostile', so submitAction's existing requireAlive + isHostileTo
+    // checks below already cover all three, exactly as they do for Animus.
+    if(action.kind==='infect'){if(role.infectLimit&&this.usage(c,p,'infect')>=1)throw new Error('The plague is already loosed — one infection per game');if(g.patient_zero&&this.player(c,g.patient_zero)?.alive)throw new Error('Your plague already has a host');}
 if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target=this.requireAlive(c,targetCode);if(action.target==='other'&&targetCode===p)throw new Error('Choose another player');if(action.kind==='protect'&&!validateRotation(this.db,c,p,targetCode,g.round))throw new Error('Cannot protect the same target on consecutive nights');if(action.kind==='bodyguard'&&!validateRotation(this.db,c,p,targetCode,g.round))throw new Error('Cannot proxy the same target on consecutive nights');if(action.target==='hostile'&&!isHostileTo(actor,target))throw new Error('Target is not hostile');if(action.kind==='possess'&&target.possessed_by)throw new Error('That player is already possessed');if(action.variants&&!action.variants.includes(variant))throw new Error('Invalid action variant');if(['sermon','corrupt-sermon'].includes(action.kind)){const s=this.config.drift.sermons[variant],uses=this.usage(c,p,variant);if(s.limit!==null&&uses>=s.limit)throw new Error('Sermon limit reached');
       // The Warp Litany drift gate is deliberately NOT checked here. It used to
       // early-return {ok:false,silent:true}, which differs from an accepted
@@ -1028,7 +1139,7 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
     // retargets (still kind==='possess', same actor, same round) must not
     // pay twice, so check for an existing row BEFORE the upsert below.
     if(action.kind==='possess'&&!this.actions(c,g.round).some(a=>a.actor_code===p&&a.kind==='possess'))this.changeDrift(c,p,role.driftWeight,'possess-attempt');
-    this.db.prepare('INSERT INTO hr_actions VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(game_code,round,actor_code) DO UPDATE SET kind=excluded.kind,target_code=excluded.target_code,variant=excluded.variant,data=excluded.data,created_at=excluded.created_at').run(c,g.round,p,action.kind,targetCode,variant,data?JSON.stringify(data):null,this.now());if(g.phase==='night'&&actor.faction==='heretic'){const targetDisplayForCabal=this.displayName(g,target);const cabalLabel=action.kind==='kill'?`marked ${targetDisplayForCabal} for death`:action.kind==='boobytrap'?`set a trap on ${targetDisplayForCabal}`:action.kind==='corrupt-sermon'?`targets ${targetDisplayForCabal} with a corrupt sermon`:action.kind==='heretical-catalyst'?`invokes the catalyst on ${targetDisplayForCabal}`:action.kind==='possess'?`stirs the Warp toward ${targetDisplayForCabal}`:`uses ${action.kind}`;this.factionSystem(c,`Cabalite ${this.displayName(g,actor)} ${cabalLabel}.`);}return {kind:action.kind,targetCode,variant};}
+    this.db.prepare('INSERT INTO hr_actions VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(game_code,round,actor_code) DO UPDATE SET kind=excluded.kind,target_code=excluded.target_code,variant=excluded.variant,data=excluded.data,created_at=excluded.created_at').run(c,g.round,p,action.kind,targetCode,variant,data?JSON.stringify(data):null,this.now());if(g.phase==='night'&&actor.faction==='heretic'){const targetDisplayForCabal=this.displayName(g,target);const cabalLabel=action.kind==='kill'?`marked ${targetDisplayForCabal} for death`:action.kind==='boobytrap'?`set a trap on ${targetDisplayForCabal}`:action.kind==='corrupt-sermon'?`targets ${targetDisplayForCabal} with a corrupt sermon`:action.kind==='heretical-catalyst'?`invokes the catalyst on ${targetDisplayForCabal}`:action.kind==='possess'?`stirs the Warp toward ${targetDisplayForCabal}`:action.kind==='infect'?`breathes the pox over ${targetDisplayForCabal}`:`uses ${action.kind}`;this.factionSystem(c,`Cabalite ${this.displayName(g,actor)} ${cabalLabel}.`);}return {kind:action.kind,targetCode,variant};}
   // Blood Ritual (blood-ritual.md v1.0.0): faction-wide, not
   // tied to any one role's actions.night — bypasses submitAction's per-role
   // lookup entirely. Any non-crippled Heretic may take it, including the
@@ -1060,7 +1171,18 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   usage(c,p,a){return /** @type {{uses:number}|undefined} */ (this.db.prepare('SELECT uses FROM hr_usage WHERE game_code=? AND player_code=? AND ability=?').get(c,p,a))?.uses||0;}
   incrementUsage(c,p,a){this.db.prepare('INSERT INTO hr_usage VALUES(?,?,?,1) ON CONFLICT(game_code,player_code,ability) DO UPDATE SET uses=uses+1').run(c,p,a);}
   hints(c){const g=this.game(c);return this.config.hintProfiles[g.hint_profile]||this.config.hintProfiles.default;}
-  changeDrift(c,p,delta,reason){const g=this.game(c),player=this.player(c,p);if(!player)return;const before=player.drift,after=Math.max(0,Math.min(g.max_drift,before+delta));this.db.prepare('UPDATE hr_players SET drift=? WHERE game_code=? AND player_code=?').run(after,c,p);const from=driftZone(this.config.drift,before).id,to=driftZone(this.config.drift,after).id;if(from!==to)this.privateSystem(c,p,this.hints(c)[to],{intelKind:'drift_hint',ownZone:to});this.event(c,'drift',{playerCode:p,delta,before,after,reason,zone:to,round:g.round,phase:g.phase});}
+  changeDrift(c,p,delta,reason){const g=this.game(c),player=this.player(c,p);if(!player)return;const before=player.drift,after=Math.max(0,Math.min(g.max_drift,before+delta));this.db.prepare('UPDATE hr_players SET drift=? WHERE game_code=? AND player_code=?').run(after,c,p);const from=driftZone(this.config.drift,before).id,to=driftZone(this.config.drift,after).id;
+    // H7 Poxwalker: an infected player gets the plague's cue for this zone
+    // INSTEAD of the ordinary one, never in addition to it. One crossing must
+    // stay one message — a second line would let them infer their own infected
+    // state from the message count, and the cue is deliberately identical for
+    // Patient Zero and for carriers so neither can tell which they are. The
+    // meta is unchanged either way: the client's Warp-taint gauge reads
+    // ownZone off it, so dropping it would freeze the gauge for exactly the
+    // players who are infected.
+    if(from!==to)this.privateSystem(c,p,(this.isPlagued(g,player)&&this.config.plagueHints[to])||this.hints(c)[to],{intelKind:'drift_hint',ownZone:to});
+    this.event(c,'drift',{playerCode:p,delta,before,after,reason,zone:to,round:g.round,phase:g.phase});}
+  isPlagued(g,player){return !!player&&(g.patient_zero===player.player_code||!!player.plague_carrier);}
   finishIfWon(c){const players=this.players(c),living=players.filter(x=>x.alive),h=living.filter(x=>x.faction==='heretic').length,l=living.filter(x=>x.faction==='loyalist').length;let winner=h>=l?'heretic':null;if(!winner&&players.filter(x=>x.faction==='heretic').every(x=>!x.alive))winner='loyalist';if(!winner)return false;
     // TODO(heresy-spec): Q32 — Pyrrhic/no-clean-win is explicitly deferred from v1.
     this.db.prepare("UPDATE hr_games SET phase='ended',status='ended',winner=?,deadline=NULL WHERE code=?").run(winner,c);this.system(c,`Game over. ${winner} victory.`);const gEnd=this.game(c);this.emitAnnouncement(c,{type:'gameover',title:'GAME OVER',message:`${winner} victory. The conclave is dissolved.`,winner,round:gEnd.round});saveGameLogSnapshot({gameLogId:c,code:c,phase:gEnd.phase,winner:gEnd.winner,round:gEnd.round,maxDrift:gEnd.max_drift,mode:gEnd.mode,status:gEnd.status,players:this.players(c).map(p=>({id:p.player_code,name:p.name,hero:p.role_id||null,playerCode:p.player_code,seat:p.seat,roleId:p.role_id||null,faction:p.faction,drift:p.drift,alive:!!p.alive,crippleTier:p.cripple_tier,isBot:!!p.is_bot})),debugLog:this.db.prepare('SELECT * FROM hr_events WHERE game_code=? ORDER BY id').all(c),history:this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? ORDER BY id').all(c),createdAt:gEnd.created_at});return true;}

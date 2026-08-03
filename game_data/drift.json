@@ -10,6 +10,10 @@
   "TRAP_DRIFT": 5,
   "MURDERER_GATE_TARGET_DRIFT": 1,
   "BLOOD_RITUAL_ATTACKER_COST": 3,
+  "_plague_comment": "H7 Poxwalker (roles/poxwalker.md v1.0.0). SOURCE is Patient Zero's nightly climb, CARRIER the milder tick every player who has ever touched Patient Zero keeps paying for the rest of the game. Both are applied at night-end AFTER every action's own drift cost, and are NOT fed into the proximity siphon — the siphon prices night ACTIONS, and the plague is not one. BLACK_CRIPPLE_CHANCE is re-rolled each night for every infected player sitting in the black zone; it never kills, and it never stacks past one cripple tier. These three are the numbers flagged for sim-validation in the dispatch — tune them here, not in the engine.",
+  "PLAGUE_SOURCE_DRIFT": 2,
+  "PLAGUE_CARRIER_DRIFT": 1,
+  "PLAGUE_BLACK_CRIPPLE_CHANCE": 0.5,
   "zones": [
     {"id":"green","min":0,"max":4,"noise":0},
     {"id":"yellow","min":5,"max":9,"noise":0.2},

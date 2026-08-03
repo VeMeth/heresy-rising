@@ -353,6 +353,30 @@
       },
       "abilityTemplate": "Once per game, target a living non-Heretic you believe is in Red drift ({redMin}-{redMax}). Costs {driftWeight} self-drift immediately, win or lose, paid the moment you submit. If confirmed Red at night-end, you possess them: you write their day chat, their vote is silently suppressed, their night action is skipped. At day's end, after the vote tally, the body detonates — they die, revealed as Neverborn with full role, faction, and drift shown. Guess wrong and the attempt wastes silently; you don't learn why.",
       "objective": "Speculate a target into Red-zone possession. One shot, no confirmation on failure — read the table, not the feedback."
+    },
+    {
+      "id": "poxwalker",
+      "displayName": "Poxwalker",
+      "faction": "heretic",
+      "driftWeight": 3,
+      "tier": "T3",
+      "infectLimit": "1_per_game",
+      "actions": {
+        "night": {
+          "kind": "infect",
+          "target": "hostile",
+          "driftCost": 3
+        },
+        "day": null
+      },
+      "crippleProfile": {
+        "blocks": [
+          "infect"
+        ],
+        "onCripple": "disable-one"
+      },
+      "abilityTemplate": "Once per game, infect a living non-Heretic for {driftWeight} self-drift. They become Patient Zero and gain +2 drift every night. Anyone whose night action touches Patient Zero — or who is touched by Patient Zero's own night action — catches a milder +1 per night on top of their own costs, and keeps carrying it for the rest of the game. Nobody dies of it: a carrier who reaches Black ({blackMin}) sits there, rolling a coin each night to lose their night action. A Chirurgeon's protection cleanses whoever it lands on; landing it on Patient Zero ends the whole contagion.",
+      "objective": "Poison the heal-cadence. Make touching anyone cost something, and let the Warp do the killing you never do."
     }
   ]
 }
