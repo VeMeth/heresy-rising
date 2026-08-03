@@ -65,6 +65,8 @@
             <p class="anon-hint">Player names are replaced with notable Warhammer 40k characters once the game starts.</p>
             <label class="anon-toggle"><input type="checkbox" v-model="setup.warpTaintVisible" @change="scheduleSave"> Warp taint display</label>
             <p class="anon-hint">Shows each operative their own last-sensed drift zone gauge in the dossier. Off hides the gauge entirely — the hint is still sent, just not rendered.</p>
+            <label class="reveal-select">Death reveal<select v-model="setup.deathReveal" @change="scheduleSave"><option value="role">Full role</option><option value="alignment">Alignment only</option></select></label>
+            <p class="anon-hint">What the conclave learns when a tortured suspect dies under interrogation. Full role names their dossier; alignment only says Loyalist or Heretic. A lynch reveals neither either way — buying that information is what torture is for.</p>
             <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" :max="phases.MAX_DRIFT_CEILING" @input="scheduleSave"></label>
             <template v-if="game.mode==='async'">
               <label>Day starts (UTC)<input type="time" v-model="dayStartTimeUTC" @change="scheduleSave"></label>
@@ -88,6 +90,7 @@
             </template>
             <div><dt>Anon</dt><dd>{{ setup.anonymized ? 'ON' : 'OFF' }}</dd></div>
             <div><dt>Warp taint</dt><dd>{{ setup.warpTaintVisible ? 'ON' : 'OFF' }}</dd></div>
+            <div><dt>Reveal</dt><dd>{{ setup.deathReveal === 'alignment' ? 'ALIGNMENT' : 'ROLE' }}</dd></div>
           </dl>
         </div>
       </article>
@@ -296,12 +299,13 @@ const playerCount = computed(() => players.value.length);
 const canStart = computed(() => playerCount.value >= rules.MIN_PLAYERS && players.value.every(p => p.ready));
 const presetCounts = Array.from({ length: rules.MAX_PLAYERS - rules.MIN_PLAYERS + 1 }, (_, i) => rules.MIN_PLAYERS + i);
 
-const setup = reactive({ maxDrift: 20, dayMs: phases.SYNC_DAY_MS, nightMs: phases.SYNC_NIGHT_MS, anonymized: false, warpTaintVisible: false, dayStartMinuteUtc: phases.DEFAULT_DAY_START_MINUTE_UTC });
+const setup = reactive({ maxDrift: 20, dayMs: phases.SYNC_DAY_MS, nightMs: phases.SYNC_NIGHT_MS, anonymized: false, warpTaintVisible: false, deathReveal: 'role', dayStartMinuteUtc: phases.DEFAULT_DAY_START_MINUTE_UTC });
 watch(() => props.game.maxDrift, v => { if (v) setup.maxDrift = v; }, { immediate: true });
 watch(() => props.game.dayMs, v => { if (v) setup.dayMs = v; }, { immediate: true });
 watch(() => props.game.nightMs, v => { if (v) setup.nightMs = v; }, { immediate: true });
 watch(() => props.game.anonymized, v => { setup.anonymized = !!v; }, { immediate: true });
 watch(() => props.game.warpTaintVisible, v => { setup.warpTaintVisible = !!v; }, { immediate: true });
+watch(() => props.game.deathReveal, v => { if (v) setup.deathReveal = v; }, { immediate: true });
 watch(() => props.game.dayStartMinuteUtc, v => { if (v != null) setup.dayStartMinuteUtc = v; }, { immediate: true });
 const phaseMinFloor = computed(() => Math.ceil(phases.PHASE_MS_FLOOR_CONFIGURE / 60000));
 const phaseMinCeiling = computed(() => Math.floor(phases.PHASE_MS_CEILING / 60000));
@@ -349,7 +353,7 @@ function scheduleSave() {
 // instead of only when these four values actually change.
 const justSaved = ref(false);
 let savedFlashTimer = null;
-watch([() => props.game.maxDrift, () => props.game.dayMs, () => props.game.nightMs, () => props.game.anonymized, () => props.game.warpTaintVisible, () => props.game.dayStartMinuteUtc], () => {
+watch([() => props.game.maxDrift, () => props.game.dayMs, () => props.game.nightMs, () => props.game.anonymized, () => props.game.warpTaintVisible, () => props.game.deathReveal, () => props.game.dayStartMinuteUtc], () => {
   justSaved.value = true;
   if (savedFlashTimer) clearTimeout(savedFlashTimer);
   savedFlashTimer = setTimeout(() => { justSaved.value = false; }, 2500);

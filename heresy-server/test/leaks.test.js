@@ -110,3 +110,58 @@ test('leak: a dead Heretic can no longer read or write faction chat',()=>{const 
   assert.throws(()=>f.manager.historyMessages(f.code,heretic.player_code,'faction'),/denied/i,'the dead cannot read the living cabal');
   assert.throws(()=>f.manager.sendMessage(f.code,heretic.player_code,'faction','orders from beyond'),/denied/i,'nor post into it');
 }finally{f.close();}});
+
+// ── Host-chosen death reveal (owner ruling: default role, alignment opt-in) ──
+test('death reveal: defaults to the full role on a torture-death',()=>{const f=fixture();try{
+  f.manager.start(f.code,'p0');
+  assert.equal(f.manager.game(f.code).death_reveal,'role','role is the default, not the quieter option');
+  const target=f.manager.players(f.code).find(p=>p.player_code!=='p0');
+  const roleName=f.manager.role(target.role_id).displayName;
+  f.manager.db.prepare('UPDATE hr_players SET cripple_tier=1 WHERE game_code=? AND player_code=?').run(f.code,target.player_code);
+  const voters=f.manager.players(f.code).filter(p=>p.player_code!==target.player_code).slice(0,2);
+  f.manager.db.prepare("UPDATE hr_games SET phase='day',round=3,day_stage='vote' WHERE code=?").run(f.code);
+  for(const v of voters)f.manager.vote(f.code,v.player_code,target.player_code);
+  f.manager.resolve(f.code,true);
+  const bodies=f.manager.historyMessages(f.code,'p0','public').messages.map(m=>m.body).join('\n');
+  assert.ok(bodies.includes(roleName),'the dossier is named');
+  assert.match(bodies,new RegExp(target.faction,'i'),'and the faction, whether appended or already inside the role name');
+}finally{f.close();}});
+
+test('death reveal: alignment-only names the faction and never the role',()=>{const f=fixture();try{
+  f.manager.configure(f.code,'p0',{deathReveal:'alignment'});
+  f.manager.start(f.code,'p0');
+  const target=f.manager.players(f.code).find(p=>p.player_code!=='p0');
+  const roleName=f.manager.role(target.role_id).displayName;
+  f.manager.db.prepare('UPDATE hr_players SET cripple_tier=1 WHERE game_code=? AND player_code=?').run(f.code,target.player_code);
+  const voters=f.manager.players(f.code).filter(p=>p.player_code!==target.player_code).slice(0,2);
+  f.manager.db.prepare("UPDATE hr_games SET phase='day',round=3,day_stage='vote' WHERE code=?").run(f.code);
+  for(const v of voters)f.manager.vote(f.code,v.player_code,target.player_code);
+  f.manager.resolve(f.code,true);
+  const bodies=f.manager.historyMessages(f.code,'p0','public').messages.map(m=>m.body).join('\n');
+  assert.ok(!bodies.includes(roleName),'the role stays hidden');
+  assert.match(bodies,/They were a (Heretic|Loyalist)\./,'alignment is stated in plain terms');
+}finally{f.close();}});
+
+test('death reveal: a junk value is ignored rather than stored',()=>{const f=fixture();try{
+  f.manager.configure(f.code,'p0',{deathReveal:'everything'});
+  assert.equal(f.manager.game(f.code).death_reveal,'role','unknown modes fall back to the current setting');
+  f.manager.configure(f.code,'p0',{deathReveal:'alignment'});
+  f.manager.configure(f.code,'p0',{maxDrift:18});
+  assert.equal(f.manager.game(f.code).death_reveal,'alignment','an unrelated configure() call does not reset it');
+}finally{f.close();}});
+
+test('death reveal: a lynch still reveals nothing, whichever mode is set',()=>{const f=fixture();try{
+  // Standing ruling e6cf9e2 — only the torture path buys information. The
+  // setting must not quietly reintroduce a reveal here.
+  f.manager.start(f.code,'p0');
+  const target=f.manager.players(f.code).find(p=>p.player_code!=='p0');
+  const roleName=f.manager.role(target.role_id).displayName;
+  const voters=f.manager.players(f.code).filter(p=>p.player_code!==target.player_code).slice(0,3);
+  f.manager.db.prepare("UPDATE hr_games SET phase='day',round=2,day_stage='vote' WHERE code=?").run(f.code);
+  for(const v of voters)f.manager.vote(f.code,v.player_code,target.player_code);
+  f.manager.resolve(f.code,true);
+  assert.equal(f.manager.player(f.code,target.player_code).alive,0,'precondition: 3/5 executes');
+  const bodies=f.manager.historyMessages(f.code,'p0','public').messages.map(m=>m.body).join('\n');
+  assert.ok(!bodies.includes(roleName),'no role on a lynch');
+  assert.doesNotMatch(bodies,/They were a (Heretic|Loyalist)\./,'and no alignment either');
+}finally{f.close();}});
