@@ -124,7 +124,11 @@ function turnInstruction(params) {
   const kind = prompt?.kind;
   if (kind === 'chat_turn') {
     const reason = prompt.reason ? ` (${prompt.reason})` : '';
-    return `## YOUR TURN TO SPEAK${reason}\nYou may post ONE public chat message, or pass. Keep it to 1-3 sentences (~40 words), making a single point — no recaps, no summaries. ${ALWAYS}\n\nRespond with a JSON action object.`;
+    const votingEnabled = session?.phase === 'day' && session?.round !== 1;
+    const voteNote = votingEnabled
+      ? ' If something just said changes your mind, cast a revised vote instead ({"kind":"vote"}) rather than waiting for next round — otherwise your existing vote stands.'
+      : '';
+    return `## YOUR TURN TO SPEAK${reason}\nYou may post ONE public chat message, or pass. Keep it to 1-3 sentences (~40 words), making a single point — no recaps, no summaries.${voteNote} ${ALWAYS}\n\nRespond with a JSON action object.`;
   }
   if (kind === 'day_vote_prompt') {
     const legal = Array.isArray(prompt.legalTargets) && prompt.legalTargets.length

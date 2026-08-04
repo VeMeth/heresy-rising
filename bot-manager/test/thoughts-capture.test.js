@@ -300,17 +300,27 @@ test('_logAction mirroring: a re-vote for the same target is "suppressed", not a
   await session.close();
 });
 
-test('_logAction mirroring: a chat turn that emits a vote is "suppressed"', async () => {
-  const scripts = ['```action\n{"kind":"vote","target":"human-p1","justification":"out of turn"}\n```'];
+test('a chat turn may cast a revised vote when voting is enabled — bots can change their mind mid-discussion', async () => {
+  const scripts = ['```action\n{"kind":"vote","target":"human-p1","justification":"changed my mind after that exchange"}\n```'];
   const { session, emitted } = makeSession({ chatScripts: scripts, role: 'imperial-citizen' });
   session.phase = 'day'; session.round = 2;
 
   await session.takeChatTurn('reactive');
-  assert.equal(emitted.filter((e) => e.event === 'vote:submit').length, 0, 'a chat turn must never cast a vote');
+  assert.equal(emitted.filter((e) => e.event === 'vote:submit').length, 1, 'a chat turn may cast a vote once voting is enabled');
+  await session.close();
+});
+
+test('_logAction mirroring: a chat turn that emits a night_action is "suppressed" (out of turn)', async () => {
+  const scripts = ['```action\n{"kind":"night_action","verb":"sleep"}\n```'];
+  const { session, emitted } = makeSession({ chatScripts: scripts, role: 'imperial-citizen' });
+  session.phase = 'day'; session.round = 2;
+
+  await session.takeChatTurn('reactive');
+  assert.equal(emitted.filter((e) => e.event === 'action:submit').length, 0, 'a chat turn must never trigger a night action');
 
   const { entries } = readThoughts({ botId: session.id, kinds: ['suppressed'] });
   assert.equal(entries.length, 1);
-  assert.match(entries[0].summary, /chat_turn cannot emit vote/i);
+  assert.match(entries[0].summary, /chat_turn cannot emit night_action/i);
   await session.close();
 });
 

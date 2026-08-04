@@ -430,10 +430,12 @@ export class BotSession {
     this._save();
     if (action.kind === 'pass') { this.lastAction = 'pass'; this._logAction({ kind: 'pass' }); this._markRoundAction(prompt, 'passed'); return; }
 
-    // Chat-turn prompts (director-triggered) may only emit chat (or pass).
-    // Forbid votes and night actions here so a chat turn cannot double-cast a
-    // vote or trigger a night action out of turn.
-    if (prompt?.kind === 'chat_turn' && (action.kind === 'vote' || action.kind === 'night_action')) {
+    // Chat-turn prompts (director-triggered) may emit chat, pass, or a
+    // revised vote — a bot that hears something persuasive mid-discussion
+    // needs a way to act on it before the round's single day_vote_prompt is
+    // long past. Night actions are still out of turn here (nights don't run
+    // a chat director) and stay forbidden.
+    if (prompt?.kind === 'chat_turn' && action.kind === 'night_action') {
       this.lastAction = 'pass';
       this._logAction({ kind: 'pass', note: `chat_turn cannot emit ${action.kind}` });
       return;
