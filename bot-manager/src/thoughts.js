@@ -118,7 +118,7 @@ export function recordThought(entry) {
       conclaveCode: safeTruncate(entry.conclaveCode, 200),
       botId: safeTruncate(entry.botId, 200),
       playerCode: safeTruncate(entry.playerCode, 200),
-      botName: safeTruncate(entry.botName, 200),
+      botName: safeTruncate(entry.botName, 200) || safeTruncate(entry.botId, 200) || 'Bot',
       profileId: safeTruncate(entry.profileId, 200),
       role: safeTruncate(entry.role, 100),
       faction: safeTruncate(entry.faction, 100),

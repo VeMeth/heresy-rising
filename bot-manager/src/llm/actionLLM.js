@@ -154,7 +154,7 @@ export class ActionLLM {
       // Wrapped defensively — recordThought() itself never throws, but this
       // call site must not be able to break a bot's turn either.
       try {
-        if (!session?._profile || session._profile.captureThoughts) {
+        if (!session?._profile || session?._profile?.captureThoughts) {
           const thought = response?.reasoningText || extractRemovedThink(lastText);
           recordThought({
             conclaveCode: session?.conclaveCode,
