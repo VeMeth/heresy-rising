@@ -786,7 +786,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 .params-cell h2 { font-size: 15px; }
 .params-cell .params-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 18px;
   padding: 16px 20px 20px;
   flex-wrap: wrap;
