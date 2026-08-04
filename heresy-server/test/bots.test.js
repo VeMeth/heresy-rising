@@ -35,9 +35,9 @@ test('adminSpawnBot: refuses spawn after the game has started', () => {
   } finally { f.close(); }
 });
 
-test('adminSpawnBot: respects MAX_BOTS_PER_GAME (default 4) per conclave', () => {
+test('adminSpawnBot: respects MAX_BOTS_PER_GAME (default 5) per conclave', () => {
   const f = fixture(5); try {
-    for (let i = 0; i < 4; i++) f.manager.adminSpawnBot(f.code, { name: `B${i}` });
+    for (let i = 0; i < 5; i++) f.manager.adminSpawnBot(f.code, { name: `B${i}` });
     assert.throws(() => f.manager.adminSpawnBot(f.code), /Bot limit/);
   } finally { f.close(); }
 });

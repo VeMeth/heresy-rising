@@ -1300,7 +1300,7 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
     if(g.phase!=='lobby')throw new Error('Bots can only be added while the Conclave is in the lobby');
     const players=this.players(code);
     const botCount=players.filter(p=>p.is_bot).length;
-    const MAX_BOTS_PER_GAME=Number(process.env.MAX_BOTS_PER_GAME)||4;
+    const MAX_BOTS_PER_GAME=Number(process.env.MAX_BOTS_PER_GAME)||5;
     if(botCount>=MAX_BOTS_PER_GAME)throw new Error(`Bot limit (${MAX_BOTS_PER_GAME} per Conclave) reached`);
     if(players.length>=this.config.rules.MAX_PLAYERS)throw new Error('Conclave is full');
     let seat;

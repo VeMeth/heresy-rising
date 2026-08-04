@@ -135,23 +135,23 @@ test('notes: missing key → 400', async () => {
   } finally { server.close(); }
 });
 
-test('MAX_BOTS_PER_GAME enforced — fifth spawn is rejected and previous reservation rolled back', async () => {
+test('MAX_BOTS_PER_GAME enforced — sixth spawn is rejected and previous reservation rolled back', async () => {
   const { server, sessionStore } = await boot({ adminKey: 'admin-secret' });
   // Reduce the cap for the test by setting it on the config after boot.
   server.appconfig = server.appconfig || {};
   try {
-    // Override bespoke: spawn 4 OK, 5th fails with 409.
-    for (let i = 0; i < 4; i++) {
+    // Override bespoke: spawn 5 OK, 6th fails with 409.
+    for (let i = 0; i < 5; i++) {
       const r = await req(server, 'POST', '/bots', { token: 'admin-secret', body: { conclaveCode: 'SAME', name: `B${i}` } });
       assert.equal(r.status, 200, `spawn #${i} should succeed`);
     }
-    const fifth = await req(server, 'POST', '/bots', { token: 'admin-secret', body: { conclaveCode: 'SAME', name: 'B4' } });
-    assert.equal(fifth.status, 409);
-    assert.match(fifth.body.error, /MAX_BOTS_PER_GAME/);
-    // Remaining four active.
+    const sixth = await req(server, 'POST', '/bots', { token: 'admin-secret', body: { conclaveCode: 'SAME', name: 'B5' } });
+    assert.equal(sixth.status, 409);
+    assert.match(sixth.body.error, /MAX_BOTS_PER_GAME/);
+    // Remaining five active.
     const list = await req(server, 'GET', '/bots', { token: 'admin-secret' });
-    assert.equal(list.body.length, 4);
-    assert.equal(sessionStore.count(), 4);
+    assert.equal(list.body.length, 5);
+    assert.equal(sessionStore.count(), 5);
   } finally { server.close(); }
 });
 

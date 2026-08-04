@@ -61,7 +61,7 @@ export const config = {
   // Cloud-bot seats per Conclave. Not a spend guard — it only exists so a
   // single game can't monopolise a shared rate limit. Defaults to the same
   // ceiling as MAX_BOTS_PER_GAME (i.e. no extra restriction on cloud bots).
-  maxCloudBotsPerGame: parseNum(process.env.MAX_CLOUD_BOTS_PER_GAME, parseNum(process.env.MAX_BOTS_PER_GAME, 4)),
+  maxCloudBotsPerGame: parseNum(process.env.MAX_CLOUD_BOTS_PER_GAME, parseNum(process.env.MAX_BOTS_PER_GAME, 5)),
   // USD spend limits are OPT-IN and OFF by default: this deployment runs on a
   // MiniMax token plan, where per-token rates aren't what's billed, so a
   // dollar ceiling would just be a silent kill switch that stops a bot
@@ -74,7 +74,7 @@ export const config = {
 
   // Per-manager caps and tuning.
   maxBotSessions: parseNum(process.env.MAX_BOT_SESSIONS, 12),
-  maxBotsPerGame: parseNum(process.env.MAX_BOTS_PER_GAME, 4),
+  maxBotsPerGame: parseNum(process.env.MAX_BOTS_PER_GAME, 5),
   maxTokensPerGame: parseNum(process.env.MAX_TOKENS_PER_GAME, 200000), // now counts input too; local inference is free
   botActionDelayMs: parseNum(process.env.BOT_ACTION_DELAY_MS, 5000),
 
