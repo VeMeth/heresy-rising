@@ -561,6 +561,28 @@ Siphon adds a second point and the assertion fails. Reproduced on **clean
 master** at ~10% (4/40 runs), which is why the suite looked green on casual
 runs. The test now excludes the Citizen from its target draw.
 
+### Silent carriers — WORKING AS INTENDED (ruled 2026-08-04)
+
+A carrier who sleeps every night never learns they are infected, and this is
+deliberate. Do not "fix" it.
+
+The carrier tick (+1) exactly cancels `NIGHTLY_SLEEP_RECOVERY` (−1), so a
+passive carrier holds drift level indefinitely. Cues fire on zone *crossings*,
+so a player in that stasis crosses nothing and is told nothing — verified over
+six consecutive nights, drift pinned at 3 the whole way. The plague's only
+effect on them is the denial of sleep recovery, which is invisible.
+
+The locked spec's cue model assumed carriers visibly climb; it did not account
+for sleep recovery. Ruling: **if the plague is not pushing a player, they get
+no message.** The alternative — a concrete cue fired on infection — was
+rejected because a visitor knows exactly who they targeted that night, so it
+would identify Patient Zero with certainty on first touch and reduce the whole
+mechanic to quarantine.
+
+Revisit only if playtests show carriers never noticing at all. The two levers
+are a randomised 1–2 night delayed cue, or suppressing sleep recovery for the
+infected so they climb for real.
+
 ### Not done
 
 - **E2E (`npm run test:e2e`) was not run.** Playwright's config sets
