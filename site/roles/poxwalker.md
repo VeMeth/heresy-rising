@@ -7,82 +7,90 @@ description: The Heretic's plague-bearer. One-shot infect to poison the Loyalist
 
 > *The Warp spreads where mortals touch.*
 
-You are the Heretic's vector. Once per game, you can infect a living Loyalist — they become Patient Zero and begin climbing drift each night like clockwork. Anyone who reaches out to heal them, or whom Patient Zero reaches, catches the plague too. The contagion never kills, but it poisons every touch: carriers climb forever, even after the source is dead. Your role is not to deal death — it is to make kindness cost everything.
+You are the Heretic's vector. Once per game you infect a living non-Heretic — they become Patient Zero and climb drift each night like clockwork. Anyone who reaches out to them, or whom they reach, catches the plague too and keeps it. The contagion never kills. It poisons every touch: carriers climb forever, even after the source is gone. You are not playing for kills. You are playing to make kindness expensive.
 
-**Night action — Infect.** One target, once per game. Targets must be living non-Heretics.
+**Night action — Infect.** One target, once per game.
 
 | Action | Effect (target) | Cost (you) | Uses |
 |---|---|---|---|
-| **Infect** | Target becomes Patient Zero. Each night they gain +2 drift. Anyone who acts on them — or whom they act on — becomes a carrier and gains +1 drift per night, permanently. | **+3 drift, once** | Once per game — the role is spent on first use |
+| **Infect** | Target becomes Patient Zero and gains +2 drift each night. Anyone who acts on them — or whom they act on — becomes a carrier and gains +1 drift per night, permanently. | **+3 drift** | Once per game |
 
-**Drift cost (Warp invoice):** **+3, immediately.** You pay the moment you submit the infection, regardless of success or failure.
+**Drift cost:** **+3**, charged at night-end when the infection resolves. A submission the engine rejects outright costs you nothing at all.
 
 **What you cannot target:**
 
-- A fellow Heretic — rejected outright, no drift charged.
-- A dead player.
-- Someone already infected.
+- A fellow Heretic, or yourself — rejected at submission, no cost.
+- A dead player — rejected at submission, no cost.
+- Anyone at all, once you have already infected someone and that Patient Zero is still alive. There is no re-targeting.
 
 ---
 
 ## The plague and its carriers
 
-**Patient Zero** gains **+2 drift every night**, automatically, whether they act or not. This continues for the rest of the game — even after they die, existing carriers keep climbing.
+**Patient Zero** gains **+2 drift every night**, whether they act or not, for as long as they live and stay infected.
 
-**Carriers** are anyone whose night action touches Patient Zero, or whom Patient Zero's own night action touches. A Chirurgeon who protects Patient Zero catches nothing — the protect cleanses instead. But any other night action, inbound or outbound, spreads the plague.
+**Carriers** are anyone whose night action targets Patient Zero, or whom Patient Zero's own night action targets. Any night action counts — a scan, a sermon, a trap, a kill, a protect. It does not matter whether the action succeeded.
 
-Once infected, a carrier takes **+1 drift per night, permanently**, on top of their own action's normal cost. This stacks with every other cost. Even if they stop acting and sleep every night, they keep taking +1. Even if Patient Zero dies, they keep taking +1. The plague does not end until a Chirurgeon's protect lands on them.
+Once marked, a carrier takes **+1 drift per night, permanently**, on top of whatever their own actions cost. They keep taking it after they stop visiting. They keep taking it after Patient Zero is cured or killed. It ends only when a Chirurgeon's protect lands on *them* specifically.
 
-**The plague never kills.** It is pure drift, nothing else. No sudden deaths, no triggers — just the slow climb.
+**The plague never kills.** It is drift and nothing else.
 
 | State | Drift each night |
 |---|---|
 | **Patient Zero** | +2 (automatic) |
 | **Carrier** (on top of their own action cost) | +1 |
 
+Note that a sleeping player recovers −1 drift, so a passive Patient Zero nets +1 a night rather than +2, and a passive carrier holds level.
+
+**You are immune.** Casting the infection does not infect you, and the Poxwalker is never a carrier of their own plague.
+
 ---
 
 ## Black zone and the cripple roll
 
-When a carrier — or Patient Zero themselves — enters the **Black zone** (drift 20), they face a cold coin flip each night: a 50% chance to lose that night's action entirely. Their night power will not fire, even if they submitted it. No notification is sent; they simply wake to find nothing happened.
+An infected player sitting in the **Black zone** faces a coin flip at the end of each night: a 50% chance to be crippled. A crippled player cannot take a night action on the following night — they are told privately that their body will not answer them.
 
-This cripple is temporary — it expires at the following day transition — so a carrier at Black can slip back to Orange, lose the roll, and return. But each night in Black is a gamble.
+The cripple lapses at the next day transition, so it costs exactly one night and is re-rolled fresh rather than stacking. Anyone already carrying cripple damage from torture is skipped entirely: the plague never deepens an existing wound, and never heals one either.
 
-**You are immune.** The Poxwalker cannot catch their own plague. If Patient Zero's action reaches back toward you, it lands but does not infect.
+Crippled carriers keep climbing. The plague does not pause for it.
 
 ---
 
 ## The cure: Chirurgeon protection
 
-The Loyalists have one counterplay built into their roster. A **Chirurgeon's ordinary nightly protect**, if it lands on an infected player, will cleanse them.
+The Loyalists' only counterplay is built into a role they already have. A **Chirurgeon's ordinary nightly protect**, if it lands, cleanses the plague from whoever it landed on — **one player at a time**.
 
-- **Protect on Patient Zero:** ends the entire plague. Patient Zero's infection is lifted, every carrier's plague marker is cleared, and no new carriers will accrue. The source is gone.
-- **Protect on a carrier:** lifts only that carrier's plague. They stop taking +1, but Patient Zero and other carriers continue.
+- **Protect on Patient Zero:** stops the source. They stop climbing +2, and no new carriers can be created, because there is no longer a live Patient Zero to visit. **Everyone already carrying it keeps carrying it.**
+- **Protect on a carrier:** lifts that one carrier's plague. Patient Zero and every other carrier continue.
 
-The Chirurgeon is **never told whether a protection fired or whether a plague lifted**. Their night report will read exactly the same whether they protected a healthy player or a plague-ridden one. Detection is perfect silence.
+A cure and a coffin do the same thing here. Killing Patient Zero and curing Patient Zero both remove the source and leave the contagion running in everyone it already reached. Every carrier has to be cleansed individually, one Chirurgeon-night each.
+
+A trapped protect cleanses nothing, exactly as it protects nothing.
+
+The Chirurgeon is **never told whether a protection fired or whether a plague lifted**. Their night report reads identically whether they protected a healthy player or a plague-ridden one.
 
 ---
 
 ## Counterplay against you
 
 **Before your infection lands:**
-- **Interrogator scan or Priest heal on your target, the night before** — drops them out of range (Green zone), and Patient Zero cannot be assigned retroactively. Infection fails, you pay your +3 anyway.
-- **Chirurgeon protection on your target the same night you act** — prevents the infection and does not infect the Chirurgeon. You pay +3 for nothing.
-- **Saboteur trap on your target** — your +3 becomes +8 (trap's +5 on top), whether the infection succeeds or fails.
+- **Saboteur trap on your target** — the trap blocks the infection and costs you +5 on top of your +3. Your one shot is spent for nothing.
+- **Torture or a lynch that cripples you** — a crippled Poxwalker cannot submit the infection at all. Spend the shot before the table gets suspicious.
 
 **After your infection lands:**
-- **Interrogate a carrier** — the Interrogator pays +2 (or more at higher tier) *plus* the carrier's +1. The scan still lands normally; it just costs more.
-- **Kill Patient Zero** — carriers continue to climb. There is no "source destroyed, plague ends" clause; the contagion outlives its vessel.
-- **Lynching you directly** — denies the cabal the role. The infection itself continues unchanged; only the cabal loses your future presence.
+- **A Chirurgeon protect on Patient Zero** — the best single answer, but it only ever buys one player back.
+- **Kill Patient Zero** — removes the source, and does nothing about the carriers. There is no "source destroyed, plague ends" clause.
+- **Refuse to touch Patient Zero** — the cleanest counter and the hardest to hold. Patient Zero climbs to Black regardless, but nobody else joins them. Every scan, sermon and protect aimed at them buys the cabal another permanent carrier.
+- **Lynch you** — denies the cabal your future presence. The plague you already loosed is untouched; it does not depend on you being alive.
 
 ---
 
 ## Play this role if
 
-You want to **break the Loyalists' support cadence**. The Priest heals, the Chirurgeon protects, the Interrogator scans — and every touch costs more. You are not playing for kills; you are playing to make mercy expensive. Patient Zero is the clock ticking against Loyalist coordination, and carriers are the collateral damage of every action they take.
+You want to **break the Loyalists' support cadence**. The Priest heals, the Chirurgeon protects, the Interrogator scans — and after you fire, every one of those touches costs more and keeps costing more. Patient Zero is a clock ticking against Loyalist coordination, and each carrier is the collateral damage of somebody trying to help.
 
-**Loyalists should look for:** a sudden unexplained +1 drift tax on their night actions. A Priest's sermon costs +2 and the target still climbs. An Interrogator's scan is answered with "something off" and +3 drift. If multiple players are gaining +1 with no kill or action of their own, the Poxwalker has already fired.
+**Loyalists should look for:** an unexplained +1 tax that follows people around. If several players are gaining drift with no action of their own and no kill on the table, the Poxwalker has already fired — and whoever they all touched is Patient Zero.
 
-**Heretics should look for:** a target who is visibly being healed or protected often — they are likely high value and a good Patient Zero candidate. If the Priest or Chirurgeon is acting on one player consistently, that is the thread: infect them, and turn the support network into a cost center.
+**Heretics should look for:** whoever the support roles keep visiting. If the Priest and Chirurgeon are working one player consistently, that is the thread — infect them, and the support network becomes a cost centre.
 
-> **Custom roster only.** Poxwalker never appears in a standard, randomly-assigned game — a host has to add it deliberately when building a custom roster (8p+ recommended, so the plague has time to metastasize through an active cabal).
+> **Custom roster only.** Poxwalker never appears in a standard, randomly-assigned game — a host has to add it deliberately when building a custom roster. It is designed to work from 5p upward.

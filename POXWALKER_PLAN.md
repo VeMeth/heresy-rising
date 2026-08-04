@@ -519,7 +519,15 @@ re-locked at v1.0.1:
 |---|---|
 | Cure is a dedicated Chirurgeon action, **one-shot per game** | Cure is the existing nightly **protect**, unlimited (bounded by the rotation lock) |
 | Cure costs **+3 self** (T3) | Costs protect's **+1** (T1) |
+| Curing Patient Zero is **"full plague termination"** — every downstream carrier's spread ends too | **Ruled 2026-08-04 (designer):** curing the source stops the source and stops new infections, but **every existing carrier keeps carrying it** and must be cured individually. A cure and a death now behave identically. This is what makes the cheaper, unlimited cure above balance out — the Chirurgeon can only ever buy back one player per night. |
 | "Poxwalker is the carrier, not the infected — cannot be cured" (heal-priority) | Unchanged, but self-protect means an infected **Chirurgeon** can cure themselves, which the spec does not contemplate |
+
+The heal-priority section of the spec ("healing Patient Zero > healing a
+visitor") no longer holds as written either: with no downstream cleanse, curing
+the source and curing a carrier each buy back exactly one player. Curing the
+source is still better — it stops the +2 and closes off new carriers — but it
+is a difference of degree, not the categorical "cure the source or nothing"
+the spec describes.
 
 Also worth reporting, independent of R1: the dispatch's §2 validator rule and
 its claimed precedents (`recruiter_max_per_game` &c.) do not exist — see C1/C2.

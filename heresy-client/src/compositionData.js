@@ -91,7 +91,7 @@ export const validRoles = new Map([
   ['poxwalker', {
     id: 'poxwalker', displayName: 'Poxwalker', faction: 'heretic', tier: 'T3',
     claim: 'Imperial Citizen',
-    abilityTemplate: 'Once per game, infect a living non-Heretic for {driftWeight} self-drift. They become Patient Zero and gain +2 drift every night. Anyone whose night action touches Patient Zero — or who is touched by Patient Zero\'s own night action — catches a milder +1 per night on top of their own costs, and keeps carrying it for the rest of the game. Nobody dies of it: a carrier who reaches Black ({blackMin}) sits there, rolling a coin each night to lose their night action. A Chirurgeon\'s protection cleanses whoever it lands on; landing it on Patient Zero ends the whole contagion.'
+    abilityTemplate: 'Once per game, infect a living non-Heretic for {driftWeight} self-drift. They become Patient Zero and gain +2 drift every night. Anyone whose night action touches Patient Zero — or who is touched by Patient Zero\'s own night action — catches a milder +1 per night on top of their own costs, and keeps carrying it for the rest of the game. Nobody dies of it: a carrier who reaches Black ({blackMin}) sits there, rolling a coin each night to lose their night action. A Chirurgeon\'s protection cleanses whoever it lands on, one player at a time; landing it on Patient Zero stops the source and halts new infections, but everyone already carrying it keeps carrying it.'
   }],
 ]);
 

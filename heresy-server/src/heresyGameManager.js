@@ -890,12 +890,17 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
   // this round's rows and needs no new plumbing.
   //
   // Carrier marking is CUMULATIVE and never re-derived: once marked, a player
-  // carries it until cured, converted, or dead. That is what makes Patient
-  // Zero's death survivable for the plague — new infections stop (the visit
-  // scan below only runs while the source lives) but existing carriers tick on.
+  // carries it until cured individually, converted, or dead. That is what makes
+  // losing the source survivable for the plague — new infections stop (the
+  // visit scan below only runs while a live source exists) but existing
+  // carriers tick on regardless.
+  //
+  // Note there is deliberately NO `if (!g.patient_zero) return` guard here.
+  // Losing the source — to a cure or to a coffin — must not stop the carriers,
+  // and an early return keyed on patient_zero would silently do exactly that
+  // for the cure path (death leaves patient_zero set; a cure nulls it).
   resolvePlague(c,g,actions){
-    if(!g.patient_zero)return;
-    const d=this.config.drift,pz=this.player(c,g.patient_zero);
+    const d=this.config.drift,pz=g.patient_zero?this.player(c,g.patient_zero):null;
     if(pz?.alive){
       const touched=new Set();
       for(const a of actions){
@@ -910,7 +915,9 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       for(const code of touched)if(this.player(c,code)?.alive)this.db.prepare('UPDATE hr_players SET plague_carrier=1 WHERE game_code=? AND player_code=?').run(c,code);
       this.changeDrift(c,g.patient_zero,d.PLAGUE_SOURCE_DRIFT,'plague-source');
     }
-    for(const p of this.players(c))if(p.alive&&p.plague_carrier&&p.player_code!==g.patient_zero)this.changeDrift(c,p.player_code,d.PLAGUE_CARRIER_DRIFT,'plague-carrier');
+    const carriers=this.players(c).filter(p=>p.alive&&p.plague_carrier&&p.player_code!==g.patient_zero);
+    if(!carriers.length&&!pz?.alive)return;
+    for(const p of carriers)this.changeDrift(c,p.player_code,d.PLAGUE_CARRIER_DRIFT,'plague-carrier');
     // Black-zone roll. No death — the plague disables. Re-rolled every night,
     // but skipped entirely for anyone already carrying any cripple tier, which
     // is what "no stacking, just binary on/off" means here AND what keeps the
@@ -928,11 +935,17 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       this.event(c,'plague-cripple',{round:g.round,playerCode:p.player_code});
     }
   }
-  // Lifts the plague off one player. SILENT by contract — the only caller is
-  // the protect pass, and the Chirurgeon must never be able to read plague
-  // state off their own action (see reportNightActions' comment). Curing
-  // Patient Zero ends the contagion outright, including every downstream
-  // carrier; curing a carrier ends only theirs.
+  // Lifts the plague off ONE player, and only that player. SILENT by contract —
+  // the only caller is the protect pass, and the Chirurgeon must never be able
+  // to read plague state off their own action (see reportNightActions' comment).
+  //
+  // Curing the source stops the source: no more +2 on them, and no more new
+  // carriers, because the visit scan needs a live Patient Zero. It does NOT
+  // cleanse anyone already carrying it — they keep climbing and each has to be
+  // cured on their own. This is a designer ruling (2026-08-04) that overrides
+  // poxwalker.md v1.0.0's "full plague termination" line, and it makes a cure
+  // and a coffin behave identically: either way the source is gone and the
+  // contagion outlives it. See POXWALKER_PLAN.md § 9.
   //
   // Cripple lifting is capped at tier 1 on purpose. Plague-cripple and
   // torture-cripple share cripple_tier, so an uncapped clear would let a
@@ -942,9 +955,9 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
   // set it. Tier 2+ is never touched.
   clearPlague(c,g,code){
     if(!code)return;
-    if(g.patient_zero===code){this.db.prepare('UPDATE hr_games SET patient_zero=NULL WHERE code=?').run(c);g.patient_zero=null;this.db.prepare('UPDATE hr_players SET plague_carrier=0 WHERE game_code=?').run(c);}
-    else if(this.player(c,code)?.plague_carrier)this.db.prepare('UPDATE hr_players SET plague_carrier=0 WHERE game_code=? AND player_code=?').run(c,code);
-    else return;
+    if(g.patient_zero===code){this.db.prepare('UPDATE hr_games SET patient_zero=NULL WHERE code=?').run(c);g.patient_zero=null;}
+    else if(!this.player(c,code)?.plague_carrier)return;
+    this.db.prepare('UPDATE hr_players SET plague_carrier=0 WHERE game_code=? AND player_code=?').run(c,code);
     this.db.prepare('UPDATE hr_players SET cripple_tier=0,tier1_until_round=NULL WHERE game_code=? AND player_code=? AND cripple_tier=1').run(c,code);
   }
   trapBlocks(c,g,a,traps){if(!traps.has(a.target_code))return false;this.changeDrift(c,a.actor_code,this.config.drift.TRAP_DRIFT,'trap');const trap=traps.get(a.target_code);this.privateSystem(c,trap.actor_code,`Your trap caught ${this.displayName(g,this.player(c,a.actor_code))} targeting ${this.displayName(g,this.player(c,a.target_code))}.`);return !['kill','heretical-catalyst'].includes(a.kind);}

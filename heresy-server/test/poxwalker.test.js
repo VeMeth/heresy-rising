@@ -176,7 +176,11 @@ test('black zone: a losing coin leaves them alone, and the roll never downgrades
   } finally { hot.close(); }
 });
 
-test('cure: a protect on Patient Zero ends the contagion outright, carriers included', () => {
+// Designer ruling 2026-08-04, overriding poxwalker.md v1.0.0's "full plague
+// termination": curing the source does NOT cleanse anyone already carrying it.
+// A cure and a coffin now behave identically — the source is gone either way
+// and the contagion outlives it. Every carrier has to be cured individually.
+test('cure: a protect on Patient Zero stops the source but carriers keep carrying it', () => {
   const f = fixture({ roster: ROSTER_5 });
   try {
     const pox = by(f, 'poxwalker'), pz = by(f, 'priest'), interrogator = by(f, 'interrogator'), chirurgeon = by(f, 'chirurgeon');
@@ -191,13 +195,37 @@ test('cure: a protect on Patient Zero ends the contagion outright, carriers incl
     f.manager.submitAction(f.code, chirurgeon.player_code, { targetCode: pz.player_code });
     f.manager.resolve(f.code, true);
     assert.equal(f.manager.game(f.code).patient_zero, null, 'source cleared');
-    assert.equal(f.manager.player(f.code, interrogator.player_code).plague_carrier, 0, 'downstream carriers cleared with the source');
+    assert.equal(f.manager.player(f.code, interrogator.player_code).plague_carrier, 1, 'the carrier is NOT cleansed along with the source');
 
+    // This is the regression that matters: resolvePlague must not early-return
+    // on a null patient_zero, or losing the source silently freezes every
+    // carrier. Sleep is -1 and the carrier tick is +1, so a still-ticking
+    // carrier holds level while a frozen one would drop.
     const pzDrift = drift(f, pz), carrierDrift = drift(f, interrogator);
     night(f);
     f.manager.resolve(f.code, true);
-    assert.ok(drift(f, pz) < pzDrift, 'no plague tick — just sleep recovery');
-    assert.ok(drift(f, interrogator) < carrierDrift, 'carrier stopped climbing too');
+    assert.ok(drift(f, pz) < pzDrift, 'the cured source stops climbing — sleep recovery only');
+    assert.equal(drift(f, interrogator), carrierDrift, 'the carrier is still climbing: -1 sleep, +1 plague');
+  } finally { f.close(); }
+});
+
+test('cure: with the source cured, no NEW carriers can be created', () => {
+  const f = fixture({ roster: ROSTER_5 });
+  try {
+    const pox = by(f, 'poxwalker'), pz = by(f, 'priest'), chirurgeon = by(f, 'chirurgeon'), citizen = by(f, 'imperial-citizen');
+    f.manager.submitAction(f.code, pox.player_code, { targetCode: pz.player_code });
+    f.manager.resolve(f.code, true);
+    night(f);
+    f.manager.submitAction(f.code, chirurgeon.player_code, { targetCode: pz.player_code });
+    f.manager.resolve(f.code, true);
+    assert.equal(f.manager.game(f.code).patient_zero, null);
+
+    // Priest sermons the Citizen. Were the Priest still Patient Zero this
+    // would infect them ("visited-by"); cured, it must not.
+    night(f);
+    f.manager.submitAction(f.code, pz.player_code, { targetCode: citizen.player_code, variant: 'whisper' });
+    f.manager.resolve(f.code, true);
+    assert.equal(f.manager.player(f.code, citizen.player_code).plague_carrier, 0, 'no live source, no new carriers');
   } finally { f.close(); }
 });
 

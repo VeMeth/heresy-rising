@@ -160,7 +160,7 @@ Once you've possessed someone, their body will explode publicly at the next day'
 Claim (public): "I am an Imperial Citizen."
 Night: ONE-SHOT ever. Infect a living non-Heretic (never a fellow Heretic, never yourself). +3 self-drift. They become Patient Zero and gain +2 drift every night from then on.
 Anyone whose night action targets Patient Zero, or whoever Patient Zero's own action targets, catches +1 drift per night too — it sticks for the rest of the game, even after Patient Zero dies. Nobody dies from the plague directly; a carrier who reaches Black rolls a coin each night to lose their action instead.
-A Chirurgeon's protect landing on an infected player silently cures them (protecting Patient Zero cures everyone at once); you're never told when this happens.
+A Chirurgeon's protect landing on an infected player silently cures that ONE player; curing Patient Zero stops the source and stops new infections but leaves every existing carrier infected. You're never told when this happens.
 Blood Ritual (cabal-shared, instead of your own move): verb "blood_ritual" + target, any living non-Heretic. +3 self-drift. ONE Heretic per night. Same target twice = cripple then kill.
 Cripple: infect silently fails (a wasted one-shot if you hadn't used it yet). T1 lose one action. T2 lose all + justify votes. T3 confess on ask.
 Spend the shot early — the plague needs nights to climb. Pick someone unlikely to get a Chirurgeon's attention soon.`]
