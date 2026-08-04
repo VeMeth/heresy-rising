@@ -795,15 +795,17 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 .params-cell .preset p { font-size: 11px; }
 .params-cell .param-fields {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
-  flex-wrap: wrap;
 }
 .params-cell .param-fields label {
   flex-direction: row;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   margin: 0;
+  width: 100%;
   text-transform: uppercase;
   font-size: 10px;
   letter-spacing: .1em;
@@ -811,13 +813,13 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   white-space: nowrap;
 }
 .params-cell .param-fields input {
-  width: 64px;
+  width: 80px;
   padding: 8px 10px;
   font-size: 13px;
   text-align: center;
 }
 .params-cell .param-fields input[type="time"] {
-  width: 100px;
+  width: 120px;
 }
 .params-cell .save-indicator {
   margin: 0;
@@ -876,10 +878,20 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   box-shadow: 0 0 0 2px #b69a5c22;
   outline: none;
 }
+.params-cell .param-fields .reveal-select {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
 .params-cell .reveal-select-control {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
+}
+.params-cell .reveal-select-control select {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* (i) tooltip trigger — replaces the permanently-on-screen hint paragraphs.
@@ -958,22 +970,10 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   letter-spacing: normal;
 }
 
-/* In the wide-screen sidebar the column is too narrow for the fields
-   to wrap side by side (as they do in the row layout below 1300px),
-   so each label/input pair drops onto its own line — align them into
-   a column instead of letting inputs land wherever their own label's
-   text width happens to end. */
+/* Each label/input pair is a full-width row (label left, control right) at
+   every width — see .param-fields above. The wide-screen sidebar just gets
+   a couple of extra polish tweaks once there's room to spare. */
 @media (min-width: 1301px) {
-  .params-cell .param-fields {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  .params-cell .param-fields label {
-    justify-content: space-between;
-    width: 100%;
-  }
-  .params-cell .param-fields input { width: 80px; }
   .params-cell .save-indicator { width: 100%; justify-content: flex-end; align-self: stretch; }
   .params-cell .param-fields .anon-toggle { justify-content: flex-start; }
   .params-cell .param-readonly {
