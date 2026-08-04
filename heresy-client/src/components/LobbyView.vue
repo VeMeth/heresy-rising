@@ -60,56 +60,88 @@
         <header><h2>Operation parameters</h2><span>{{ game.mode==='async'?'ASYNC':'LIVE' }}</span></header>
         <div class="params-row">
           <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>Sealed at launch; revealed privately per dossier.</p></div>
+
           <div v-if="isHost" class="param-fields">
-            <label class="anon-toggle">
-              <input type="checkbox" v-model="setup.anonymized" @change="scheduleSave"> Anonymized mode
-              <span class="info-tip" :class="{open: openTip==='anon'}">
-                <button type="button" class="info-trigger" @click.stop="toggleTip('anon')" @keydown.esc="closeTip(); $event.target.blur()" :aria-expanded="openTip==='anon'" aria-label="About anonymized mode" aria-describedby="tip-anon">i</button>
-                <span id="tip-anon" role="tooltip" class="info-tooltip">Player names are replaced with notable Warhammer 40k characters once the game starts.</span>
-              </span>
-            </label>
-            <label class="anon-toggle">
-              <input type="checkbox" v-model="setup.warpTaintVisible" @change="scheduleSave"> Warp taint display
-              <span class="info-tip" :class="{open: openTip==='warp'}">
-                <button type="button" class="info-trigger" @click.stop="toggleTip('warp')" @keydown.esc="closeTip(); $event.target.blur()" :aria-expanded="openTip==='warp'" aria-label="About warp taint display" aria-describedby="tip-warp">i</button>
-                <span id="tip-warp" role="tooltip" class="info-tooltip">Shows each operative their own last-sensed drift zone gauge in the dossier. Off hides the gauge entirely — the hint is still sent, just not rendered.</span>
-              </span>
-            </label>
-            <label class="reveal-select">
-              Death reveal
-              <span class="reveal-select-control">
-                <select v-model="setup.deathReveal" @change="scheduleSave"><option value="role">Full role</option><option value="alignment">Alignment only</option></select>
-                <span class="info-tip" :class="{open: openTip==='reveal'}">
-                  <button type="button" class="info-trigger" @click.stop="toggleTip('reveal')" @keydown.esc="closeTip(); $event.target.blur()" :aria-expanded="openTip==='reveal'" aria-label="About death reveal" aria-describedby="tip-reveal">i</button>
-                  <span id="tip-reveal" role="tooltip" class="info-tooltip">What the conclave learns when a tortured suspect dies under interrogation. Full role names their dossier; alignment only says Loyalist or Heretic. A lynch reveals neither either way — buying that information is what torture is for.</span>
+            <div class="param-group">
+              <span class="eyebrow">Pacing</span>
+              <div class="pacing-tiles">
+                <label class="pacing-tile">
+                  <span class="tile-label">Drift</span>
+                  <input v-model.number="setup.maxDrift" type="number" min="1" :max="phases.MAX_DRIFT_CEILING" @input="scheduleSave">
+                </label>
+                <template v-if="game.mode==='async'">
+                  <label class="pacing-tile wide">
+                    <span class="tile-label">Day starts (UTC)</span>
+                    <input type="time" v-model="dayStartTimeUTC" @change="scheduleSave">
+                  </label>
+                </template>
+                <template v-else>
+                  <label class="pacing-tile">
+                    <span class="tile-label">Day min</span>
+                    <input v-model.number="dayMinutes" type="number" :min="phaseMinFloor" :max="phaseMinCeiling" @input="scheduleSave">
+                  </label>
+                  <label class="pacing-tile">
+                    <span class="tile-label">Night min</span>
+                    <input v-model.number="nightMinutes" type="number" :min="phaseMinFloor" :max="phaseMinCeiling" @input="scheduleSave">
+                  </label>
+                </template>
+              </div>
+              <p v-if="game.mode==='async'" class="day-start-hint">{{ dayStartLocalPreview }}. Day and night are locked at {{ Math.round(phases.ASYNC_PHASE_MS / 3600000) }}h each.</p>
+            </div>
+
+            <div class="param-group">
+              <span class="eyebrow">Disclosure</span>
+              <label class="anon-toggle">
+                <input type="checkbox" v-model="setup.anonymized" @change="scheduleSave"> Anonymized mode
+                <span class="info-tip" :class="{open: openTip==='anon'}">
+                  <button type="button" class="info-trigger" @click.stop="toggleTip('anon')" @keydown.esc="closeTip(); $event.target.blur()" :aria-expanded="openTip==='anon'" aria-label="About anonymized mode" aria-describedby="tip-anon">i</button>
+                  <span id="tip-anon" role="tooltip" class="info-tooltip">Player names are replaced with notable Warhammer 40k characters once the game starts.</span>
                 </span>
-              </span>
-            </label>
-            <label>Drift<input v-model.number="setup.maxDrift" type="number" min="1" :max="phases.MAX_DRIFT_CEILING" @input="scheduleSave"></label>
-            <template v-if="game.mode==='async'">
-              <label>Day starts (UTC)<input type="time" v-model="dayStartTimeUTC" @change="scheduleSave"></label>
-              <p class="day-start-hint">{{ dayStartLocalPreview }}. Day and night are locked at {{ Math.round(phases.ASYNC_PHASE_MS / 3600000) }}h each.</p>
-            </template>
-            <template v-else>
-              <label>Day min<input v-model.number="dayMinutes" type="number" :min="phaseMinFloor" :max="phaseMinCeiling" @input="scheduleSave"></label>
-              <label>Night min<input v-model.number="nightMinutes" type="number" :min="phaseMinFloor" :max="phaseMinCeiling" @input="scheduleSave"></label>
-            </template>
+              </label>
+              <label class="anon-toggle">
+                <input type="checkbox" v-model="setup.warpTaintVisible" @change="scheduleSave"> Warp taint display
+                <span class="info-tip" :class="{open: openTip==='warp'}">
+                  <button type="button" class="info-trigger" @click.stop="toggleTip('warp')" @keydown.esc="closeTip(); $event.target.blur()" :aria-expanded="openTip==='warp'" aria-label="About warp taint display" aria-describedby="tip-warp">i</button>
+                  <span id="tip-warp" role="tooltip" class="info-tooltip">Shows each operative their own last-sensed drift zone gauge in the dossier. Off hides the gauge entirely — the hint is still sent, just not rendered.</span>
+                </span>
+              </label>
+              <label class="reveal-select">
+                Death reveal
+                <span class="reveal-select-control">
+                  <select v-model="setup.deathReveal" @change="scheduleSave"><option value="role">Full role</option><option value="alignment">Alignment only</option></select>
+                  <span class="info-tip" :class="{open: openTip==='reveal'}">
+                    <button type="button" class="info-trigger" @click.stop="toggleTip('reveal')" @keydown.esc="closeTip(); $event.target.blur()" :aria-expanded="openTip==='reveal'" aria-label="About death reveal" aria-describedby="tip-reveal">i</button>
+                    <span id="tip-reveal" role="tooltip" class="info-tooltip">What the conclave learns when a tortured suspect dies under interrogation. Full role names their dossier; alignment only says Loyalist or Heretic. A lynch reveals neither either way — buying that information is what torture is for.</span>
+                  </span>
+                </span>
+              </label>
+            </div>
+
             <p class="save-indicator" :class="{visible: justSaved}">Saved</p>
           </div>
-          <dl v-else class="param-readonly">
-            <div><dt>Drift</dt><dd>{{ setup.maxDrift }}</dd></div>
-            <template v-if="game.mode==='async'">
-              <div><dt>Day starts</dt><dd>{{ dayStartTimeUTC }} UTC</dd></div>
-              <div><dt>Local</dt><dd>{{ dayStartLocalPreview }}</dd></div>
-            </template>
-            <template v-else>
-              <div><dt>Day</dt><dd>{{ dayMinutes }} min</dd></div>
-              <div><dt>Night</dt><dd>{{ nightMinutes }} min</dd></div>
-            </template>
-            <div><dt>Anon</dt><dd>{{ setup.anonymized ? 'ON' : 'OFF' }}</dd></div>
-            <div><dt>Warp taint</dt><dd>{{ setup.warpTaintVisible ? 'ON' : 'OFF' }}</dd></div>
-            <div><dt>Reveal</dt><dd>{{ setup.deathReveal === 'alignment' ? 'ALIGNMENT' : 'ROLE' }}</dd></div>
-          </dl>
+
+          <div v-else class="param-readonly">
+            <div class="param-group">
+              <span class="eyebrow">Pacing</span>
+              <div class="pacing-tiles">
+                <div class="pacing-tile"><span class="tile-label">Drift</span><strong>{{ setup.maxDrift }}</strong></div>
+                <template v-if="game.mode==='async'">
+                  <div class="pacing-tile wide"><span class="tile-label">Day starts</span><strong>{{ dayStartTimeUTC }} UTC</strong></div>
+                </template>
+                <template v-else>
+                  <div class="pacing-tile"><span class="tile-label">Day</span><strong>{{ dayMinutes }}m</strong></div>
+                  <div class="pacing-tile"><span class="tile-label">Night</span><strong>{{ nightMinutes }}m</strong></div>
+                </template>
+              </div>
+              <p v-if="game.mode==='async'" class="day-start-hint">{{ dayStartLocalPreview }}</p>
+            </div>
+            <div class="param-group">
+              <span class="eyebrow">Disclosure</span>
+              <div class="readonly-row"><span>Anonymized</span><strong>{{ setup.anonymized ? 'On' : 'Off' }}</strong></div>
+              <div class="readonly-row"><span>Warp taint</span><strong>{{ setup.warpTaintVisible ? 'On' : 'Off' }}</strong></div>
+              <div class="readonly-row"><span>Death reveal</span><strong>{{ setup.deathReveal === 'alignment' ? 'Alignment' : 'Full role' }}</strong></div>
+            </div>
+          </div>
         </div>
       </article>
     </div>
@@ -798,6 +830,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
+  min-width: 0;
 }
 .params-cell .param-fields label {
   flex-direction: row;
@@ -818,8 +851,98 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   font-size: 13px;
   text-align: center;
 }
-.params-cell .param-fields input[type="time"] {
-  width: 120px;
+/* Pacing: Drift / Day min / Night min (or Day starts, async) read as a row
+   of instrument tiles rather than a stack of form rows — the numbers are
+   the thing the host is scanning for, so they get the same weight as the
+   composition panel's faction-count stats below (Cinzel, large, gold). */
+.params-cell .param-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid #262922;
+  background: #0c0e0c;
+  border-radius: 2px;
+  min-width: 0;
+}
+.params-cell .pacing-tiles {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+/* Specificity note: .param-fields label (below) carries an element
+   selector, which outranks a plain .pacing-tile class rule — so this is
+   qualified with .params-row (the ancestor shared by both the host
+   .param-fields tiles and the read-only .param-readonly tiles) to win
+   regardless of source order. Bit me twice already; don't drop the
+   qualifier or narrow it back down to just .param-fields. */
+.params-cell .params-row .pacing-tile {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 9px 4px 11px;
+  border: 1px solid #34372f;
+  background: #0d0f0d;
+  border-radius: 2px;
+  text-align: center;
+  margin: 0;
+  width: auto;
+  min-width: 0;
+  white-space: normal;
+}
+.params-cell .params-row .pacing-tile.wide { flex: 1.7 1 0; }
+.params-cell .pacing-tile .tile-label {
+  font-size: 8.5px;
+  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  white-space: normal;
+}
+.params-cell .pacing-tile strong {
+  font: 700 20px Cinzel;
+  color: var(--gold2);
+  letter-spacing: .02em;
+}
+.params-cell .param-fields .pacing-tile input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: center;
+  font: 700 21px Cinzel;
+  color: var(--gold2);
+  -moz-appearance: textfield;
+}
+.params-cell .param-fields .pacing-tile input[type="time"] {
+  font-size: 15px;
+}
+.params-cell .param-fields .pacing-tile input::-webkit-outer-spin-button,
+.params-cell .param-fields .pacing-tile input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.params-cell .param-fields .pacing-tile input:focus {
+  outline: none;
+}
+.params-cell .param-fields .pacing-tile:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px #b69a5c22;
+}
+.params-cell .readonly-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.params-cell .readonly-row strong {
+  color: var(--pale);
+  font-weight: 600;
 }
 .params-cell .save-indicator {
   margin: 0;
@@ -839,34 +962,68 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   pointer-events: none;
 }
 .params-cell .save-indicator.visible { opacity: 1; }
-.params-cell .anon-toggle {
+.params-cell .param-fields .anon-toggle {
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 9px;
   width: 100%;
   cursor: pointer;
 }
+/* Custom mark instead of the OS checkbox — everything else in this UI
+   (buttons, selects, role rows) is hand-styled, so the one native browser
+   control stood out. appearance:none turns the input into a plain box we
+   draw ourselves; the check is a clip-path wedge revealed on :checked. */
 .params-cell .anon-toggle input[type="checkbox"] {
-  appearance: auto;
-  -webkit-appearance: auto;
-  width: 14px;
-  height: 14px;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
   margin: 0;
   padding: 0;
-  border: none;
-  background: none;
-  border-radius: 0;
-  accent-color: var(--gold);
+  display: inline-grid;
+  place-content: center;
+  border: 1px solid #4a4d43;
+  background: #0d0f0d;
+  border-radius: 2px;
   cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.params-cell .anon-toggle input[type="checkbox"]::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--gold2);
+  clip-path: polygon(14% 44%, 0 65%, 45% 100%, 100% 16%, 82% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform .12s ease;
+}
+.params-cell .anon-toggle input[type="checkbox"]:checked {
+  border-color: var(--gold);
+  background: #1d1b13;
+}
+.params-cell .anon-toggle input[type="checkbox"]:checked::after {
+  transform: scale(1);
+}
+.params-cell .anon-toggle input[type="checkbox"]:focus-visible {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px #b69a5c22;
 }
 .params-cell .param-fields select {
   width: auto;
   min-width: 128px;
-  padding: 7px 8px;
+  padding: 7px 26px 7px 8px;
   font: 500 12px Inter;
   border: 1px solid #3a3c34;
-  background: #0d0f0d;
+  background-color: #0d0f0d;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) center, calc(100% - 10px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  appearance: none;
+  -webkit-appearance: none;
   color: var(--pale);
   border-radius: 2px;
   cursor: pointer;
@@ -962,7 +1119,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 }
 .params-cell .day-start-hint {
   width: 100%;
-  margin: -4px 0 0;
+  margin: 0;
   font-size: 10.5px;
   line-height: 1.5;
   color: var(--muted);
@@ -975,53 +1132,12 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
    a couple of extra polish tweaks once there's room to spare. */
 @media (min-width: 1301px) {
   .params-cell .save-indicator { width: 100%; justify-content: flex-end; align-self: stretch; }
-  .params-cell .param-fields .anon-toggle { justify-content: flex-start; }
-  .params-cell .param-readonly {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  .params-cell .param-readonly > div {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-  }
-  .params-cell .param-readonly dd { min-width: 80px; }
 }
 .params-cell .param-readonly {
   display: flex;
-  align-items: flex-end;
-  gap: 18px;
-  flex-wrap: wrap;
-  margin: 0;
-  padding: 0;
-}
-.params-cell .param-readonly > div {
-  display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  gap: 10px;
   min-width: 0;
-}
-.params-cell .param-readonly dt {
-  margin: 0;
-  text-transform: uppercase;
-  font-size: 10px;
-  letter-spacing: .1em;
-  color: var(--muted);
-}
-.params-cell .param-readonly dd {
-  margin: 0;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-  min-width: 64px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border, rgba(255,255,255,0.08));
-  border-radius: 4px;
-  color: var(--pale);
 }
 
 .chat-panel { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: hidden; }
