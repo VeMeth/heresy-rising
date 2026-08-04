@@ -5,6 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { HeresyGameManager } from '../src/heresyGameManager.js';
 
+// Read the shipped pools rather than re-typing the cue text: a test that
+// hard-codes one line just breaks every time the flavour is edited, which is
+// exactly what made the single-string version brittle.
+const PLAGUE_HINTS = JSON.parse(fs.readFileSync(new URL('../../game_data/scenarios/default/plagueHints.json', import.meta.url), 'utf8'));
+
 // H7 Poxwalker (roles/poxwalker.md v1.0.0, dispatch 2026-08-03).
 //
 // `random` is injectable precisely so the black-zone cripple coin is testable:
@@ -319,7 +324,7 @@ test('zone cue: an infected player gets the plague line INSTEAD of the ordinary 
     const crossings = f.manager.db.prepare("SELECT body,meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id").all(f.code, pz.player_code)
       .filter(m => m.meta && JSON.parse(m.meta).ownZone === 'orange');
     assert.equal(crossings.length, 1, 'exactly one message for one crossing — a second would leak infection by message count');
-    assert.match(crossings[0].body, /veins darken/, 'the plague cue, not the ordinary hint');
+    assert.ok(PLAGUE_HINTS.orange.includes(crossings[0].body), 'drawn from the orange plague pool, not the ordinary hint');
     assert.equal(JSON.parse(crossings[0].meta).ownZone, 'orange', 'ownZone meta preserved — the client taint gauge reads it');
 
     // A clean player crossing the same boundary still gets the ordinary line.
@@ -327,8 +332,32 @@ test('zone cue: an infected player gets the plague line INSTEAD of the ordinary 
     f.manager.db.prepare('UPDATE hr_players SET drift=9 WHERE game_code=? AND player_code=?').run(f.code, clean.player_code);
     f.manager.changeDrift(f.code, clean.player_code, 1, 'test');
     const cleanMsg = f.manager.db.prepare("SELECT body FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id DESC LIMIT 1").get(f.code, clean.player_code);
-    assert.doesNotMatch(cleanMsg.body, /veins darken/, 'uninfected players never see the plague cue');
+    assert.ok(!PLAGUE_HINTS.orange.includes(cleanMsg.body), 'uninfected players never see any plague cue');
   } finally { f.close(); }
+});
+
+test('zone cue: every variant in a pool is reachable, and none is a tell', () => {
+  // A fixed string per zone let a returning player recognise the cue on sight
+  // and know they were infected. Each zone is a pool now; this pins that the
+  // draw actually spans it rather than always landing on entry 0.
+  for (const zone of ['yellow', 'orange', 'red', 'black']) {
+    assert.equal(PLAGUE_HINTS[zone].length, 3, `${zone} pool is 3 variants`);
+    const seen = new Set();
+    for (let i = 0; i < PLAGUE_HINTS[zone].length; i++) {
+      // Drive the draw across the whole pool: index = floor(r * len).
+      const f = fixture({ roster: ROSTER_5, random: () => (i + 0.5) / PLAGUE_HINTS[zone].length });
+      try { seen.add(f.manager.plagueCue(zone)); } finally { f.close(); }
+    }
+    assert.equal(seen.size, 3, `${zone}: all 3 variants reachable, got ${seen.size}`);
+    for (const line of PLAGUE_HINTS[zone]) {
+      assert.ok(seen.has(line), `${zone}: "${line.slice(0, 30)}…" never drawn`);
+      // Interchangeability is the whole point — a variant that named the role,
+      // or said which side of the infection the reader is on, would let the
+      // draw itself leak what the fixed string used to leak.
+      assert.doesNotMatch(line, /poxwalker|patient zero|carrier|infected/i, `${zone}: variant leaks mechanics`);
+    }
+  }
+  assert.equal(PLAGUE_HINTS.green, undefined, 'green has no pool — a cleansed player falls back to the ordinary hint');
 });
 
 test('plague state never leaks into another player\'s view', () => {

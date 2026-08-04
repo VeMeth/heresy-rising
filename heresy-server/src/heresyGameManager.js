@@ -1193,9 +1193,16 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
     // meta is unchanged either way: the client's Warp-taint gauge reads
     // ownZone off it, so dropping it would freeze the gauge for exactly the
     // players who are infected.
-    if(from!==to)this.privateSystem(c,p,(this.isPlagued(g,player)&&this.config.plagueHints[to])||this.hints(c)[to],{intelKind:'drift_hint',ownZone:to});
+    if(from!==to)this.privateSystem(c,p,(this.isPlagued(g,player)&&this.plagueCue(to))||this.hints(c)[to],{intelKind:'drift_hint',ownZone:to});
     this.event(c,'drift',{playerCode:p,delta,before,after,reason,zone:to,round:g.round,phase:g.phase});}
   isPlagued(g,player){return !!player&&(g.patient_zero===player.player_code||!!player.plague_carrier);}
+  // One cue drawn at random from that zone's pool, the same way deathFlavor
+  // works. A single fixed string per zone was instantly recognisable to anyone
+  // who had seen it once, which handed returning players a free "am I
+  // infected?" tell and defeated the ambiguity the cue design exists for.
+  // Returns null for a zone with no pool (green, by design) so the caller
+  // falls back to the ordinary hint.
+  plagueCue(zone){const pool=this.config.plagueHints?.[zone];return Array.isArray(pool)&&pool.length?pool[Math.floor(this.random()*pool.length)]:null;}
   finishIfWon(c){const players=this.players(c),living=players.filter(x=>x.alive),h=living.filter(x=>x.faction==='heretic').length,l=living.filter(x=>x.faction==='loyalist').length;let winner=h>=l?'heretic':null;if(!winner&&players.filter(x=>x.faction==='heretic').every(x=>!x.alive))winner='loyalist';if(!winner)return false;
     // TODO(heresy-spec): Q32 — Pyrrhic/no-clean-win is explicitly deferred from v1.
     this.db.prepare("UPDATE hr_games SET phase='ended',status='ended',winner=?,deadline=NULL WHERE code=?").run(winner,c);this.system(c,`Game over. ${winner} victory.`);const gEnd=this.game(c);this.emitAnnouncement(c,{type:'gameover',title:'GAME OVER',message:`${winner} victory. The conclave is dissolved.`,winner,round:gEnd.round});saveGameLogSnapshot({gameLogId:c,code:c,phase:gEnd.phase,winner:gEnd.winner,round:gEnd.round,maxDrift:gEnd.max_drift,mode:gEnd.mode,status:gEnd.status,players:this.players(c).map(p=>({id:p.player_code,name:p.name,hero:p.role_id||null,playerCode:p.player_code,seat:p.seat,roleId:p.role_id||null,faction:p.faction,drift:p.drift,alive:!!p.alive,crippleTier:p.cripple_tier,isBot:!!p.is_bot})),debugLog:this.db.prepare('SELECT * FROM hr_events WHERE game_code=? ORDER BY id').all(c),history:this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? ORDER BY id').all(c),createdAt:gEnd.created_at});return true;}

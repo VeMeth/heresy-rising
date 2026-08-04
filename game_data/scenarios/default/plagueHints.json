@@ -1,7 +1,23 @@
 {
-  "_comment": "H7 Poxwalker (roles/poxwalker.md v1.0.0) zone-crossing cues. These REPLACE the ordinary hints.json line for a player who is currently infected — Patient Zero or a downstream carrier — so that crossing a zone still produces exactly ONE private message. A second, extra message would let an infected player deduce their state from the message COUNT alone, and the spec is explicit that the cue must read identically for Patient Zero and for carriers so neither can tell which they are. Green has no entry on purpose: the spec's cue table starts at Yellow, and an infected player falling back to Green is being cleansed, which should read as the ordinary line.",
-  "yellow": "A chill settles in your chest. You feel watched — but by what?",
-  "orange": "Your veins darken at the wrist. Something pulses behind your eyes. You know you are changed. You don't yet know by what.",
-  "red": "The Warp breathes through you. You are no longer alone in your own flesh. Someone is with you.",
-  "black": "You convulse. The host has given way. The plague takes you whole."
+  "_comment": "H7 Poxwalker (roles/poxwalker.md v1.0.0) zone-crossing cues. These REPLACE the ordinary hints.json line for a player who is currently infected — Patient Zero or a downstream carrier — so that crossing a zone still produces exactly ONE private message. A second, extra message would let an infected player deduce their state from the message COUNT alone, and the spec is explicit that the cue must read identically for Patient Zero and for carriers so neither can tell which they are. Green has no entry on purpose: the spec's cue table starts at Yellow, and an infected player falling back to Green is being cleansed, which should read as the ordinary line. Each zone is a POOL, picked at random per crossing like deathFlavor.json — a single fixed string per zone made the cue instantly recognisable to any returning player, which defeats the ambiguity. The FIRST entry in every pool is the verbatim cue from the locked spec; the rest are Nurgle-flavoured variants written to sit at the same escalation step. Keep it that way, and keep every variant in a pool interchangeable: none may hint at whether the reader is the source or a carrier, and none may name the Poxwalker.",
+  "yellow": [
+    "A chill settles in your chest. You feel watched — but by what?",
+    "Your sweat has turned sweet. You notice it on the back of your hand, and cannot say why that troubles you so much.",
+    "A fly finds you in a sealed room. It is in no hurry. It does not leave."
+  ],
+  "orange": [
+    "Your veins darken at the wrist. Something pulses behind your eyes. You know you are changed. You don't yet know by what.",
+    "The wound on your arm has stopped hurting. It has not closed. Something inside it is warm, and patient, and pleased.",
+    "You count your own heartbeat and reach seven before the pattern repeats. You do not remember learning to count it that way."
+  ],
+  "red": [
+    "The Warp breathes through you. You are no longer alone in your own flesh. Someone is with you.",
+    "Something has made a home of you, and it is grateful. You feel the gratitude the way you would feel a hand laid on your shoulder.",
+    "You dream of a garden gone to rot, and in the dream you are not afraid. You wake, and it is the not-being-afraid that frightens you."
+  ],
+  "black": [
+    "You convulse. The host has given way. The plague takes you whole.",
+    "Your body opens like a door, and something vast and kindly walks in. It has waited a long time. It tells you that you are loved.",
+    "The rot is not killing you. That is the worst of it — the Grandfather's gift is that you will go on, and on, and on."
+  ]
 }
