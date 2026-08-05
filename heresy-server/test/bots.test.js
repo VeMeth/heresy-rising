@@ -278,3 +278,18 @@ test('multiple bots: two bots know about each other via botIds', () => {
     assert.deepEqual(ids2, [b1.playerCode, b2.playerCode].sort());
   } finally { f.close(); }
 });
+
+test('adminSpawnBot: refuses to give two bots the same name (uniqueness guard, auto-suffix)', () => {
+  const f = fixture(5); try {
+    const a = f.manager.adminSpawnBot(f.code, { name: 'Cogitator' });
+    const b = f.manager.adminSpawnBot(f.code, { name: 'Cogitator' });
+    assert.notEqual(a.name, b.name, 'two bots with the same requested name must get distinct stored names');
+    assert.equal(a.name, 'Cogitator');
+    assert.equal(b.name, 'Cogitator 2');
+    // Collisions with a human name are also broken by the suffix.
+    const fHost = fixture(1); try {
+      const r = fHost.manager.adminSpawnBot(fHost.code, { name: 'Host' });
+      assert.notEqual(r.name, 'Host', 'a bot colliding with an existing human must be renamed');
+    } finally { fHost.close(); }
+  } finally { f.close(); }
+});

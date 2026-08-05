@@ -147,15 +147,25 @@ export class ActionLLM {
       // still appear in the feed via session.js's _logAction mirror — actions,
       // rejections and suppressions — just without thinking noise.
       //
+      // On a SUCCESSFUL parse, no 'thinking' entry is emitted here: the
+      // reasoning is stashed on the session and folded into the single
+      // 'action'/'chat'/'pass' entry that _act() logs next, so a vote read as
+      // one feed entry ("voted X — reasoning: …") rather than two. A FAILED
+      // parse followed by a retry keeps emitting per-attempt 'thinking'
+      // entries here (each failed attempt has no matching action entry to
+      // carry its reasoning).
+      //
       // reasoningText (MiniMax reasoning_split) wins when present; otherwise
-      // fall back to whatever stripThink() would have discarded. A parse
-      // failure followed by a nudge retry naturally produces two entries
-      // here, since this runs once per loop iteration regardless of outcome.
-      // Wrapped defensively — recordThought() itself never throws, but this
-      // call site must not be able to break a bot's turn either.
+      // fall back to whatever stripThink() would have discarded. Wrapped
+      // defensively — recordThought() itself never throws, but this call site
+      // must not be able to break a bot's turn either.
       try {
-        if (!session?._profile || session?._profile?.captureThoughts) {
-          const thought = response?.reasoningText || extractRemovedThink(lastText);
+        const thought = response?.reasoningText || extractRemovedThink(lastText);
+        if (action) {
+          // Fold the reasoning into the upcoming _act() entry instead of
+          // emitting a separate 'thinking' entry (one feed entry per turn).
+          if (session) session._pendingThought = { thought, attempt: i + 1 };
+        } else if (!session?._profile || session?._profile?.captureThoughts) {
           recordThought({
             conclaveCode: session?.conclaveCode,
             botId: session?.id,
@@ -167,9 +177,7 @@ export class ActionLLM {
             round: session?.round,
             phase: session?.phase,
             kind: 'thinking',
-            summary: action
-              ? `attempt ${i + 1}: parsed ${action.kind}`
-              : `attempt ${i + 1}: failed to parse${response?.finishReason === 'length' ? ' (truncated)' : ''}`,
+            summary: `attempt ${i + 1}: failed to parse${response?.finishReason === 'length' ? ' (truncated)' : ''}`,
             thought,
             detail: {
               promptKind: prompt?.kind,
@@ -179,8 +187,8 @@ export class ActionLLM {
               inTok,
               outTok,
               totalTokens,
-              parsed: !!action,
-              actionKind: action ? action.kind : null
+              parsed: false,
+              actionKind: null
             }
           });
         }

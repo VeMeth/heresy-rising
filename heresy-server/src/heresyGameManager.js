@@ -1307,8 +1307,26 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
     if(seatHint!=null&&seatHint!==''){const s=Math.max(0,Number(seatHint)|0);if(s>=this.config.rules.MAX_PLAYERS||players.some(p=>p.seat===s))throw new Error('Requested seat is taken or out of range');seat=s;}
     else{const taken=new Set(players.map(p=>p.seat));seat=0;while(taken.has(seat))seat++;}
     const playerCode=this.generateBotPlayerCode();
-    this.db.prepare('INSERT INTO hr_players(game_code,player_code,name,seat,joined_at,is_bot,ready) VALUES(?,?,?,?,?,1,1)').run(code,playerCode,sanitizePlayerName(name)||'Heretic Bot',seat,this.now());
-    return {playerCode,seat,isBot:true,name:sanitizePlayerName(name)||'Heretic Bot',conclaveCode:code};
+    // Per-conclave name uniqueness: hard guard against collisions with humans
+    // OR other bots so a bare default ('Heretic Bot') or a randomly-generated
+    // notableName that happens to roll the same as an existing seat can never
+    // produce two rosters entries with the same displayName. The client's
+    // pickBotName() already filters, but the engine is the source of truth.
+    const baseName=sanitizePlayerName(name)||'Heretic Bot';
+    const taken=new Set(players.map(p=>p.name));
+    let finalName=baseName;
+    if(taken.has(finalName)){
+      const cap=20; // MAX_NAME_LENGTH in utils.js
+      let n=2;
+      do{
+        const suffix=` ${n}`;
+        const head=baseName.slice(0,Math.max(0,cap-suffix.length));
+        finalName=head+suffix;
+        n++;
+      }while(taken.has(finalName)&&n<1000);
+    }
+    this.db.prepare('INSERT INTO hr_players(game_code,player_code,name,seat,joined_at,is_bot,ready) VALUES(?,?,?,?,?,1,1)').run(code,playerCode,finalName,seat,this.now());
+    return {playerCode,seat,isBot:true,name:finalName,conclaveCode:code};
   }
   adminDespawnBot(code,playerCode){
     const p=this.requirePlayer(code,playerCode);

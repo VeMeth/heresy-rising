@@ -104,7 +104,7 @@ export function registerRestRoutes(app, sessionStore, engineClient, config) {
   // GET /bots — list all sessions (lightweight inspect).
   app.get('/bots', auth, (_req, res) => {
     res.json(sessionStore.list().map((s) => ({
-      botId: s.id, playerCode: s.playerCode, conclaveCode: s.conclaveCode,
+      botId: s.id, playerCode: s.playerCode, conclaveCode: s.conclaveCode, name: s.name,
       role: s.role, faction: s.faction, alive: s.alive, phase: s.phase, round: s.round, lastAction: s.lastAction,
       roundActionStatus: s.roundActionStatus, roundActionDetail: s.roundActionDetail,
       llmPassive: !!(s._llm && (s._llm.label === 'passthrough' || s._llm._label === 'passthrough')),

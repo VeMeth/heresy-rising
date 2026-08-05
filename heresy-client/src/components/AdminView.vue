@@ -1230,9 +1230,13 @@ async function spawnBot() {
   loadingBots.value = true;
   try {
     const rawName = String(spawnForm.value.name || '').trim();
+    const conclaveCode = String(spawnForm.value.conclaveCode || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8);
+    const takenInConclave = new Set(
+      bots.value.filter((b) => b.conclaveCode === conclaveCode && b.name).map((b) => b.name)
+    );
     const body = {
-      conclaveCode: String(spawnForm.value.conclaveCode || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8),
-      name: (rawName || pickBotName()).slice(0, 20),
+      conclaveCode,
+      name: (rawName || pickBotName(takenInConclave)).slice(0, 20),
       seatHint: spawnForm.value.seatHint != null && spawnForm.value.seatHint !== '' ? Number(spawnForm.value.seatHint) : null,
       costCeiling: Number(spawnForm.value.costCeiling) > 0 ? Number(spawnForm.value.costCeiling) : null,
       personaOverrides: spawnForm.value.personaOverrides || null,

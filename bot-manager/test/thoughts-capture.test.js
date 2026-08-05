@@ -33,7 +33,7 @@ function fakeSession(overrides = {}) {
   };
 }
 
-test('actionLLM: a MiniMax-shaped response with reasoningText produces a thinking entry containing it', async () => {
+test('actionLLM: a MiniMax-shaped response with reasoningText stashes the reasoning on the session (no separate thinking entry)', async () => {
   const chat = {
     async chat() {
       return {
@@ -44,62 +44,66 @@ test('actionLLM: a MiniMax-shaped response with reasoningText produces a thinkin
     }
   };
   const a = new ActionLLM({ chatModel: chat });
-  await a.generate({ session: fakeSession(), prompt: { kind: 'day_vote_prompt' } });
+  const session = fakeSession();
+  await a.generate({ session, prompt: { kind: 'day_vote_prompt' } });
 
+  // A successful parse folds its reasoning into the single feed entry that
+  // _act()'s _logAction will emit next (one entry per turn), instead of
+  // emitting a separate 'thinking' entry immediately followed by the
+  // matching 'action' entry.
   const { entries } = readThoughts({ kinds: ['thinking'] });
-  assert.equal(entries.length, 1);
-  assert.equal(entries[0].thought, 'I should pass this round because no strong lead has emerged yet.');
-  assert.equal(entries[0].conclaveCode, 'CONCL1');
-  assert.equal(entries[0].detail.parsed, true);
-  assert.equal(entries[0].detail.actionKind, 'pass');
-  assert.equal(entries[0].detail.attempt, 1);
+  assert.equal(entries.length, 0, 'no separate thinking entry on a successful parse');
+  assert.equal(session._pendingThought.thought, 'I should pass this round because no strong lead has emerged yet.');
+  assert.equal(session._pendingThought.attempt, 1);
 });
 
-test('actionLLM: a local-shaped inline <think> response also produces a thinking entry with the stripped reasoning', async () => {
+test('actionLLM: a local-shaped inline <think> response also stashes the stripped reasoning on the session', async () => {
   const chat = new MockChatLLM(['<think>I should vote P-04, this seems clear</think>{"kind":"vote","target":"P-04"}']);
   const a = new ActionLLM({ chatModel: chat });
-  await a.generate({ session: fakeSession(), prompt: {} });
+  const session = fakeSession();
+  await a.generate({ session, prompt: {} });
 
   const { entries } = readThoughts({ kinds: ['thinking'] });
-  assert.equal(entries.length, 1);
-  assert.equal(entries[0].thought, 'I should vote P-04, this seems clear');
-  assert.equal(entries[0].detail.parsed, true);
-  assert.equal(entries[0].detail.actionKind, 'vote');
+  assert.equal(entries.length, 0, 'no separate thinking entry on a successful parse');
+  assert.equal(session._pendingThought.thought, 'I should vote P-04, this seems clear');
 });
 
-test('actionLLM: a parse failure followed by a nudge retry produces TWO thinking entries', async () => {
+test('actionLLM: a parse failure followed by a nudge retry records ONE thinking entry (the failed attempt) and stashes reasoning on success', async () => {
   const chat = new MockChatLLM([
     'Just chit-chatting, no JSON at all.',
     '{"kind":"vote","target":"P-04","justification":"strange story"}'
   ]);
   const a = new ActionLLM({ chatModel: chat });
-  const action = await a.generate({ session: fakeSession(), prompt: { kind: 'day_vote_prompt' } });
+  const session = fakeSession();
+  const action = await a.generate({ session, prompt: { kind: 'day_vote_prompt' } });
   assert.equal(action.kind, 'vote');
 
   const { entries } = readThoughts({ kinds: ['thinking'] });
-  assert.equal(entries.length, 2, 'one thinking entry per attempt');
+  assert.equal(entries.length, 1, 'only the failed parse records a thinking entry; the successful retry folds into _pendingThought');
   assert.equal(entries[0].detail.attempt, 1);
   assert.equal(entries[0].detail.parsed, false);
-  assert.equal(entries[1].detail.attempt, 2);
-  assert.equal(entries[1].detail.parsed, true);
+  assert.equal(session._pendingThought.attempt, 2, 'the successful retry stashed its attempt number for the action entry');
 });
 
-test('actionLLM: no reasoningText and no <think> block leaves thought null, but still records the entry', async () => {
+test('actionLLM: no reasoningText and no <think> block leaves thought null on the stash, and records no thinking entry', async () => {
   const chat = new MockChatLLM(['{"kind":"pass"}']);
   const a = new ActionLLM({ chatModel: chat });
-  await a.generate({ session: fakeSession(), prompt: {} });
+  const session = fakeSession();
+  await a.generate({ session, prompt: {} });
   const { entries } = readThoughts({ kinds: ['thinking'] });
-  assert.equal(entries.length, 1);
-  assert.equal(entries[0].thought, null);
+  assert.equal(entries.length, 0);
+  assert.equal(session._pendingThought.thought, null);
 });
 
-test('actionLLM: sessionless/minimal fixture path (bare fake session) does not throw and still records', async () => {
+test('actionLLM: sessionless/minimal fixture path (bare fake session) does not throw and stashes on the session', async () => {
   const chat = new MockChatLLM(['{"kind":"pass"}']);
   const a = new ActionLLM({ chatModel: chat });
-  const action = await a.generate({ session: {}, prompt: {} });
+  const session = {};
+  const action = await a.generate({ session, prompt: {} });
   assert.equal(action.kind, 'pass');
   const { entries } = readThoughts({ kinds: ['thinking'] });
-  assert.equal(entries.length, 1);
+  assert.equal(entries.length, 0);
+  assert.equal(session._pendingThought.attempt, 1);
 });
 
 // --- session.js: _logAction mirroring (plan §2.2 item 2) ------------------
@@ -344,14 +348,15 @@ test('captureThoughts: a local-profile session records NO thinking entry, even w
   assert.equal(entries.length, 0, 'local must not add thinking noise to the shared ring buffer');
 });
 
-test('captureThoughts: a MiniMax-profile session does record its reasoning', async () => {
+test('captureThoughts: a MiniMax-profile session stashes reasoning on the session for the upcoming action entry (no separate thinking entry)', async () => {
   const chat = { async chat() { return { content: '{"kind":"pass"}', usage: {}, reasoningText: 'P-07 contradicted themselves.' }; } };
   const a = new ActionLLM({ chatModel: chat });
-  await a.generate({ session: fakeSessionWithProfile(PROFILES['minimax-m2.7']), prompt: {} });
+  const session = fakeSessionWithProfile(PROFILES['minimax-m2.7']);
+  await a.generate({ session, prompt: {} });
 
   const { entries } = readThoughts({ kinds: ['thinking'] });
-  assert.equal(entries.length, 1);
-  assert.equal(entries[0].thought, 'P-07 contradicted themselves.');
+  assert.equal(entries.length, 0, 'no separate thinking entry on a successful parse');
+  assert.equal(session._pendingThought.thought, 'P-07 contradicted themselves.');
 });
 
 test('captureThoughts: local bots still contribute ACTION entries to the feed', async () => {

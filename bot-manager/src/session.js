@@ -410,6 +410,7 @@ export class BotSession {
     }
     let action;
     try {
+      this._pendingThought = null;
       action = await enqueueLLMCall(() => this._llm.generate({ session: this, prompt }), { lane: this._profile.lane });
     } catch (e) {
       console.warn(`[bot-manager] LLM generate failed for ${this.id}:`, e.message);
@@ -459,7 +460,7 @@ export class BotSession {
     // duplicate justifications.
     if (action.kind === 'vote' && action.target && this._lastVoteTarget === action.target) {
       this.lastAction = 'pass';
-      this._logAction({ kind: 'pass', note: `already voted for ${action.target} this round` });
+      this._logAction({ kind: 'pass', note: `already voted for ${this._playerName(action.target)} this round` });
       return;
     }
 
@@ -546,10 +547,31 @@ export class BotSession {
   }
 
   _logAction(entry) {
+    // Attach the LLM reasoning captured during this turn (set by
+    // actionLLM.js on a successful parse) to the single feed entry that
+    // _recordThought emits for this turn — one entry per action, carrying
+    // its own reasoning inline, instead of a separate 'thinking' entry
+    // immediately followed by the matching 'action' entry. _logAction is
+    // the single funnel for every _act() outcome, so this is the right
+    // place to fold it in and clear it.
+    if (this._pendingThought) {
+      if (entry.thought === undefined) entry.thought = this._pendingThought.thought;
+      if (entry.attempt === undefined) entry.attempt = this._pendingThought.attempt;
+      this._pendingThought = null;
+    }
     this.actionLog.push({ ts: Date.now(), phase: this.phase, round: this.round, ...entry });
     // Cap the log to the last 50 entries
     if (this.actionLog.length > 50) this.actionLog.splice(0, this.actionLog.length - 50);
     this._recordThought(entry);
+  }
+
+  // Resolve a playerCode to a display name using the latest public roster
+  // we observed (playerNames map, built in _onGameState). Falls back to the
+  // raw code if we never heard of it — better to show an opaque code than
+  // nothing, and avoids leaking the fact that we couldn't resolve it.
+  _playerName(code) {
+    if (!code) return code;
+    return (this.playerNames && this.playerNames[code]) || code;
   }
 
   // Mirrors every _act() outcome into the cross-bot thoughts feed
@@ -573,7 +595,8 @@ export class BotSession {
         round: this.round,
         phase: this.phase,
         kind: feedKindForLogEntry(entry),
-        summary: feedSummaryForLogEntry(entry),
+        summary: feedSummaryForLogEntry(entry, this.playerNames),
+        thought: entry?.thought,
         detail: feedDetailForLogEntry(entry)
       });
     } catch { /* observability must never break a bot's turn */ }
@@ -647,6 +670,15 @@ function truncateExcerpt(str, n = 80) {
   return str.length > n ? `${str.slice(0, n)}…` : str;
 }
 
+// Resolve a playerCode → display name using the public roster the session
+// observed (playerNames map; see _onGameState). Falls back to the raw code
+// when no name is known — better an opaque code than a silent drop.
+function resolveName(playerNames, code) {
+  if (!code) return code;
+  const n = playerNames && playerNames[code];
+  return n || code;
+}
+
 function feedKindForLogEntry(entry) {
   if (entry?.kind === 'rejected') return 'rejected';
   if (entry?.kind === 'llm_error' || entry?.kind === 'socket_offline' || entry?.kind === 'invalid_action') return 'error';
@@ -665,18 +697,20 @@ function feedKindForLogEntry(entry) {
   return 'action';
 }
 
-function feedSummaryForLogEntry(entry) {
+function feedSummaryForLogEntry(entry, playerNames) {
   switch (entry?.kind) {
     case 'chat':
       return `chatted — "${truncateExcerpt(entry.text)}"`;
     case 'vote': {
       const target = entry.target || 'skip';
+      const targetLabel = target === 'skip' ? 'skip' : resolveName(playerNames, target);
       const justification = entry.action?.justification;
-      return justification ? `voted ${target} — "${truncateExcerpt(justification)}"` : `voted ${target}`;
+      return justification ? `voted ${targetLabel} — "${truncateExcerpt(justification)}"` : `voted ${targetLabel}`;
     }
     case 'action': {
       const target = entry.targetCode || entry.target;
-      return target ? `${entry.verb || 'acted'} → ${target}` : (entry.verb || 'acted');
+      const targetLabel = target ? resolveName(playerNames, target) : null;
+      return targetLabel ? `${entry.verb || 'acted'} → ${targetLabel}` : (entry.verb || 'acted');
     }
     case 'rejected':
       return `rejected — ${entry.reason || 'unknown reason'}`;
@@ -702,6 +736,7 @@ function feedDetailForLogEntry(entry) {
     reason: entry?.reason,
     note: entry?.note,
     text: entry?.text,
-    error: entry?.error
+    error: entry?.error,
+    attempt: entry?.attempt
   };
 }
