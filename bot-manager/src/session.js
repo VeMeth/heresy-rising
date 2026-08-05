@@ -85,6 +85,9 @@ export class BotSession {
       // Persisted additively — old snapshots without a rollingSummary field
       // load fine (RollingSummary.fromJSON(undefined) -> empty summary).
       this.rollingSummary = RollingSummary.fromJSON(snap.rollingSummary);
+      // Same additive pattern for phaseSummaries: pre-phases-summaries
+      // snapshots load with an empty array; nothing is dropped or migrated.
+      this.phaseSummaries = Array.isArray(snap.phaseSummaries) ? snap.phaseSummaries : [];
       this.deadPlayers = Array.isArray(snap.deadPlayers) ? snap.deadPlayers : [];
       this.lastOwnZone = snap.lastOwnZone ?? null;
       this.actionLog = [];
@@ -118,6 +121,9 @@ export class BotSession {
       this.shortTermMemory = new BufferWindow({ windowSize: this._profile.memoryWindow });
       this.notes = new StructuredNotes({ maxKeys: this._profile.noteKeys });
       this.rollingSummary = new RollingSummary();
+      // Populated by the director's phase-change tick (only for profiles with
+      // `consolidateAtPhaseEnd`); a fresh bot starts empty.
+      this.phaseSummaries = [];
       this.deadPlayers = [];
       this.lastOwnZone = null;
       this.actionLog = [];
@@ -167,6 +173,7 @@ export class BotSession {
       shortTermMemory: this.shortTermMemory.items,
       notes: this.notes.all(),
       rollingSummary: this.rollingSummary.toJSON(),
+      phaseSummaries: this.phaseSummaries,
       deadPlayers: this.deadPlayers,
       lastOwnZone: this.lastOwnZone,
       roundActionStatus: this.roundActionStatus,
@@ -286,8 +293,16 @@ export class BotSession {
     }
     if (this._lastPhase && this._lastPhase !== this.phase) {
       // Phase changed — reset phase-scoped counters and notify the director.
+      // prevPhase/prevRound are captured BEFORE the director is notified so
+      // the consolidation it's about to schedule can label the just-ended
+      // phase correctly. this._lastRound is still the OLD round at this
+      // point (it gets reassigned to `this.round` a few lines below), so a
+      // night→day transition that bumps `this.round` from N to N+1 still
+      // sees the night-phase summary labelled "Round N, night".
+      const prevPhase = this._lastPhase;
+      const prevRound = this._lastRound;
       this._chatSentThisPhase = 0;
-      this._director?.onPhaseChange(this.phase);
+      this._director?.onPhaseChange?.(this.phase, prevPhase, prevRound);
     }
     // Reset per-round vote tracking on round change.
     if (this._lastRound !== this.round) {
@@ -521,12 +536,52 @@ export class BotSession {
       this._markRoundAction(prompt, 'submitted', { verb: 'blood_ritual', target: dispatch.payload?.targetCode });
     } else if (dispatch.type === 'action') {
       this._emit('action:submit', dispatch.payload, (ack) => {
-        if (ack?.ok === false) console.warn(`action:submit rejected for ${this.id}: ${ack.error}`);
+        if (ack?.ok === false) console.warn(`action:submit rejected for ${this.id}: ${ack.message}`);
       });
       this.lastAction = `action:${action.verb}`;
       this.rollingSummary.addOwnNightAction(this.round, action.verb, dispatch.payload?.targetCode);
       this._logAction({ kind: 'action', verb: action.verb, action, target: dispatch.payload?.target, targetCode: dispatch.payload?.targetCode });
       this._markRoundAction(prompt, 'submitted', { verb: action.verb, target: dispatch.payload?.targetCode });
+    }
+  }
+
+  // Phase-end consolidation, driven by the director's tick loop on a phase
+  // transition (only for profiles with `consolidateAtPhaseEnd`). The events
+  // argument is a SNAPSHOT of the rolling summary taken at the moment the
+  // director scheduled the consolidation, not a live view — without the
+  // snapshot, events that arrive over the next few seconds while the
+  // consolidation sits in the queue would leak into the summary of the
+  // phase that just ended.
+  //
+  // Same budget gates as _act() so a session that's already exhausted its
+  // USD/token ceiling cannot get a paid call it can't afford. The whole
+  // thing is fire-and-forget from the director's perspective — the
+  // director awaits this, but a thrown error is logged and swallowed here
+  // so the director's tick loop doesn't see a rejection cascade.
+  async consolidatePhase(prevPhase, prevRound, events) {
+    if (this._closing) return;
+    if (!this._profile?.consolidateAtPhaseEnd) return;
+    const lines = Array.isArray(events) ? events : this.rollingSummary.lines;
+    if (!lines.length) return;
+    if (this.tokensUsed >= this.costCeiling) {
+      this.lastAction = 'budget_exhausted';
+      return;
+    }
+    if (this.costUsd >= this.costCeilingUsd) {
+      this.lastAction = 'budget_exhausted';
+      return;
+    }
+    try {
+      const result = await enqueueLLMCall(
+        () => this._llm.consolidate({ session: this, phase: prevPhase, round: prevRound, events: lines }),
+        { lane: this._profile.lane }
+      );
+      if (result?.summary) {
+        this.phaseSummaries.push({ phase: prevPhase, round: prevRound, summary: result.summary, ts: Date.now() });
+        this._save();
+      }
+    } catch (e) {
+      console.warn(`[bot-manager] consolidation failed for ${this.id}:`, e.message);
     }
   }
 

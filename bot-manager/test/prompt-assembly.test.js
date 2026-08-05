@@ -131,6 +131,36 @@ test('prompt-assembly: rolling summary text is included in the user message', ()
   assert.match(user, /lynched and revealed heretic/);
 });
 
+test('prompt-assembly: phase summaries render as a separate section between rolling summary and notes; empty array omits the section entirely', () => {
+  const session = fakeSession({
+    phaseSummaries: [
+      { phase: 'night', round: 1, summary: 'A-1 was killed by unknown. No clear suspects.' },
+      { phase: 'day', round: 1, summary: 'B-2 accused C-3 without evidence. D-4 defended.' }
+    ],
+    // Notes are required to render the YOUR NOTES section in the asserted
+    // section ordering — otherwise the comparison index is -1 and the
+    // ordering check is meaningless.
+    notes: { size: 1, all: () => ({ 'note-key': 'curated note' }) }
+  });
+  const { user } = assembleMessages({ session, prompt: {} });
+  assert.match(user, /PHASE SUMMARIES/);
+  assert.match(user, /Round 1 night/);
+  assert.match(user, /A-1 was killed by unknown/);
+  assert.match(user, /Round 1 day/);
+  assert.match(user, /B-2 accused C-3/);
+  // Section order: rolling summary (none here) → phase summaries → notes → chat → turn.
+  const idxPhaseSummaries = user.indexOf('PHASE SUMMARIES');
+  const idxNotes = user.indexOf('YOUR NOTES');
+  assert.ok(idxPhaseSummaries < idxNotes, 'phase summaries must render before notes');
+  const idxChat = user.indexOf('RECENT CHAT');
+  assert.ok(idxPhaseSummaries < idxChat, 'phase summaries must render before recent chat');
+});
+
+test('prompt-assembly: empty phaseSummaries array omits the section entirely (local-profile behaviour)', () => {
+  const { user } = assembleMessages({ session: fakeSession({ phaseSummaries: [] }), prompt: {} });
+  assert.doesNotMatch(user, /PHASE SUMMARIES/);
+});
+
 test('prompt-assembly: user message stays near the ~3000 token soft target for a realistically full context', () => {
   const items = [];
   for (let i = 0; i < 40; i++) items.push({ kind: 'chat_message', from: `p-${i % 5}`, author: `P${i % 5}`, text: 'A fairly typical chat line with some in-character reasoning about who might be lying. '.repeat(2) });
@@ -174,7 +204,7 @@ function manyChatItems(n) {
 test('prompt-assembly: budgetsFor(undefined)/no-profile is byte-identical to the scale-1 BUDGETS constant (local-invariance guardrail)', () => {
   const scaled = budgetsFor(undefined);
   assert.deepEqual(scaled, BUDGETS);
-  assert.deepEqual(scaled, { stateDigest: 150, rollingSummary: 200, notes: 150, recentChat: 800, turnInstruction: 120 });
+  assert.deepEqual(scaled, { stateDigest: 150, rollingSummary: 200, phaseSummaries: 800, notes: 150, recentChat: 800, turnInstruction: 120 });
   assert.equal(minChatLinesFor(undefined), MIN_CHAT_LINES);
   assert.equal(minChatLinesFor(undefined), 6);
 });

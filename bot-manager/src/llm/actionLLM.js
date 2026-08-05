@@ -8,6 +8,13 @@ const NUDGE_MAX_ECHO = 400;
 const NUDGE_ONLY_REASONING = 'Your previous response contained only reasoning and was cut off before the action.';
 const NUDGE_TRUNCATED = 'Do not explain. Emit ONLY the JSON action object.';
 
+// Phase-end consolidation system prompt is deliberately minimal — the model
+// is being asked to write a memory, not act. The action path's rules/role
+// block would dilute the signal and waste tokens a profile is already paying
+// for, and the "you are a Heresy Rising player" framing is irrelevant to a
+// 2-4 sentence summary.
+const CONSOLIDATION_SYSTEM = 'You are reflecting on a finished game phase and writing a memory note for your future self. Reply with ONLY a JSON object: {"summary": "..."}. No prose, no markdown fencing.';
+
 // Rough char/4 fallback token estimate for servers that omit `usage` — kept
 // separate from prompts/budget.js's ceil(len/3.5), which estimates INPUT
 // tokens for prompt assembly; this one estimates OUTPUT tokens and is
@@ -214,7 +221,7 @@ export class ActionLLM {
         } else {
           // Echo the think-stripped text, not the raw response — on MiniMax
           // the raw text is often the first NUDGE_MAX_ECHO chars of a
-          // <think> block, which is noise, not a useful excerpt of the bad
+          // 思维 block, which is noise, not a useful excerpt of the bad
           // output.
           const stripped = stripThink(lastText);
           const excerpt = stripped ? stripped.slice(0, NUDGE_MAX_ECHO) : NUDGE_ONLY_REASONING;
@@ -225,4 +232,83 @@ export class ActionLLM {
     }
     return { kind: 'pass' };
   }
+
+  // Phase-end consolidation. Separate from `generate` because the prompt
+  // shape is different (one focused "write a memory" request, not a live
+  // game-state decision with action expectations) and the budget accounting
+  // flows back into the same session. The director drives this on a phase
+  // transition, once per bot (profiles opt in via `consolidateAtPhaseEnd`).
+  //
+  // No retry: the model's job is short, the output is a JSON object with
+  // one string, and a miss means we just don't get a summary this round —
+  // the rolling summary already covers the recent past. Retrying on a
+  // malformed response would burn extra tokens on a call whose ownership
+  // is "nice to have", not "must succeed".
+  async consolidate({ session, phase, round, events }) {
+    const messages = buildConsolidationMessages({ session, phase, round, events });
+    const response = await this._chat.chat(messages);
+    const text = String(response?.content ?? '');
+    const usage = response?.usage || {};
+    // Same per-session cost accounting as the action path (plan §3.5): the
+    // consolidation is a paid call on the same lane, so its tokens/USD
+    // contribute to the same costCeiling and daily spend gates.
+    const inTok = Number(usage.prompt_tokens) || estimateTokens(JSON.stringify(messages));
+    const outTok = Number(usage.completion_tokens) || estimateTokens(text);
+    const totalTokens = Number(usage.total_tokens) || (inTok + outTok);
+    if (session?.tokensUsed !== undefined) session.tokensUsed += totalTokens;
+    const profile = session?._profile || ZERO_COST_PROFILE;
+    const deltaUsd = (inTok / 1e6) * (profile.usdPerMTokIn || 0) + (outTok / 1e6) * (profile.usdPerMTokOut || 0);
+    if (deltaUsd > 0) {
+      if (session && session.costUsd !== undefined) session.costUsd += deltaUsd;
+      recordSpend(deltaUsd);
+    }
+    return { summary: parseConsolidationResponse(text) };
+  }
+}
+
+// Phase-end consolidation prompt. Inline rather than a free function in
+// prompts/ because (a) only ActionLLM calls it, (b) keeping it next to the
+// system string above makes the prompt shape visible in one diff, and
+// (c) the existing prompt assembly is built around action/decision flow
+// and would gain nothing from one more exported builder.
+function buildConsolidationMessages({ session, phase, round, events }) {
+  const lines = Array.isArray(events) && events.length
+    ? events.map((e) => String(e)).join('\n')
+    : '(no events recorded for this phase)';
+  const user = `You are ${session?.name || 'a bot'}, a ${session?.role || 'unknown'} in the ${session?.faction || 'unknown'} faction. The ${phase} phase of round ${round} just ended.
+
+Below are the recent events from this phase. Write a concise summary (2-4 sentences, ~50-100 words) capturing:
+- Key outcomes (votes, kills, role reveals, important announcements)
+- Who was suspected, who defended, who was protective
+- Any information that would be useful to remember in future rounds
+
+Write for your future self — in later rounds you will read this summary instead of the raw events. Be concise but specific (use player names when possible).
+
+Respond with: {"summary": "Your summary here."}
+
+## RECENT EVENTS
+
+${lines}`;
+  return [
+    { role: 'system', content: CONSOLIDATION_SYSTEM },
+    { role: 'user', content: user }
+  ];
+}
+
+// Tolerant parse for the consolidation response. The model is asked to reply
+// with a JSON object {"summary": "..."}, but a small model can wrap it in
+// markdown fencing or prefix it with prose. Match the JSON object first,
+// then fall back to the raw text (capped) so the worst-case failure mode
+// is "stored garbage" rather than "stored nothing".
+function parseConsolidationResponse(text) {
+  if (!text) return '';
+  const jsonMatch = text.match(/\{[\s\S]*?"summary"[\s\S]*?\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed && typeof parsed.summary === 'string') return parsed.summary.trim();
+    } catch { /* fall through to raw text */ }
+  }
+  const cleaned = text.replace(/```[\s\S]*?```/g, '').trim();
+  return cleaned.slice(0, 2000);
 }

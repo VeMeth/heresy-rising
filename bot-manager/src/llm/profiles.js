@@ -35,6 +35,10 @@ const LOCAL_PROFILE = freezeProfile({
   structuredOutput: config.llmStructuredOutput, // LLM_STRUCTURED_OUTPUT, default true
   noThinkSuffix: config.llmNoThink,          // LLM_NO_THINK, default true
   reasoningSplit: false,                     // never sent on local — LM Studio would 400 (§3.9)
+  // LLM-driven phase-end consolidation isn't worth an extra round-trip on an
+  // 8k context where the rolling summary already eats the recent-past budget.
+  // The director's tick loop only schedules this for profiles that opt in.
+  consolidateAtPhaseEnd: false,
   // Compressed STATIC_RULES/ROLE_BLOCKS (~535 tok + ~150-300 tok/role). The
   // full spec text only fits a big-context profile; local keeps the
   // 8k-budget compression it was written for.
@@ -80,8 +84,15 @@ const MINIMAX_M27_PROFILE = freezeProfile({
   topP: 0.95,
   structuredOutput: false,       // response_format/json_schema unsupported on M2.x (§2)
   noThinkSuffix: false,          // /no_think is a Qwen3 convention, junk tokens on MiniMax
-  reasoningSplit: true,          // keep <think> out of `content` (§3.9)
+  reasoningSplit: true,          // keep 思考 out of `content` (§3.9)
   richPrompt: true,              // restored full rules/role text — the context is there for it
+  // Cloud model has the budget to remember more than the local 20-line rolling
+  // summary can hold. The director schedules one extra LLM call per bot per
+  // phase transition, asking the model to write a 2-4 sentence summary that
+  // goes into session.phaseSummaries and stays visible for the rest of the
+  // game. The director's tick loop staggers these with a random jitter so
+  // a 5+ bot conclave doesn't hit MiniMax with a synchronized burst.
+  consolidateAtPhaseEnd: true,
   // Sized so a WHOLE game fits, not to fill the context window. recentChat's
   // base budget is 800 tok, so scale 12 gives ~9.6k tok of chat — more than a
   // full Conclave produces (12 players, bots capped at 3 msgs/phase). Past
@@ -118,6 +129,7 @@ const MINIMAX_M3_PROFILE = freezeProfile({
   structuredOutput: false,
   noThinkSuffix: false,
   reasoningSplit: true,
+  consolidateAtPhaseEnd: true,   // see m2.7 above; same long-memory bargain on a 1M-context model
   // Same "whole game fits" reasoning as M2.7, with headroom for an unusually
   // long Conclave — M3's 1M context means there's no reason to be tight, but
   // there's also no gain past the point where nothing gets evicted.

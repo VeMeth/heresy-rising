@@ -78,6 +78,13 @@ export const config = {
   maxTokensPerGame: parseNum(process.env.MAX_TOKENS_PER_GAME, 200000), // now counts input too; local inference is free
   botActionDelayMs: parseNum(process.env.BOT_ACTION_DELAY_MS, 5000),
 
+  // Phase-end consolidation jitter (director.js). When a phase flips, every
+  // cloud bot schedules a consolidation; we don't want 5 bots all hitting
+  // MiniMax in the same second. The director picks a random firing time per
+  // bot in [0, this] ms, then the tick loop drains the queue with the same
+  // backpressure it uses for chat (queueDepth(lane) > threshold => skip).
+  botConsolidationJitterMs: parseNum(process.env.BOT_CONSOLIDATION_JITTER_MS, 5000),
+
   // Conversation director tuning (director.js) — central turn-taking for
   // public day chat, replacing the old per-bot reactive debounce.
   directorTickMs: parseNum(process.env.DIRECTOR_TICK_MS, 4000),

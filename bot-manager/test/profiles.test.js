@@ -69,6 +69,18 @@ test('local-invariance: the local profile matches pre-profile hardcoded behaviou
   assert.equal(p.usdPerMTokIn, 0);
   assert.equal(p.usdPerMTokOut, 0);
   assert.equal(p.costCeilingUsd, Infinity);
+  // Phase-end consolidation is opt-in and local opted out — an 8k context
+  // can't afford the extra round-trip per phase transition. The director's
+  // tick loop only schedules consolidations for profiles that explicitly
+  // carry this flag.
+  assert.equal(p.consolidateAtPhaseEnd, false);
+});
+
+test('profile flag: every cloud bot opts into phase-end consolidation; local does not', () => {
+  for (const id of ['minimax-m2.7', 'minimax-m3']) {
+    assert.equal(PROFILES[id].consolidateAtPhaseEnd, true, `${id} must opt in to per-phase consolidation`);
+  }
+  assert.equal(PROFILES.local.consolidateAtPhaseEnd, false, 'local must NOT opt in');
 });
 
 test('profile objects are frozen', () => {

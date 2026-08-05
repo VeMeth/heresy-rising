@@ -25,9 +25,17 @@ export function estimateTokens(str) {
 // values the whole feature's local-invariance guarantee is measured against
 // — do not change these without also updating the local-profile row in
 // BOT_MODEL_PROFILES_PLAN.md §3.2.
+//
+// `phaseSummaries` is the second tier of long-term memory (alongside
+// `rollingSummary`) — the LLM-generated end-of-phase recaps written by
+// ActionLLM.consolidate() and stored in session.phaseSummaries. Empty for
+// local profiles (they don't consolidate), so this budget is dead weight at
+// scale 1 by design — the cloud profiles see it scaled up to ~9.6k / ~16k
+// tokens, enough for a complete game's recap.
 const BASE_BUDGETS = {
   stateDigest: 150,
   rollingSummary: 200,
+  phaseSummaries: 800,
   notes: 150,
   recentChat: 800,
   turnInstruction: 120

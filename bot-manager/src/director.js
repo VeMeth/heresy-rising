@@ -5,6 +5,14 @@
 // An LLM-driven director was considered and rejected — it would double the
 // load on an already-serialized local model (one call to pick a speaker,
 // another to speak).
+//
+// The director also owns the phase-end consolidation queue. A 5+ bot
+// conclave where every bot triggers a MiniMax call in the same millisecond
+// after a phase flip would hit MiniMax's rate limit; the director's tick
+// picks up the entries one at a time, each with its own random jitter
+// offset, and reuses the same `queueDepth(lane) > threshold` backpressure
+// that gates chat. Centralizing here means the jitter, the per-lane
+// backpressure, and the concelave-singleton property are all in one place.
 import { queueDepth } from './llm/queue.js';
 import { recordThought } from './thoughts.js';
 
@@ -33,6 +41,8 @@ export class ConversationDirector {
     this._lastIntroAt = -Infinity;
     this._turnInFlight = false;
     this._lastPhase = null;
+    this._lastRound = null;
+    this._consolidationQueue = []; // [{ playerCode, prevPhase, prevRound, events, dueAt }]
     this._timer = null;
     if (autoTick) {
       const tickMs = Number(this._config.directorTickMs) || 4000;
@@ -57,15 +67,44 @@ export class ConversationDirector {
     this._bots.delete(playerCode);
     this._botState.delete(playerCode);
     this._introQueue = this._introQueue.filter((id) => id !== playerCode);
+    // Drop any pending consolidation for a bot that's gone — firing one
+    // against a dead session would just throw inside session.consolidatePhase.
+    this._consolidationQueue = this._consolidationQueue.filter((c) => c.playerCode !== playerCode);
   }
 
   hasBots() { return this._bots.size > 0; }
 
-  onPhaseChange(phase) {
+  onPhaseChange(phase, prevPhase = this._lastPhase, prevRound = this._lastRound) {
     if (phase === this._lastPhase) return;
     for (const st of this._botState.values()) st.spokenThisPhase = false;
     this._lastPhase = phase;
+    this._lastRound = prevRound;
     if (phase === 'day') this._maybeSeedIntroQueue();
+    this._scheduleConsolidation(prevPhase, prevRound);
+  }
+
+  // Snapshots the rolling summary of every bot whose profile opts in, and
+  // adds it to the queue with a random jitter offset. The snapshot is the
+  // whole point: events that arrive over the next few seconds (new chat,
+  // new votes) must NOT leak into the summary of the phase that just ended.
+  // The same jitter + tick + backpressure machinery that gates chat then
+  // drains the queue one entry at a time, so 5 bots flipping at the same
+  // instant spread their MiniMax calls over several seconds.
+  _scheduleConsolidation(prevPhase, prevRound) {
+    if (!prevPhase) return; // first phase transition — nothing to consolidate
+    // Must distinguish "unset" from "explicitly zero" — `|| 5000` would
+    // turn a config of 0 into the default and disable jitter entirely in
+    // tests/docs that pass 0. A bare number-check is what the rest of the
+    // tunables use (e.g. directorTickMs).
+    const rawJitter = Number(this._config.botConsolidationJitterMs);
+    const jitterMs = Number.isFinite(rawJitter) ? rawJitter : 5000;
+    for (const [playerCode, session] of this._bots) {
+      if (!session._profile?.consolidateAtPhaseEnd) continue;
+      const events = session.rollingSummary.toJSON();
+      if (!events.length) continue;
+      const dueAt = this._now() + Math.floor(Math.random() * jitterMs);
+      this._consolidationQueue.push({ playerCode, prevPhase, prevRound, events, dueAt });
+    }
   }
 
   // Called by every BotSession's _onChatMessage for every public message it
@@ -100,7 +139,43 @@ export class ConversationDirector {
     this._introQueue = uninitiated;
   }
 
+  // Drains at most one consolidation per tick. dueAt is randomized across
+  // [0, botConsolidationJitterMs], so with 5 bots in a 5s jitter window the
+  // entries are roughly evenly spaced — but we still process one per tick
+  // (4s default) rather than racing to flush the queue, because the lane
+  // queue itself is the real rate-limit valve and pumping faster gains
+  // nothing once that queue hits the lane's concurrency cap.
+  async _maybeDrainConsolidation() {
+    if (!this._consolidationQueue.length) return;
+    const threshold = Number(this._config.botQueueBackpressureThreshold) || 2;
+    const idx = this._consolidationQueue.findIndex((c) => this._now() >= c.dueAt);
+    if (idx === -1) return;
+    const entry = this._consolidationQueue[idx];
+    const session = this._bots.get(entry.playerCode);
+    if (!session) {
+      this._consolidationQueue.splice(idx, 1);
+      return;
+    }
+    const lane = session._profile?.lane || 'local';
+    if (queueDepth(lane) > threshold) return; // try again next tick
+    this._consolidationQueue.splice(idx, 1);
+    // Fire and forget — the session's own try/catch swallows LLM errors,
+    // and awaiting here would tie up the tick for the full call duration.
+    session.consolidatePhase(entry.prevPhase, entry.prevRound, entry.events).catch((e) =>
+      console.warn(`[director] consolidation failed for ${entry.playerCode}:`, e.message)
+    );
+  }
+
   async _tick() {
+    // Phase-end consolidation runs first and independently of the chat-turn
+    // gate (the next `if` block). A busy chat turn must not prevent a
+    // scheduled consolidation from being considered — the calls go through
+    // the same lane queue regardless, so the cloud lane's existing
+    // concurrency limit (3) is what actually throttles the API, not this
+    // tick. Drain one entry per tick, randomized by dueAt, and trust
+    // queueDepth() to keep us from piling on a saturated lane.
+    await this._maybeDrainConsolidation();
+
     if (this._turnInFlight) return;
     if (this._lastPhase !== 'day') return; // public chat is night-closed
 

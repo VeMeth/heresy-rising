@@ -83,6 +83,17 @@ function buildUserMessage(params) {
   const summaryText = typeof session?.rollingSummary?.render === 'function' ? session.rollingSummary.render() : '';
   if (summaryText) parts.push(`## WHAT HAS HAPPENED SO FAR\n${fitToBudget(summaryText, budgets.rollingSummary)}`);
 
+  // 2.5. Phase summaries (~800 tok at scale 1, empty for local profiles) —
+  // LLM-generated end-of-phase recaps, written by the director's tick loop
+  // on every phase transition for profiles with `consolidateAtPhaseEnd`.
+  // Sits BETWEEN the rolling summary (the last ~20 events, no per-phase
+  // boundary) and the notes (curated by the bot itself) so the bot sees
+  // recent events first, then progressively older phase-shaped memory,
+  // then its own annotations. Empty for non-cloud bots — the section is
+  // omitted entirely when there's nothing to render.
+  const phaseSummariesText = renderPhaseSummaries(session);
+  if (phaseSummariesText) parts.push(`## PHASE SUMMARIES\n${fitToBudget(phaseSummariesText, budgets.phaseSummaries)}`);
+
   // 3. Notes (~150 tok at scale 1) — StructuredNotes is capped per-instance
   // (default 15 keys, scaled per profile — see memory.js).
   const notesLines = renderNotes(session);
@@ -104,6 +115,15 @@ function buildUserMessage(params) {
 function renderNotes(session) {
   const all = session?.notes && typeof session.notes.all === 'function' ? session.notes.all() : {};
   return Object.entries(all).map(([k, v]) => `- ${k}: ${v}`);
+}
+
+function renderPhaseSummaries(session) {
+  const list = Array.isArray(session?.phaseSummaries) ? session.phaseSummaries : [];
+  if (!list.length) return '';
+  return list.map((s) => {
+    const header = `### Round ${s.round ?? '?'} ${s.phase || '?'}`;
+    return `${header}\n${s.summary || ''}`;
+  }).join('\n\n');
 }
 
 function renderRecentChat(session) {
