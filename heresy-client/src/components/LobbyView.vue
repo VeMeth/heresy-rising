@@ -463,7 +463,10 @@ const expandedRole = ref(null);
 // the size the host is CURRENTLY DESIGNING FOR; playerCount (above) stays
 // the real, live headcount and is what actually gates "Seal the chamber"
 // (via compositionValid below) — the two are deliberately decoupled.
-const targetPlayerCount = ref(playerCount.value);
+// Seed target at MIN_PLAYERS so a host who opens the custom screen alone
+// doesn't draft a 1-or-2-operative roster (the validator would reject it
+// outright — under MIN_PLAYERS compositions are never legal).
+const targetPlayerCount = ref(Math.max(rules.MIN_PLAYERS, playerCount.value));
 function setTargetPlayerCount(n) {
   targetPlayerCount.value = Math.max(rules.MIN_PLAYERS, Math.min(rules.MAX_PLAYERS, Math.round(Number(n) || playerCount.value)));
 }
