@@ -220,7 +220,14 @@ export class BotSession {
       sessionInit: this.sessionInit,
       personaOverrides: this.personaOverrides,
       alivePlayers: this.alivePlayers,
-      winner: this.winner
+      winner: this.winner,
+      // Phase-end memory (the LLM-generated summaries the director's tick
+      // appends on every phase transition, for cloud profiles). Surfaced
+      // here so the admin panel can see what the bot has actually captured
+      // — without this, a bot that "remembers" things across rounds looks
+      // identical to a bot with an empty long-term memory.
+      phaseSummaries: Array.isArray(this.phaseSummaries) ? this.phaseSummaries : [],
+      phaseSummariesCount: Array.isArray(this.phaseSummaries) ? this.phaseSummaries.length : 0
     };
   }
 

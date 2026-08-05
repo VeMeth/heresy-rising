@@ -200,6 +200,26 @@ test('BotSession: resolves profileId/_profile in the constructor and exposes cos
   assert.equal(session.inspect().profile, 'minimax-m2.7');
 });
 
+test('BotSession: inspect() exposes phaseSummaries + a count so the admin panel can see long-term memory at a glance', () => {
+  // Regression: the LLM-generated phase-end summaries were appended to
+  // session.phaseSummaries and rendered in the prompt, but the inspect()
+  // payload (what /bots/:id returns to the admin panel) didn't include
+  // them — so the admin couldn't tell whether a bot's "long-term memory"
+  // was actually populated. The field is additive, so an empty array is
+  // the right pre-feature default.
+  const session = new BotSession({
+    id: 'HR-BOT-mem-1', conclaveCode: 'CONCL1', playerCode: 'HR-BOT-mem-1', name: 'Mem-Bot',
+    config: cfg(), llm: passLLM, profileId: 'minimax-m2.7', engineBaseUrl: ''
+  });
+  const ins = session.inspect();
+  assert.ok(Array.isArray(ins.phaseSummaries), 'phaseSummaries must be an array on inspect()');
+  assert.equal(ins.phaseSummaries.length, 0);
+  assert.equal(ins.phaseSummariesCount, 0);
+  session.phaseSummaries.push({ phase: 'night', round: 1, summary: 'synthetic test entry', ts: Date.now() });
+  assert.equal(session.inspect().phaseSummaries.length, 1);
+  assert.equal(session.inspect().phaseSummariesCount, 1);
+});
+
 test('BotSession: default (no profileId) resolves to local, costCeilingUsd Infinity, never trips the USD gate', async () => {
   let called = 0;
   const spyLLM = { async generate() { called++; return { kind: 'pass' }; } };
