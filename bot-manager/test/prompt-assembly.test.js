@@ -161,6 +161,16 @@ test('prompt-assembly: empty phaseSummaries array omits the section entirely (lo
   assert.doesNotMatch(user, /PHASE SUMMARIES/);
 });
 
+test('prompt-assembly: game state exposes the bot\'s own playerCode alongside its display name so self-targets use the right identifier', () => {
+  // Regression: the bot's display name ("Curze") appears in chat as the author
+  // label, but actions need the playerCode. Without this line, the model
+  // reasons "I am Curze, so target = Curze" and the local validator rejects
+  // the action with "target not alive" before the engine sees it.
+  const session = fakeSession({ playerCode: 'HR-BOT-deadbeef', name: 'Curze' });
+  const { user } = assembleMessages({ session, prompt: {} });
+  assert.match(user, /Your seat: HR-BOT-deadbeef \(Curze\)/);
+});
+
 test('prompt-assembly: user message stays near the ~3000 token soft target for a realistically full context', () => {
   const items = [];
   for (let i = 0; i < 40; i++) items.push({ kind: 'chat_message', from: `p-${i % 5}`, author: `P${i % 5}`, text: 'A fairly typical chat line with some in-character reasoning about who might be lying. '.repeat(2) });

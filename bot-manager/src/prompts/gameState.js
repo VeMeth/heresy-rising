@@ -31,6 +31,15 @@ export function gameStateBlock(session) {
     `Dead: ${deadList}`,
     `Your drift hint: ${session.lastOwnZone || 'unknown'}`
   ];
+  // Always-on self-identifier. The bot's display name ("Curze") shows up in
+  // chat as the author label, but the bot's own playerCode
+  // ("HR-BOT-9bf8f03df914f573") is what actions, votes, and notes consume —
+  // and confusing the two produces a soft-rejected "target not alive" before
+  // the engine even sees the call. Naming both together here is the one line
+  // that prevents the bot from reasoning "I am Curze, so target = Curze".
+  if (session.playerCode) {
+    lines.push(`Your seat: ${session.playerCode}${session.name ? ` (${session.name})` : ''}`);
+  }
   if (session.phase === 'day' && session.round > 1) {
     const targets = Array.isArray(session.alivePlayers)
       ? formatPlayers(session.alivePlayers.filter((p) => p !== session.playerCode), names)
