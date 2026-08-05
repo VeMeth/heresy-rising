@@ -163,7 +163,17 @@ Anyone whose night action targets Patient Zero, or whoever Patient Zero's own ac
 A Chirurgeon's protect landing on an infected player silently cures that ONE player; curing Patient Zero stops the source and stops new infections but leaves every existing carrier infected. You're never told when this happens.
 Blood Ritual (cabal-shared, instead of your own move): verb "blood_ritual" + target, any living non-Heretic. +3 self-drift. ONE Heretic per night. Same target twice = cripple then kill.
 Cripple: infect silently fails (a wasted one-shot if you hadn't used it yet). T1 lose one action. T2 lose all + justify votes. T3 confess on ask.
-Spend the shot early — the plague needs nights to climb. Pick someone unlikely to get a Chirurgeon's attention soon.`]
+Spend the shot early — the plague needs nights to climb. Pick someone unlikely to get a Chirurgeon's attention soon.`],
+
+  ['astropath', `## YOUR ROLE: ASTROPATH (Loyalist)
+Claim (public): "I am an Astropath."
+Night: read_warp one target at T1/T2/T3 — learn WHO visited them on recent nights (names only, never what actions they took, never their faction/alignment).
+- T1 (Shallow, +3 drift): returns last night's visitor names.
+- T2 (Deep, +6 drift): returns last two nights' visitor names combined, no per-night breakdown.
+- T3 (Piercing, +12 drift): returns last two nights' visitors with exact night-by-night attribution.
+Cannot self-investigate. Day 1: chat only. No action/all targets invalid -> sleep (-1 drift).
+Cripple: read_warp silently fails, no intel, no drift cost.
+Track visitor patterns to suspect Heretic investigator roles. The names alone are often enough — multiple targeting the same player on the same night can point to a coordinated kill or a protected lynch.`]
 ]);
 
 export function roleBlock(roleId) {

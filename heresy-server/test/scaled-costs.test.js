@@ -239,3 +239,19 @@ test('resolveScaledCost: an alias role also throws "has no tier" (same wording a
   const scaledCosts = loadGameConfig().drift.scaledCosts;
   assert.throws(() => resolveScaledCost(scaledCosts, 'priest', 'not-a-tier', 8), /has no tier/);
 });
+
+// L8 Astropath: T3's mandatory flat floor. baseValues===floors for every
+// tier of this role's inline scaledCosts block, so the cost must hold at
+// exactly 12 at both ends of the table-size range — proving the floor by
+// actually resolving it, not just by construction.
+test('Astropath T3 self-drift is a mandatory flat floor: exactly +12 at both 5p and 12p', () => {
+  const scaledCosts = loadGameConfig().drift.scaledCosts;
+  assert.equal(resolveScaledCost(scaledCosts, 'astropath', 't3', 5), 12);
+  assert.equal(resolveScaledCost(scaledCosts, 'astropath', 't3', 12), 12);
+});
+
+test('validateScaledCosts: passes with the astropath block included (part of the live drift.json)', () => {
+  const cfg = loadGameConfig();
+  assert.ok(cfg.drift.scaledCosts.astropath, 'sanity: astropath block is actually present');
+  assert.doesNotThrow(() => validateScaledCosts(cfg.drift.scaledCosts));
+});

@@ -24,7 +24,7 @@ export function loadGameConfig() {
       night.kind = role.faction === 'heretic' ? 'corrupt-sermon' : 'sermon';
       night.variants = Object.keys(role.sermonTiers || {}).map(id => id.replaceAll('_', '-'));
     }
-    if (night?.kind === 'investigate') night.variants = ['T1', 'T2', 'T3'];
+    if (['investigate', 'warp-read'].includes(night?.kind)) night.variants = ['T1', 'T2', 'T3'];
     // Ability copy is rendered ONCE, here, from abilityTemplate + the role's
     // own driftWeight/sermonTiers + this shared drift config — never a
     // hand-typed string with the numbers baked in. Every consumer downstream

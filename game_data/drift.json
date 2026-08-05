@@ -54,6 +54,21 @@
     },
     "interrogator":   { "curve": "standard", "tierKeys": ["t1", "t2", "t3"] },
     "priest":         { "curve": "standard", "tierKeys": ["whisper", "hymn", "litany"] },
-    "heretic-priest": { "curve": "standard", "tierKeys": ["false-comfort", "twisted-hymn", "warp-litany"] }
+    "heretic-priest": { "curve": "standard", "tierKeys": ["false-comfort", "twisted-hymn", "warp-litany"] },
+    "astropath": {
+      "_comment": "L8 Astropath. Deliberately NOT a `standard`-curve alias — T3's cost is a MANDATORY FLAT FLOOR that must not shrink at larger tables (unlike every other tiered role here), and the standard curve's declining shape can't express that. baseValues === floors for every tier, so the shared formula round(max(floor, base/players)) always resolves to the floor regardless of player count.",
+      "baseValues": {"t1": 3, "t2": 6, "t3": 12},
+      "floors":     {"t1": 3, "t2": 6, "t3": 12},
+      "perPlayerCount": {
+        "5":  {"t1": 3, "t2": 6, "t3": 12},
+        "6":  {"t1": 3, "t2": 6, "t3": 12},
+        "7":  {"t1": 3, "t2": 6, "t3": 12},
+        "8":  {"t1": 3, "t2": 6, "t3": 12},
+        "9":  {"t1": 3, "t2": 6, "t3": 12},
+        "10": {"t1": 3, "t2": 6, "t3": 12},
+        "11": {"t1": 3, "t2": 6, "t3": 12},
+        "12": {"t1": 3, "t2": 6, "t3": 12}
+      }
+    }
   }
 }

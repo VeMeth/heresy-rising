@@ -11,7 +11,7 @@
 
 import { normalizeAction } from './llm/parseAction.js';
 
-const FORBID_SELF_ROLES = new Set(['interrogator', 'novice-psychic', 'arbitrator', 'priest', 'heretic-priest', 'sanctioned-psyker', 'murderer', 'saboteur', 'recruiter']);
+const FORBID_SELF_ROLES = new Set(['interrogator', 'novice-psychic', 'arbitrator', 'priest', 'heretic-priest', 'sanctioned-psyker', 'murderer', 'saboteur', 'recruiter', 'astropath']);
 
 const ROLES_VERBS = new Map([
   ['imperial-citizen', { verbs: ['sleep', 'vote', 'pass', 'chat'], tier: null, sermonTiers: null }],
@@ -27,7 +27,8 @@ const ROLES_VERBS = new Map([
   ['saboteur', { verbs: ['trap', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
   ['recruiter', { verbs: ['recruit', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
   ['animus', { verbs: ['possess', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
-  ['poxwalker', { verbs: ['infect', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }]
+  ['poxwalker', { verbs: ['infect', 'blood_ritual', 'sleep', 'vote', 'chat', 'pass'], tier: null, sermonTiers: null }],
+  ['astropath', { verbs: ['read_warp', 'sleep', 'vote', 'chat', 'pass'], tier: [1, 2, 3], sermonTiers: null }]
 ]);
 
 const SERMON_USAGE_LIMITS = {
@@ -99,6 +100,12 @@ function validateNightAction(roleId, action, gameState) {
   switch (verb) {
     case 'interrogate': {
       if (!action.target) return { ok: false, reason: 'interrogate requires a target' };
+      if (action.tier == null || ![1, 2, 3].includes(Number(action.tier))) return { ok: false, reason: 'tier must be 1, 2, or 3' };
+      if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'target not alive' };
+      return { ok: true };
+    }
+    case 'read_warp': {
+      if (!action.target) return { ok: false, reason: 'read_warp requires a target' };
       if (action.tier == null || ![1, 2, 3].includes(Number(action.tier))) return { ok: false, reason: 'tier must be 1, 2, or 3' };
       if (!gameState.alivePlayers || !gameState.alivePlayers.includes(action.target)) return { ok: false, reason: 'target not alive' };
       return { ok: true };

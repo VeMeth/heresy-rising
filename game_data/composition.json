@@ -22,6 +22,8 @@
     "sanctioned_psyker_rationale": "L7 Sanctioned Psyker ships at ≥7p (locked 2026-07-18). Optional, max 1 per game. At 7p replaces one Citizen slot via fallback priority.",
     "animus_min_player_count": 8,
     "animus_rationale": "H6 Animus (locked roles/animus.md v1.0.0, 2026-07-25). Soft rule only — NOT yet added to the preset tables below (composition-slot mechanics explicitly marked TBD in the locked spec). Custom rosters may include it at any count; ≥8p matches the Recruiter threshold per spec.",
+    "astropath_min_player_count": 5,
+    "astropath_rationale": "L8 Astropath (locked spec, 2026-08-05). Soft rule only — NOT yet added to the preset tables below (composition-slot placement explicitly marked TBD, same as Animus). Custom rosters may include it at any count; ships custom-roster-only in v1.",
     "parity_friendly_start": "Heretic count ≤ Loyalist count at game start (parity win rule)."
   },
 

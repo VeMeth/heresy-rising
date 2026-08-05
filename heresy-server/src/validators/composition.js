@@ -4,7 +4,8 @@ const SOFT_MESSAGES = {
   S3: "Recruiter below 8p shortens the catalyst carrier window. Proceed?",
   S4: "Conspirator below 11p may produce sparse forgeries. Proceed?",
   S5: "Heretic Priest without a Priest/chirurgeon target has weaker mimicry. Proceed?",
-  S6: "Animus below 8p makes a wrong speculation guess costlier relative to the table size. Proceed?"
+  S6: "Animus below 8p makes a wrong speculation guess costlier relative to the table size. Proceed?",
+  S7: "Astropath below 5p has very little visitor history to read. Proceed?"
 };
 
 /**
@@ -97,6 +98,9 @@ export function validateComposition({ roster, playerCount, confirmedWarnings = [
     }
     if (roster.includes('animus') && playerCount < (hardRules.animus_min_player_count ?? 8)) {
       warnings.push({ kind: 'soft', rule: 'S6', message: SOFT_MESSAGES.S6 });
+    }
+    if (roster.includes('astropath') && playerCount < (hardRules.astropath_min_player_count ?? 5)) {
+      warnings.push({ kind: 'soft', rule: 'S7', message: SOFT_MESSAGES.S7 });
     }
 
     // Unacknowledged warnings become errors

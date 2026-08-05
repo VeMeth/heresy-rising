@@ -187,8 +187,8 @@ test('prompt-assembly: user message stays near the ~3000 token soft target for a
   assert.ok(estimateTokens(user) <= 3200, `user message (${estimateTokens(user)} est. tokens) should stay near the ~3000 tok target`);
 });
 
-test('prompt-assembly: all 12 role blocks exist and are compact', () => {
-  const ids = ['imperial-citizen', 'interrogator', 'chirurgeon', 'novice-psychic', 'arbitrator', 'priest', 'sanctioned-psyker', 'murderer', 'heretic-priest', 'conspirator', 'saboteur', 'recruiter'];
+test('prompt-assembly: all 13 role blocks exist and are compact', () => {
+  const ids = ['imperial-citizen', 'interrogator', 'chirurgeon', 'novice-psychic', 'arbitrator', 'priest', 'sanctioned-psyker', 'murderer', 'heretic-priest', 'conspirator', 'saboteur', 'recruiter', 'astropath'];
   for (const id of ids) {
     const b = roleBlock(id);
     assert.ok(b && b.length > 100, `${id} role block has substantive content`);
@@ -198,7 +198,7 @@ test('prompt-assembly: all 12 role blocks exist and are compact', () => {
 });
 
 test('prompt-assembly: STATIC_RULES is substantially compressed from the original ~1,325 tok', () => {
-  assert.ok(estimateTokens(STATIC_RULES) <= 600, `STATIC_RULES is ${estimateTokens(STATIC_RULES)} est tok, target ~400-550`);
+  assert.ok(estimateTokens(STATIC_RULES) <= 620, `STATIC_RULES is ${estimateTokens(STATIC_RULES)} est tok, target ~400-550 (+astropath verb)`);
 });
 
 // --- Wave 2 (Q-BOT-PROFILES) — profile-scaled budgets --------------------

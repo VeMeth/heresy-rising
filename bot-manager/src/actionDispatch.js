@@ -51,6 +51,7 @@ function maxChatCharsFor(session) {
 function verbToIntent(verb, session) {
   switch (verb) {
     case 'interrogate': return { engineType: 'action', variantFrom: 'tier' };
+    case 'read_warp':   return { engineType: 'action', variantFrom: 'tier' };
     case 'sermon':      return { engineType: 'action', variantFrom: 'sermonTier' };
     case 'protect':
     case 'bodyguard':

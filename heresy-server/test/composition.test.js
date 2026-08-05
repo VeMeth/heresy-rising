@@ -404,6 +404,91 @@ test('soft-fail S5: heretic-priest without priest/chirurgeon accepted with ackno
   }
 });
 
+// ── L8 Astropath: custom-roster-only, S7 below 5p ──
+
+test('astropath: valid custom roster (5p) including astropath validates successfully', () => {
+  const f = fixture(5);
+  try {
+    const state = f.manager.start(f.code, 'p0', {
+      composition: {
+        source: 'custom',
+        roster: ['astropath', 'murderer', 'priest', 'interrogator', 'chirurgeon'],
+        confirmedWarnings: []
+      }
+    });
+    assert.equal(state.phase, 'day');
+    const assigned = getAssignedRoles(f.manager, f.code);
+    assert.ok(assigned.includes('astropath'));
+  } finally {
+    f.close();
+  }
+});
+
+test('soft-fail S7: astropath below 5p rejected without acknowledgement', () => {
+  const roles = new Map();
+  const hardRules = {
+    priest_min_player_count: 5,
+    heretic_priest_min_player_count: 6,
+    recruiter_min_player_count: 8,
+    conspirator_min_player_count: 11,
+    astropath_min_player_count: 5
+  };
+  const rosterIds = ['astropath', 'interrogator', 'murderer', 'chirurgeon'];
+  for (const id of rosterIds) roles.set(id, { id, faction: id === 'murderer' ? 'heretic' : 'loyalist' });
+  const result = validateComposition({
+    roster: rosterIds,
+    playerCount: 4,
+    confirmedWarnings: [],
+    validRoles: roles,
+    hardRules,
+    source: 'custom'
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some(e => e.kind === 'soft_unacknowledged' && e.rule === 'S7'));
+  assert.ok(result.warnings.some(w => w.rule === 'S7'));
+});
+
+test('soft-fail S7: astropath below 5p accepted with acknowledgement', () => {
+  const roles = new Map();
+  const hardRules = {
+    priest_min_player_count: 5,
+    heretic_priest_min_player_count: 6,
+    recruiter_min_player_count: 8,
+    conspirator_min_player_count: 11,
+    astropath_min_player_count: 5
+  };
+  const rosterIds = ['astropath', 'interrogator', 'murderer', 'chirurgeon'];
+  for (const id of rosterIds) roles.set(id, { id, faction: id === 'murderer' ? 'heretic' : 'loyalist' });
+  const result = validateComposition({
+    roster: rosterIds,
+    playerCount: 4,
+    confirmedWarnings: ['S7'],
+    validRoles: roles,
+    hardRules,
+    source: 'custom'
+  });
+  assert.equal(result.ok, true);
+  assert.ok(result.warnings.some(w => w.rule === 'S7'));
+  assert.ok(!result.errors.some(e => e.rule === 'S7'));
+});
+
+// ── Regression: adding astropath must not disturb the existing preset tables ──
+
+for (let n = 5; n <= 12; n++) {
+  test(`regression: ${n}p preset is unchanged by the astropath addition (astropath is not in any preset)`, () => {
+    const f = fixture(n);
+    try {
+      const state = f.manager.start(f.code, 'p0');
+      assert.equal(state.phase, 'day');
+      const assigned = getAssignedRoles(f.manager, f.code);
+      assert.deepEqual(assigned, PRESETS[n].slice().sort());
+      assert.ok(!assigned.includes('astropath'), `${n}p preset must not include astropath (custom-roster-only in v1)`);
+    } finally {
+      f.close();
+    }
+  });
+}
+
 // ── Preset path skips soft rules ──
 
 test('preset path skips soft rules: 5p preset accepted without soft-rule checks', () => {

@@ -10,6 +10,7 @@ import { driftZone, intelNoiseRate, noisyResult, murdererGateCue, applyProximity
 import { effectiveCrippleTier, getEffectiveScanTier, isExecuteOnSight, crippleSeverityLabel } from './mechanics/interrogation.js';
 import { resolveScaledCost } from './mechanics/scaledCosts.js';
 import { validateRotation, getLastProtectTarget } from './mechanics/protection.js';
+import { getVisitorsForRound, getVisitorsUnion } from './mechanics/astropath.js';
 import { validateComposition } from './validators/composition.js';
 import { saveGameLogSnapshot } from './gameLogs.js';
 
@@ -775,7 +776,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       // no usage burned, and no message to either side (heretic-kit.md v1.4.0).
       if(a.kind==='corrupt-sermon'&&a.variant==='warp-litany'&&(this.player(c,a.target_code)?.drift??0)<(s.target_zone_min_drift??10))continue;
       const selfCost=actorRole.scaledCostKey?resolveScaledCost(this.config.drift.scaledCosts,actorRole.scaledCostKey,a.variant,totalPlayers):s.self;this.changeDrift(c,a.actor_code,selfCost,'sermon-self');if(selfCost>0)nightCharges.set(a.actor_code,(nightCharges.get(a.actor_code)||0)+selfCost);this.changeDrift(c,a.target_code,s.target,'sermon-target');this.incrementUsage(c,a.actor_code,a.variant);}
-    const autoKills=[];for(const a of actions.filter(x=>['investigate','drift-hint'].includes(x.kind))){if(this.trapBlocks(c,g,a,traps))continue;const result=this.resolveIntel(c,a,g);if(result?.autoKill)autoKills.push(result);}for(const k of autoKills){const victim=this.player(c,k.targetCode);if(!victim?.alive)continue;this.db.prepare("UPDATE hr_players SET alive=0,death_cause='execute-on-sight' WHERE game_code=? AND player_code=?").run(c,k.targetCode);const victimName=this.displayName(g,victim);this.system(c,`${victimName} was executed by Interrogator. Confirmed warp-touched.`);this.system(c,`${victimName}'s alignment: ${victim.faction}.`);if(k.actorCode)this.privateSystem(c,k.actorCode,`Your scan executed ${victimName}. Warp-touched confirmed.`,{intelKind:'execute_on_sight',action:'interrogate',target:k.targetCode,zone:k.zone,faction:k.faction});this.emitAnnouncement(c,{type:'execution',title:'SUMMARY EXECUTION',message:`${victimName} was executed by order of the Interrogator.`,victim:{name:victimName,faction:victim.faction},round:g.round,phase:'night'});for(const w of players)this.changeDrift(c,w.player_code,this.config.drift.WITNESSED_VIOLENCE,'witnessed-violence');}
+    const autoKills=[];for(const a of actions.filter(x=>['investigate','drift-hint','warp-read'].includes(x.kind))){if(this.trapBlocks(c,g,a,traps))continue;const result=this.resolveIntel(c,a,g);if(result?.autoKill)autoKills.push(result);}for(const k of autoKills){const victim=this.player(c,k.targetCode);if(!victim?.alive)continue;this.db.prepare("UPDATE hr_players SET alive=0,death_cause='execute-on-sight' WHERE game_code=? AND player_code=?").run(c,k.targetCode);const victimName=this.displayName(g,victim);this.system(c,`${victimName} was executed by Interrogator. Confirmed warp-touched.`);this.system(c,`${victimName}'s alignment: ${victim.faction}.`);if(k.actorCode)this.privateSystem(c,k.actorCode,`Your scan executed ${victimName}. Warp-touched confirmed.`,{intelKind:'execute_on_sight',action:'interrogate',target:k.targetCode,zone:k.zone,faction:k.faction});this.emitAnnouncement(c,{type:'execution',title:'SUMMARY EXECUTION',message:`${victimName} was executed by order of the Interrogator.`,victim:{name:victimName,faction:victim.faction},round:g.round,phase:'night'});for(const w of players)this.changeDrift(c,w.player_code,this.config.drift.WITNESSED_VIOLENCE,'witnessed-violence');}
     for(const a of actions.filter(x=>x.kind==='heretical-catalyst')){const target=this.player(c,a.target_code);if(traps.has(a.target_code))this.changeDrift(c,a.actor_code,this.config.drift.TRAP_DRIFT,'trap');if(target?.drift>=g.max_drift&&!protectedIds.has(a.target_code)){this.clearPlague(c,g,a.target_code);this.db.prepare("UPDATE hr_players SET faction='heretic' WHERE game_code=? AND player_code=?").run(c,a.target_code);this.privateSystem(c,a.target_code,'The catalyst takes hold. Your loyalty has burned away.');}}
     // H1 Murderer drift-gated kill (heretic-kit.md v1.5.0): self-drift cost is
     // charged HERE (not in the generic per-player loop above) so the gate can
@@ -963,7 +964,35 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
   trapBlocks(c,g,a,traps){if(!traps.has(a.target_code))return false;this.changeDrift(c,a.actor_code,this.config.drift.TRAP_DRIFT,'trap');const trap=traps.get(a.target_code);this.privateSystem(c,trap.actor_code,`Your trap caught ${this.displayName(g,this.player(c,a.actor_code))} targeting ${this.displayName(g,this.player(c,a.target_code))}.`);return !['kill','heretical-catalyst'].includes(a.kind);}
   resolveIntel(c,a,g){const actor=this.player(c,a.actor_code),target=this.player(c,a.target_code),role=this.role(actor.role_id);if(a.kind==='drift-hint'){const targetZone=driftZone(this.config.drift,target.drift);const rate=intelNoiseRate(this.config.drift,this.config.rules,target.drift,role.driftWeight);const truth=targetZone.id;const zones=this.config.drift.zones;const truthIdx=zones.findIndex(z=>z.id===truth);let shown=truth;if(this.random()<rate){const left=truthIdx>0?truthIdx-1:truthIdx+1;const right=truthIdx<zones.length-1?truthIdx+1:truthIdx-1;
       // Unbiased left/right coin — not a tuning knob, so this 0.5 stays literal.
-      const adj=this.random()<0.5?left:right;shown=zones[adj].id;}this.privateSystem(c,a.actor_code,this.hints(c)[shown],{intelKind:'drift-hint',action:'scan_drift',target:a.target_code,zone:shown},{ownAction:true});return{};}const intensity=Number(String(a.variant||'T1').replace('T',''))||1;const targetZone=driftZone(this.config.drift,target.drift);if(isExecuteOnSight(this.config.rules,intensity,targetZone.id))return{autoKill:true,actorCode:a.actor_code,targetCode:a.target_code,zone:targetZone.id,faction:target.faction};if(intensity===1){const groundTruth=targetZone.id==='green'?'Clean':'Tainted';const isTrue=this.random()<this.config.rules.interrogation.T1_ACCURACY;const display=isTrue?groundTruth:(groundTruth==='Clean'?'Tainted':'Clean');
+      const adj=this.random()<0.5?left:right;shown=zones[adj].id;}this.privateSystem(c,a.actor_code,this.hints(c)[shown],{intelKind:'drift-hint',action:'scan_drift',target:a.target_code,zone:shown},{ownAction:true});return{};}
+    // L8 Astropath (locked spec, 2026-08-05). Names-only visitor intel, never
+    // what a visitor did or their faction — reads hr_actions (the same
+    // durable per-round action log the Chirurgeon/Interrogator rotation
+    // checks already query, see mechanics/protection.js) via
+    // mechanics/astropath.js's helpers. Resolved from inside resolveNight for
+    // round g.round, so "the last fully-resolved night" (T1) is g.round-1,
+    // and T2/T3's two-night window is [g.round-2, g.round-1] — g.round itself
+    // is the night currently resolving, not history yet.
+    if(a.kind==='warp-read'){
+      const intensity=Number(String(a.variant||'T1').replace('T',''))||1;
+      const nameFor=code=>this.displayName(g,this.player(c,code));
+      const targetName=nameFor(a.target_code);
+      let text;
+      if(intensity===1){
+        const visitors=getVisitorsForRound(this.db,c,a.target_code,g.round-1).map(nameFor);
+        text=visitors.length?`On the faintest current of the Warp, you taste ${visitors.join(', ')} lingering on ${targetName}'s shadow — recent arrivals.`:`No one crossed ${targetName}'s path last night.`;
+      }else if(intensity===2){
+        const visitors=getVisitorsUnion(this.db,c,a.target_code,g.round-2,g.round-1).map(nameFor);
+        text=visitors.length?`Across two nights of memory, the residue on ${targetName} pulls together: ${visitors.join(', ')}. You cannot tell which night each arrived.`:`No one crossed ${targetName}'s path across the last two nights.`;
+      }else{
+        const recent=getVisitorsForRound(this.db,c,a.target_code,g.round-1).map(nameFor);
+        const older=getVisitorsForRound(this.db,c,a.target_code,g.round-2).map(nameFor);
+        text=`On the night past, ${recent.length?recent.join(', '):'no one'} moved through ${targetName}. On the night before that, ${older.length?older.join(', '):'no one'} stood where they stood.`;
+      }
+      this.privateSystem(c,a.actor_code,text,{intelKind:'warp-read',tier:intensity,target:a.target_code},{ownAction:true});
+      return{};
+    }
+    const intensity=Number(String(a.variant||'T1').replace('T',''))||1;const targetZone=driftZone(this.config.drift,target.drift);if(isExecuteOnSight(this.config.rules,intensity,targetZone.id))return{autoKill:true,actorCode:a.actor_code,targetCode:a.target_code,zone:targetZone.id,faction:target.faction};if(intensity===1){const groundTruth=targetZone.id==='green'?'Clean':'Tainted';const isTrue=this.random()<this.config.rules.interrogation.T1_ACCURACY;const display=isTrue?groundTruth:(groundTruth==='Clean'?'Tainted':'Clean');
       // Tiered Lynch v1.3.0: T1 can also clear or reinforce a day-vote
       // torture mark (tortured_before), keyed off the TARGET'S
       // TRUE zone — "the Interrogator's read is treated as definitive" for
@@ -1126,7 +1155,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
    * metadata that this engine deliberately does not read — do not "wire it up"
    * without a balance decision first. Cripple never gates voting; see vote().
    */
-  submitAction(c,p,params={}){const{targetCode,variant,data,body,asPlayerCode}=params;const g=this.requireGame(c),actor=this.requireAlive(c,p),role=this.role(actor.role_id),action=g.phase==='night'?role.actions.night:role.actions.day;if(!action||action.kind==='sleep')throw new Error('Your role has no active action now');if(action.kind==='protect'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'protect',targetCode,silent:true};if(action.kind==='bodyguard'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'bodyguard',targetCode,silent:true};if(action.kind==='drift-hint'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'drift-hint',targetCode,silent:true};if(effectiveCrippleTier(this.config.rules,actor,g.round)>0)throw new Error('Torture damage blocks this action');if(action.kind==='kill'&&role.killLimit){const killUses=this.usage(c,p,'kill');if(killUses>=1)throw new Error('You can only use your kill once per game');}if(action.kind==='possess'&&role.possessLimit&&this.usage(c,p,'possess')>=1)throw new Error('The Animus is spent — one possession per game');
+  submitAction(c,p,params={}){const{targetCode,variant,data,body,asPlayerCode}=params;const g=this.requireGame(c),actor=this.requireAlive(c,p),role=this.role(actor.role_id),action=g.phase==='night'?role.actions.night:role.actions.day;if(!action||action.kind==='sleep')throw new Error('Your role has no active action now');if(action.kind==='protect'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'protect',targetCode,silent:true};if(action.kind==='bodyguard'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'bodyguard',targetCode,silent:true};if(action.kind==='drift-hint'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'drift-hint',targetCode,silent:true};if(action.kind==='warp-read'&&effectiveCrippleTier(this.config.rules,actor,g.round)>0)return{kind:'warp-read',targetCode,silent:true};if(effectiveCrippleTier(this.config.rules,actor,g.round)>0)throw new Error('Torture damage blocks this action');if(action.kind==='kill'&&role.killLimit){const killUses=this.usage(c,p,'kill');if(killUses>=1)throw new Error('You can only use your kill once per game');}if(action.kind==='possess'&&role.possessLimit&&this.usage(c,p,'possess')>=1)throw new Error('The Animus is spent — one possession per game');
     // H7 Poxwalker: one infect per game, and no re-target while Patient Zero
     // still lives (poxwalker.md § Targeting rules). Both are submission-time
     // rejections with no cost, per the spec's targeting table. The "alive,

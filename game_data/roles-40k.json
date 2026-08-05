@@ -79,6 +79,30 @@
       "objective": "Keep the conclave alive. Standard Doctor slot, drift-priced."
     },
     {
+      "id": "astropath",
+      "displayName": "Astropath",
+      "faction": "loyalist",
+      "driftWeight": 1,
+      "tier": "T2",
+      "actions": {
+        "night": {
+          "kind": "warp-read",
+          "target": "other",
+          "driftCost": 3
+        },
+        "day": null
+      },
+      "crippleProfile": {
+        "blocks": [
+          "warp-read"
+        ],
+        "onCripple": "disable-one"
+      },
+      "scaledCostKey": "astropath",
+      "abilityTemplate": "Each night, read the warp-residue left on one target: T1 reveals last night's visitors by name ({t1Cost} drift). T2 reveals the last two nights' visitors combined, no per-night attribution ({t2Cost} drift). T3 reveals the last two nights' visitors with exact night-by-night attribution ({t3Cost} drift — this cost never shrinks, even at a full table). Names only — never what a visitor did, never their alignment. Cannot read yourself.",
+      "objective": "Trace who moved in the dark. Never claim more than the names allow."
+    },
+    {
       "id": "novice-psychic",
       "displayName": "Novice-Psychic",
       "faction": "loyalist",
