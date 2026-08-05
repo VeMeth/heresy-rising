@@ -249,7 +249,6 @@
                             :aria-expanded="expandedRole===r.id">{{ expandedRole===r.id ? 'less' : 'more' }}</button>
                   </div>
                   <div v-if="expandedRole===r.id" class="role-detail">
-                    <p><span>Claim:</span> {{ r.claim }}</p>
                     <p><span>Ability:</span> {{ roleAbilityForLobby(r, targetPlayerCount) }}</p>
                     <p v-if="roleThresholds[r.id]" class="threshold-note">
                       Threshold: {{ roleThresholds[r.id].label }}
