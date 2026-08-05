@@ -530,13 +530,13 @@
 
           <!-- Tab: Memory (phase summaries + current events) -->
           <section v-if="botTab === 'memory'" class="bot-tab-content">
-            <h4>Phase Summaries <small>(long-term notes carried across rounds)</small></h4>
+            <h4>Phase Summaries <small>(long-term memory the LLM consolidates on phase end)</small></h4>
             <div class="scroll-list" style="max-height:200px">
-              <p v-for="(val, key) in phaseSummaries" :key="key" class="mem-item">
-                <span class="mem-meta">{{ key }}</span>
-                <span class="mem-announce">{{ val }}</span>
+              <p v-for="(s, i) in phaseSummaries" :key="i" class="mem-item">
+                <span class="mem-meta">Round {{ s.round ?? '?' }} · {{ s.phase || '?' }}</span>
+                <span class="mem-announce">{{ s.summary }}</span>
               </p>
-              <p v-if="Object.keys(phaseSummaries).length === 0" class="empty">No phase summaries stored yet.</p>
+              <p v-if="phaseSummaries.length === 0" class="empty">No phase summaries stored yet.</p>
             </div>
 
             <h4 style="margin-top:14px">Current Events <small>(last {{ selectedBot.memoryBytes ?? 0 }} — cleared each phase)</small></h4>
@@ -940,11 +940,18 @@ onUnmounted(() => {
   if (botsPollTimer) { clearInterval(botsPollTimer); botsPollTimer = null; }
   stopThoughtsPolling();
 });
+// Long-term memory rendered in the Memory tab. Reads from the inspect()
+// surface (`selectedBot.phaseSummaries`), which is the LLM-generated
+// end-of-phase recap the director's tick loop appends on every phase
+// transition for cloud profiles. The old path — filtering `botNotes`
+// for keys prefixed "phase-" — was the heuristic notes-based predecessor
+// the consolidation feature replaced; it's gone from the new bot-manager
+// build, so an empty `phaseSummaries` array is now the only signal.
 const phaseSummaries = computed(() => {
-  const notes = botNotes.value || {};
-  return Object.fromEntries(
-    Object.entries(notes).filter(([k]) => k.startsWith('phase-'))
-  );
+  const list = selectedBot.value && Array.isArray(selectedBot.value.phaseSummaries)
+    ? selectedBot.value.phaseSummaries
+    : [];
+  return list;
 });
 // Cloud-spend visibility — cloud bots spend real money, so this is a safety
 // surface, not decoration. `bots` is already the live-session list, so this
