@@ -16,16 +16,13 @@
         <span class="panel-frame-corner bl"></span><span class="panel-frame-corner br"></span>
         <header class="roster-header">
           <h2 class="roster-heading">Conclave</h2>
-          <button v-if="!spectator" type="button" class="roster-dossier-btn" title="General notes and bookmarks" aria-label="Open general dossier" @click="openDossier(null)">
-            <svg class="roster-dossier-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg>
-          </button>
           <span class="roster-count"><strong>{{ alive.length }}</strong><small>Alive</small></span>
         </header>
         <ul class="player-list">
           <li v-for="p in alive" :key="p.playerCode" :class="{me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.playerCode!==me?.playerCode,unavailable:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
             <span class="portrait" :data-status="portraitStatus(p)" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.torturedBefore" class="tortured-badge" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">TORTURED</small></div>
-            <button v-if="!spectator" type="button" class="dossier-btn" :class="{filled:subjectEntryCount(p.playerCode)}" :title="subjectEntryCount(p.playerCode) ? `Notes on ${p.name} (${subjectEntryCount(p.playerCode)})` : `Open your dossier on ${p.name}`" :aria-label="`Open your dossier on ${p.name}`" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="subjectEntryCount(p.playerCode)">{{ subjectEntryCount(p.playerCode) }}</small></button>
+            <button v-if="!spectator" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
             <small v-if="votingOpen" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
             <i v-if="liveMode" :class="{online:p.connected}"></i>
           </li>
@@ -37,7 +34,7 @@
               <span class="portrait" data-status="deceased" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
               <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
               <span class="death-badge" :class="{executed:['lynch','execute-on-sight'].includes(p.deathCause)}" :title="deathCauseLabel(p)"><svg class="death-glyph" aria-hidden="true"><use :href="deathGlyph(p)"/></svg></span>
-              <button v-if="!spectator" type="button" class="dossier-btn" :class="{filled:subjectEntryCount(p.playerCode)}" :title="subjectEntryCount(p.playerCode) ? `Notes on ${p.name} (${subjectEntryCount(p.playerCode)})` : `Open your dossier on ${p.name}`" :aria-label="`Open your dossier on ${p.name}`" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="subjectEntryCount(p.playerCode)">{{ subjectEntryCount(p.playerCode) }}</small></button>
+              <button v-if="!spectator" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
               <i v-if="liveMode" :class="{online:p.connected}"></i>
             </li>
           </ul>
@@ -480,9 +477,16 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
 // spectators; this component skips rendering every entry point instead of
 // relying on that alone.
 const dossierOpen=ref(false),dossierSubject=ref(null);
-function openDossier(subject){if(props.spectator)return;dossierSubject.value=subject||null;dossierOpen.value=true}
+function openDossier(subject){if(props.spectator)return;if(subject&&isSelf(subject))subject=null;dossierSubject.value=subject||null;dossierOpen.value=true}
 function closeDossier(){dossierOpen.value=false}
 function subjectEntryCount(code){let n=0;for(const note of props.notes)if(note.subjectCode===code)n++;for(const bm of props.bookmarks)if(bm.subjectCode===code)n++;return n}
+// The viewer's own row opens the General bucket — notes on yourself are
+// pointless. isSelf is the single check feeding the openDossier redirect and
+// the per-row count / title.
+function isSelf(p){return !!props.me&&p.playerCode===props.me.playerCode}
+function effectiveCount(p){return isSelf(p)?subjectEntryCount(null):subjectEntryCount(p.playerCode)}
+function dossierTitle(p){const n=effectiveCount(p);return n?(isSelf(p)?`General notes (${n})`:`Notes on ${p.name} (${n})`):(isSelf(p)?'Open general dossier':`Open your dossier on ${p.name}`);}
+function dossierAria(p){return isSelf(p)?'Open general dossier':`Open your dossier on ${p.name}`;}
 function onAddNote({subjectCode,body}){emit('notes-add',{subjectCode,body})}
 function onEditNote({noteId,body}){emit('notes-edit',{noteId,body})}
 function onDeleteNote({noteId}){emit('notes-delete',{noteId})}
@@ -609,28 +613,6 @@ onBeforeUnmount(()=>{cancelLongPress();clearTimeout(jumpHighlightTimer)});
   color: var(--muted);
   margin-top: 3px;
 }
-
-/* Opens the dossier on the General bucket — the only entry point to notes
-   that isn't a right-click/long-press on a specific player. */
-.roster-dossier-btn {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid var(--line);
-  color: var(--muted);
-  cursor: pointer;
-  transition: color 0.12s ease, border-color 0.12s ease;
-}
-.roster-dossier-btn:hover,
-.roster-dossier-btn:focus-visible {
-  color: var(--gold2);
-  border-color: var(--gold);
-}
-.roster-dossier-glyph { width: 13px; height: 13px; }
 
 /* The quill on every roster row. Always visible, not hover-revealed and not
    conditional on already having notes: a marker that only appears once you
