@@ -217,20 +217,20 @@
           </div>
           <div class="composition-summary">
             <div class="summary-stat"><span>Roster</span><strong :class="rosterLengthClass">{{ customRoster.length }} / {{ targetPlayerCount }}</strong></div>
-            <div class="summary-stat"><span>Loyalists</span><strong class="loy">{{ loyalistAligned }}</strong></div>
+            <div class="summary-stat"><span>Loyalists</span><strong class="loy">{{ factionCounts.loyalist }}</strong></div>
             <div class="summary-stat"><span>Heretics</span>
-              <strong :class="{her: true, bad: factionCounts.heretic > loyalistAligned}">{{ factionCounts.heretic }}</strong>
+              <strong :class="{her: true, bad: factionCounts.heretic > factionCounts.loyalist}">{{ factionCounts.heretic }}</strong>
             </div>
-            <p class="parity-note" :class="{bad: factionCounts.heretic > loyalistAligned}">
+            <p class="parity-note" :class="{bad: factionCounts.heretic > factionCounts.loyalist}">
               Parity win rule: Heretics must be ≤ Loyalists at launch. Imperial Citizens count as Loyalists.
-              <span v-if="factionCounts.heretic > loyalistAligned">Currently violated — add Loyalists or remove Heretics.</span>
+              <span v-if="factionCounts.heretic > factionCounts.loyalist">Currently violated — add Loyalists or remove Heretics.</span>
             </p>
           </div>
 
           <div class="faction-columns">
             <div v-for="faction in ['loyalist','heretic']" :key="faction" class="faction-group">
               <h3>{{ faction === 'loyalist' ? 'Loyalist choir' : 'Heretic cabal' }}
-                <small>{{ faction === 'loyalist' ? loyalistAligned : factionCounts.heretic }} in roster</small>
+                <small>{{ faction === 'loyalist' ? factionCounts.loyalist : factionCounts.heretic }} in roster</small>
               </h3>
               <ul>
                 <li v-for="r in rolesByFaction[faction]" :key="r.id" class="role-row" :class="{selected: countInRoster(r.id)>0}">
@@ -500,11 +500,12 @@ const factionCounts = computed(() => {
   }
   return { loyalist, heretic };
 });
-// H4 parity (Heretics <= Loyalists) counts Imperial Citizens as
-// Loyalist-aligned, matching the server-side validator (validateComposition,
-// shared with the engine). Citizens are a flavour of Loyalist, not a third
-// faction — roll them into the "Loyalists" total everywhere they appear.
-const loyalistAligned = computed(() => factionCounts.value.loyalist + customRoster.value.filter((id) => id === 'imperial-citizen').length);
+// Imperial Citizens (faction: 'loyalist' in the role catalog) are rolled
+// into the Loyalist count automatically — they are a flavour of Loyalist,
+// not a third faction. The parity check (`Heretics <= Loyalists`) and the
+// server-side H4 validator (validateComposition, shared with the engine)
+// agree on this accounting, so the displayed numbers line up with the rule
+// the operator is reading.
 
 function canAdd(id) {
   const role = validRoles.get(id);
@@ -515,8 +516,7 @@ function canAdd(id) {
   // H4 (parity: Heretics <= Loyalists) is deliberately NOT enforced here.
   // A mid-construction snapshot check blocked adding the FIRST Heretic
   // outright (0 Loyalists so far means any heretic add "exceeds" them) —
-  // even if it consulted loyalistAligned (which counts Citizens), it would
-  // still wrongly reject a legitimate in-progress roster the host hasn't
+  // wrongly rejecting a legitimate in-progress roster the host hasn't
   // finished building yet. Parity is still fully enforced — just by the
   // existing live summary (the Heretics stat turns red / the parity-note
   // warns) and by compositionValid/rosterShapeValid, which block "Seal
