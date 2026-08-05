@@ -68,6 +68,10 @@
                 <label class="pacing-tile">
                   <span class="tile-label">Drift</span>
                   <input v-model.number="setup.maxDrift" type="number" min="1" :max="phases.MAX_DRIFT_CEILING" @input="scheduleSave">
+                  <span class="tile-steppers">
+                    <button type="button" class="tile-step step-up" tabindex="-1" aria-label="Increase drift" @click.prevent="bumpDrift(1)">▲</button>
+                    <button type="button" class="tile-step step-down" tabindex="-1" aria-label="Decrease drift" @click.prevent="bumpDrift(-1)">▼</button>
+                  </span>
                 </label>
                 <template v-if="game.mode==='async'">
                   <label class="pacing-tile wide">
@@ -77,12 +81,20 @@
                 </template>
                 <template v-else>
                   <label class="pacing-tile">
-                    <span class="tile-label">Day min</span>
+                    <span class="tile-label">Day</span>
                     <input v-model.number="dayMinutes" type="number" :min="phaseMinFloor" :max="phaseMinCeiling" @input="scheduleSave">
+                    <span class="tile-steppers">
+                      <button type="button" class="tile-step step-up" tabindex="-1" aria-label="Increase day length" @click.prevent="bumpDayMinutes(1)">▲</button>
+                      <button type="button" class="tile-step step-down" tabindex="-1" aria-label="Decrease day length" @click.prevent="bumpDayMinutes(-1)">▼</button>
+                    </span>
                   </label>
                   <label class="pacing-tile">
-                    <span class="tile-label">Night min</span>
+                    <span class="tile-label">Night</span>
                     <input v-model.number="nightMinutes" type="number" :min="phaseMinFloor" :max="phaseMinCeiling" @input="scheduleSave">
+                    <span class="tile-steppers">
+                      <button type="button" class="tile-step step-up" tabindex="-1" aria-label="Increase night length" @click.prevent="bumpNightMinutes(1)">▲</button>
+                      <button type="button" class="tile-step step-down" tabindex="-1" aria-label="Decrease night length" @click.prevent="bumpNightMinutes(-1)">▼</button>
+                    </span>
                   </label>
                 </template>
               </div>
@@ -390,6 +402,21 @@ let saveTimer = null;
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { emit('configure', { ...setup }); }, 600);
+}
+
+// Pacing tile hover steppers — same clamps the number inputs' own
+// min/max already enforce, just reachable without focusing the field first.
+function bumpDrift(delta) {
+  const next = Math.min(phases.MAX_DRIFT_CEILING, Math.max(1, Math.round(setup.maxDrift || 0) + delta));
+  if (next !== setup.maxDrift) { setup.maxDrift = next; scheduleSave(); }
+}
+function bumpDayMinutes(delta) {
+  const next = Math.min(phaseMinCeiling.value, Math.max(phaseMinFloor.value, dayMinutes.value + delta));
+  if (next !== dayMinutes.value) { dayMinutes.value = next; scheduleSave(); }
+}
+function bumpNightMinutes(delta) {
+  const next = Math.min(phaseMinCeiling.value, Math.max(phaseMinFloor.value, nightMinutes.value + delta));
+  if (next !== nightMinutes.value) { nightMinutes.value = next; scheduleSave(); }
 }
 
 // "Saved" flash: fires off the server's own confirmed values, not the
@@ -877,6 +904,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
    regardless of source order. Bit me twice already; don't drop the
    qualifier or narrow it back down to just .param-fields. */
 .params-cell .params-row .pacing-tile {
+  position: relative;
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
@@ -901,6 +929,11 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   letter-spacing: .08em;
   color: var(--muted);
   white-space: normal;
+}
+/* Reserve room so the centered label doesn't sit under the hover steppers
+   in the corner — only the three tiles that have steppers get the offset. */
+.params-cell .pacing-tile:has(.tile-steppers) .tile-label {
+  padding-right: 13px;
 }
 .params-cell .pacing-tile strong {
   font: 700 20px Cinzel;
@@ -931,6 +964,57 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 .params-cell .param-fields .pacing-tile:focus-within {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px #b69a5c22;
+}
+/* Increment/decrement affordance for the number tiles — hidden until the
+   tile is hovered or the input inside it has focus, so the tile reads as
+   a clean stat display the rest of the time. The native spinner is
+   suppressed above (webkit-appearance:none) in favour of these, but
+   arrow-key stepping on the input itself still works either way. */
+.params-cell .param-fields .pacing-tile .tile-steppers {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s ease;
+}
+.params-cell .param-fields .pacing-tile:hover .tile-steppers,
+.params-cell .param-fields .pacing-tile:focus-within .tile-steppers {
+  opacity: 1;
+  pointer-events: auto;
+}
+.params-cell .tile-step {
+  width: 13px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0;
+  line-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.params-cell .tile-step::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+}
+.params-cell .tile-step.step-up::before { border-bottom: 5px solid var(--muted); }
+.params-cell .tile-step.step-down::before { border-top: 5px solid var(--muted); }
+.params-cell .tile-step:hover::before,
+.params-cell .tile-step:focus-visible::before {
+  border-bottom-color: var(--gold2);
+  border-top-color: var(--gold2);
+}
+.params-cell .tile-step:focus-visible {
+  outline: none;
 }
 .params-cell .readonly-row {
   display: flex;
@@ -1047,7 +1131,11 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   width: 100%;
 }
 .params-cell .reveal-select-control select {
-  flex: 1 1 auto;
+  /* flex-grow:0 — this used to be 1 1 auto, which stretched the select to
+     fill the full group width. That made it read as a big boxy banner next
+     to the compact checkbox rows above it in the same group. Content-sized
+     (falling back to select's own min-width) matches their visual weight. */
+  flex: 0 1 auto;
   min-width: 0;
 }
 
