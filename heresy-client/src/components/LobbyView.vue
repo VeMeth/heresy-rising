@@ -237,7 +237,6 @@
                   <div class="role-head">
                     <span class="role-name">
                       {{ r.displayName }}
-                      <em class="tier">{{ r.tier }}</em>
                     </span>
                     <span class="role-count">
                       <button class="count-btn" @click="removeRole(r.id)"
@@ -1334,7 +1333,6 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 .role-row.selected { border-color:#4a4434; background:#11100a; }
 .role-head { display:flex; align-items:center; gap:8px; }
 .role-name { flex:1; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--pale); }
-.tier { font-size:9px; letter-spacing:.1em; color:var(--muted); border:1px solid #34372f; padding:1px 5px; border-radius:2px; }
 .role-count { display:flex; align-items:center; gap:7px; }
 .count-btn {
   width:24px; height:24px; border:1px solid #43463d; background:#171916; color:var(--pale);
