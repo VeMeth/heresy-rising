@@ -217,13 +217,12 @@
           </div>
           <div class="composition-summary">
             <div class="summary-stat"><span>Roster</span><strong :class="rosterLengthClass">{{ customRoster.length }} / {{ targetPlayerCount }}</strong></div>
-            <div class="summary-stat"><span>Loyalists</span><strong class="loy">{{ factionCounts.loyalist }}</strong></div>
+            <div class="summary-stat"><span>Loyalists</span><strong class="loy">{{ loyalistAligned }}</strong></div>
             <div class="summary-stat"><span>Heretics</span>
               <strong :class="{her: true, bad: factionCounts.heretic > loyalistAligned}">{{ factionCounts.heretic }}</strong>
             </div>
-            <div class="summary-stat"><span>Citizens</span><strong>{{ factionCounts.citizen }}</strong></div>
             <p class="parity-note" :class="{bad: factionCounts.heretic > loyalistAligned}">
-              Parity win rule: Heretics must be ≤ Loyalists at launch.
+              Parity win rule: Heretics must be ≤ Loyalists at launch. Imperial Citizens count as Loyalists.
               <span v-if="factionCounts.heretic > loyalistAligned">Currently violated — add Loyalists or remove Heretics.</span>
             </p>
           </div>
@@ -231,7 +230,7 @@
           <div class="faction-columns">
             <div v-for="faction in ['loyalist','heretic']" :key="faction" class="faction-group">
               <h3>{{ faction === 'loyalist' ? 'Loyalist choir' : 'Heretic cabal' }}
-                <small>{{ factionCounts[faction] }} in roster</small>
+                <small>{{ faction === 'loyalist' ? loyalistAligned : factionCounts.heretic }} in roster</small>
               </h3>
               <ul>
                 <li v-for="r in rolesByFaction[faction]" :key="r.id" class="role-row" :class="{selected: countInRoster(r.id)>0}">
@@ -492,21 +491,20 @@ function countInRoster(id) {
 const rosterFull = computed(() => customRoster.value.length >= targetPlayerCount.value);
 
 const factionCounts = computed(() => {
-  let loyalist = 0, heretic = 0, citizen = 0;
+  let loyalist = 0, heretic = 0;
   for (const id of customRoster.value) {
     const r = validRoles.get(id);
     if (!r) continue;
-    if (id === 'imperial-citizen') citizen++;
-    else if (r.faction === 'heretic') heretic++;
+    if (r.faction === 'heretic') heretic++;
     else loyalist++;
   }
-  return { loyalist, heretic, citizen };
+  return { loyalist, heretic };
 });
 // H4 parity (Heretics <= Loyalists) counts Imperial Citizens as
-// Loyalist-aligned server-side (validateComposition, shared with the
-// server) — factionCounts.loyalist alone excludes them, so any
-// heretic/loyalist comparison for the parity indicator needs this instead.
-const loyalistAligned = computed(() => factionCounts.value.loyalist + factionCounts.value.citizen);
+// Loyalist-aligned, matching the server-side validator (validateComposition,
+// shared with the engine). Citizens are a flavour of Loyalist, not a third
+// faction — roll them into the "Loyalists" total everywhere they appear.
+const loyalistAligned = computed(() => factionCounts.value.loyalist + customRoster.value.filter((id) => id === 'imperial-citizen').length);
 
 function canAdd(id) {
   const role = validRoles.get(id);
@@ -517,15 +515,13 @@ function canAdd(id) {
   // H4 (parity: Heretics <= Loyalists) is deliberately NOT enforced here.
   // A mid-construction snapshot check blocked adding the FIRST Heretic
   // outright (0 Loyalists so far means any heretic add "exceeds" them) —
-  // it also compared against factionCounts.loyalist, which excludes
-  // Imperial Citizens, while the real H4 rule (validateComposition, shared
-  // with the server) counts Citizens as Loyalist-aligned. Both made it
-  // wrongly stricter than the actual rule, and only for an in-progress
-  // roster the host hasn't finished building yet. Parity is still fully
-  // enforced — just by the existing live summary (the Heretics stat turns
-  // red / the parity-note warns) and by compositionValid/rosterShapeValid,
-  // which block "Seal the chamber" and "Run balance check" on a roster
-  // that's ACTUALLY unbalanced once the host is done editing it.
+  // even if it consulted loyalistAligned (which counts Citizens), it would
+  // still wrongly reject a legitimate in-progress roster the host hasn't
+  // finished building yet. Parity is still fully enforced — just by the
+  // existing live summary (the Heretics stat turns red / the parity-note
+  // warns) and by compositionValid/rosterShapeValid, which block "Seal
+  // the chamber" and "Run balance check" on a roster that's ACTUALLY
+  // unbalanced once the host is done editing it.
   return true;
 }
 
