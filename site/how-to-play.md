@@ -100,7 +100,7 @@ The clearing is **public**: the cabal sees the Interrogator reach for that playe
 
 ## The Roles
 
-There are **13 roles** in v1: seven Loyalist, six Heretic. *Imperial Citizen* is a fill role that repeats to balance parity across player counts. Additionally, **Blood Ritual** is a shared faction-wide action available to any living Heretic (not a unique role slot).
+There are **15 roles** in v1: eight Loyalist, seven Heretic. *Imperial Citizen* is a fill role that repeats to balance parity across player counts. Additionally, **Blood Ritual** is a shared faction-wide action available to any living Heretic (not a unique role slot).
 
 Browse the **[full role roster](/roles/)** for blurb and quick-reference on each. The list below is for orientation:
 
@@ -112,6 +112,7 @@ Browse the **[full role roster](/roles/)** for blurb and quick-reference on each
 - **[Novice-Psychic](/roles/novice-psychic)** — receives one drift hint per night about a target.
 - **[Priest](/roles/priest)** — sermons that drain or seal drift; limited uses per game.
 - **[Sanctioned Psyker](/roles/sanctioned-psyker)** — one-shot warp-kill. Looks like Murderer from outside. *Ships at ≥7p.*
+- **[Astropath](/roles/astropath)** — reads the *names* of whoever targeted a player on recent nights (T1 last night, T2 two-night union, T3 two-night per-night attribution). Never reveals what a visitor did or their faction. T3 is a flat +12 drift at any table size. *Custom roster only.*
 
 ### Heretics
 - **[Murderer](/roles/murderer)** — kills a player each night. **Drift-gated** — +15 self-drift per kill, capped at MAX. After your first kill, you sit at Red zone and the next kill fails unless the Priest heals you back down.
@@ -121,6 +122,7 @@ Browse the **[full role roster](/roles/)** for blurb and quick-reference on each
 - **[Recruiter](/roles/recruiter)** — performs the *catalyst*: converts a max-drift player into a Heretic.
 - **[Conspirator](/roles/conspirator)** — forges messages attributed to other players.
 - **[Animus](/roles/animus)** — one-shot possession. Speculate a target is in Red drift (15-19). If correct, you possess them at night: control their day chat, suppress their vote, skip their action. At day-end, they detonate (die, full role/faction/drift revealed). *Custom roster only (doesn't appear in deterministic compositions).*
+- **[Poxwalker](/roles/poxwalker)** — once per game, infects a living non-Heretic as Patient Zero, who gains drift every night and spreads a milder plague to anyone who touches or is touched by them. Nobody dies directly of it, but a Chirurgeon's protection cleanses whoever it lands on. *Custom roster only.*
 
 ## Winning
 

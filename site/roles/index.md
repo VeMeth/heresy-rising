@@ -1,11 +1,11 @@
 ---
 title: Role Roster
-description: All 11 operatives in Heresy Rising — split by faction, plus the cabal's shared Blood Ritual mechanic.
+description: All 15 operatives in Heresy Rising — split by faction, plus the cabal's shared Blood Ritual mechanic.
 ---
 
 # Role Roster
 
-> *Eleven secrets, one conclave — plus the one thing that isn't a role at all.*
+> *Fifteen secrets, one conclave — plus the one thing that isn't a role at all.*
 
 Each role below lists the faction, the night power (if any), and what to expect when the role is in play. Roles are split into **two clear factions** — Loyalist and Heretic. Imperial Citizen is the fill role. Animus is custom-roster only.
 
@@ -21,7 +21,7 @@ In short: **drift cost is the Warp's invoice for what you just did**. Every role
 
 ## 🛡️ Loyalist Roster
 
-Seven roles. The Inquisition's defenders and instruments.
+Eight roles. The Inquisition's defenders and instruments.
 
 | Role | Power | Drift |
 |---|---|---|
@@ -32,12 +32,13 @@ Seven roles. The Inquisition's defenders and instruments.
 | [Novice-Psychic](/roles/novice-psychic) | Drift hint | T1/night |
 | [Priest](/roles/priest) | Three sermon tiers | varies |
 | [Sanctioned Psyker](/roles/sanctioned-psyker) | One-shot warp-kill (1×/game) | **T2 (+15) on fire** |
+| [Astropath](/roles/astropath) | Warp-read (visitor names, T1/T2/T3) | T1–T3, +3/+6/+12 |
 
 ---
 
 ## ☠️ Heretic Roster
 
-Six roles. The cabal's hidden enemies within the cell.
+Seven roles. The cabal's hidden enemies within the cell.
 
 | Role | Power | Drift |
 |---|---|---|
@@ -47,8 +48,9 @@ Six roles. The cabal's hidden enemies within the cell.
 | [Recruiter](/roles/recruiter) | Catalyst (convert) | T3/night |
 | [Conspirator](/roles/conspirator) | Forge messages | T1/day |
 | [Animus](/roles/animus) | One-shot possession (speculative) | **+3 on the guess, win or lose** |
+| [Poxwalker](/roles/poxwalker) | Infect Patient Zero (1×/game) | varies |
 
-> **Animus is custom-roster only.** It doesn't appear in any of the deterministic per-player-count compositions below — a host adds it deliberately when building a custom roster (min. 8p recommended). Every other role in this table can turn up in a standard, randomly-assigned game.
+> **Animus, Poxwalker, and Astropath are custom-roster only.** None of the three appear in any of the deterministic per-player-count compositions below — a host adds them deliberately when building a custom roster (min. 8p recommended for Animus/Poxwalker, min. 5p for Astropath). Every other role in this table can turn up in a standard, randomly-assigned game.
 
 ---
 
