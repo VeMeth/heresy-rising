@@ -238,6 +238,47 @@ export function createL7SanctionedPsyker(id) {
   };
 }
 
+// ── L8 — Astropath ────────────────────────────────────────────────────────
+
+export function createL8Astropath(id) {
+  return {
+    id,
+    label: `l8-astropath-${id}`,
+    nightAction(s) {
+      if (!s.legalTargets || s.legalTargets.length === 0) return null;
+      // Prefer reading targets not yet read (independent detection)
+      const read = new Set(
+        (s.privateMessages || [])
+          .filter(m => m.meta?.intelKind === 'warp-read' && m.meta.target)
+          .map(m => m.meta.target)
+      );
+      const unread = s.legalTargets.filter(t => !read.has(t));
+      const target = pickRandom(unread.length > 0 ? unread : s.legalTargets)
+        || getMostVoted(s)
+        || s.legalTargets[0];
+      // Choose tier: prefer T1 most of the time (simple heuristic)
+      // Only bump to T2/T3 for high-value targets or when drift is very low
+      const myDrift = s.me?.drift || 0;
+      let variant = 'T1'; // Default fallback
+      if (s.scaledCosts) {
+        // Use T2 if drift is very low and T2 is affordable
+        if (myDrift <= 2 && s.scaledCosts.T2 != null && myDrift + s.scaledCosts.T2 <= s.maxDrift / 2) {
+          variant = 'T2';
+        } else if (s.scaledCosts.T1 != null) {
+          variant = 'T1';
+        }
+      }
+      return { targetCode: target, variant };
+    },
+    dayVote(s) {
+      if (!s.voteOptions || s.voteOptions.length === 0) return 'skip';
+      const target = getMostVoted(s);
+      if (target && s.voteOptions.includes(target)) return target;
+      return fallbackVoteTarget(s.voteOptions, s.atRiskTargets);
+    }
+  };
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function getMostVoted(s) {

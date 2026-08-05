@@ -5,7 +5,7 @@
 import { createRandomAgent } from './strategies/random.js';
 import { createL1Citizen, createL2Interrogator, createL3Chirurgeon,
   createL4NovicePsychic, createL5Arbitrator, createL6Priest,
-  createL7SanctionedPsyker } from './strategies/loyalist.js';
+  createL7SanctionedPsyker, createL8Astropath } from './strategies/loyalist.js';
 import { getHereticHeuristic } from './strategies/heretic.js';
 import { resolveScaledCost } from '../../heresy-server/src/mechanics/scaledCosts.js';
 
@@ -38,6 +38,7 @@ const LOYALIST_ROLE_MAP = {
   'arbitrator': createL5Arbitrator,
   'priest': createL6Priest,
   'sanctioned-psyker': createL7SanctionedPsyker,
+  'astropath': createL8Astropath,
 };
 
 // ── Factory ────────────────────────────────────────────────────────────────

@@ -33,6 +33,11 @@ export const validRoles = new Map([
     id: 'chirurgeon', displayName: 'Chirurgeon', faction: 'loyalist', tier: 'T1',
     abilityTemplate: 'Each night protect one player from a night kill. You do not learn whether your protection fired.'
   }],
+  ['astropath', {
+    id: 'astropath', displayName: 'Astropath', faction: 'loyalist', tier: 'T2',
+    scaledCostKey: 'astropath',
+    abilityTemplate: 'Each night, read the warp-residue left on one target: T1 reveals last night\'s visitors by name ({t1Cost} drift). T2 reveals the last two nights\' visitors combined, no per-night attribution ({t2Cost} drift). T3 reveals the last two nights\' visitors with exact night-by-night attribution ({t3Cost} drift — this cost never shrinks, even at a full table). Names only — never what a visitor did, never their alignment. Cannot read yourself.'
+  }],
   ['novice-psychic', {
     id: 'novice-psychic', displayName: 'Novice-Psychic', faction: 'loyalist', tier: 'T1',
     abilityTemplate: 'Each night receive a qualitative drift hint about one target. Reads drift, not alignment.'

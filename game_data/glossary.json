@@ -8,6 +8,7 @@
     "imperial-citizen": ["imperial citizen", "citizen", "citizens", "villager", "vanilla"],
     "interrogator": ["interrogator", "interrogators", "intr", "interrogate", "interrogates", "interrogated", "interrogation", "seer"],
     "chirurgeon": ["chirurgeon", "chirurgeons", "prot", "chiru"],
+    "astropath": ["astropath", "astropaths", "warp-reader", "reader"],
     "novice-psychic": ["novice-psychic", "novice psychic", "psychic", "novice"],
     "arbitrator": ["arbitrator", "arbitrators", "arbi", "arby", "arb", "hm"],
     "priest": ["priest", "priests", "sermon", "hymn", "litany"],
