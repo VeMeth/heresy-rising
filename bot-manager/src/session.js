@@ -56,7 +56,6 @@ export class BotSession {
       // Restore from a previously-saved snapshot.
       this.role = snap.role ?? null;
       this.faction = snap.faction ?? null;
-      this.claim = snap.claim ?? null;
       this.alive = snap.alive ?? true;
       this.phase = snap.phase ?? 'lobby';
       this.round = snap.round ?? 0;
@@ -95,7 +94,6 @@ export class BotSession {
     } else {
       this.role = null;
       this.faction = null;
-      this.claim = null;
       this.alive = true;
       this.phase = 'lobby';
       this.round = 0;
@@ -152,7 +150,6 @@ export class BotSession {
       name: this.name,
       role: this.role,
       faction: this.faction,
-      claim: this.claim,
       alive: this.alive,
       phase: this.phase,
       round: this.round,
@@ -347,7 +344,6 @@ export class BotSession {
     if (!payload) return;
     this.role = payload.role?.id || payload.role || this.role;
     this.faction = payload.faction ?? this.faction;
-    this.claim = payload.claim ?? this.claim;
     this.phase = payload.phase ?? this.phase;
     this.round = payload.round ?? this.round;
     this.botIds = Array.isArray(payload.botIds) ? payload.botIds : [];

@@ -11,7 +11,6 @@
       "id": "imperial-citizen",
       "displayName": "Imperial Citizen",
       "faction": "loyalist",
-      "claim": "Imperial Citizen (self)",
       "driftWeight": 0,
       "tier": "T0",
       "actions": {
@@ -36,7 +35,6 @@
       "id": "interrogator",
       "displayName": "Interrogator",
       "faction": "loyalist",
-      "claim": "Interrogator (self)",
       "driftWeight": 2,
       "tier": "T2",
       "actions": {
@@ -61,7 +59,6 @@
       "id": "chirurgeon",
       "displayName": "Chirurgeon",
       "faction": "loyalist",
-      "claim": "Chirurgeon (self)",
       "driftWeight": 1,
       "tier": "T1",
       "actions": {
@@ -85,7 +82,6 @@
       "id": "novice-psychic",
       "displayName": "Novice-Psychic",
       "faction": "loyalist",
-      "claim": "Novice-Psychic (self)",
       "driftWeight": 1,
       "tier": "T1",
       "actions": {
@@ -109,7 +105,6 @@
       "id": "arbitrator",
       "displayName": "Arbitrator",
       "faction": "loyalist",
-      "claim": "Arbitrator (self)",
       "driftWeight": 1,
       "tier": "T1",
       "actions": {
@@ -133,7 +128,6 @@
       "id": "sanctioned-psyker",
       "displayName": "Sanctioned Psyker",
       "faction": "loyalist",
-      "claim": null,
       "driftWeight": 15,
       "tier": "T2",
       "actions": {
@@ -159,7 +153,6 @@
       "id": "priest",
       "displayName": "Priest (Loyalist)",
       "faction": "loyalist",
-      "claim": "Priest (self)",
       "driftWeight": 0,
       "tier": "T0_special",
       "actions": {
