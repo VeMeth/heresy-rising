@@ -139,6 +139,8 @@ function nextScheduleBoundary(now, dayStartMinuteUtc) {
  * @property {string|null} note
  * @property {number} auto
  * @property {number} ownAction
+ * @property {number|null} round
+ * @property {string|null} phase
  * @property {number} createdAt
  */
 
@@ -276,6 +278,14 @@ export class HeresyGameManager {
     // tally tooltip can show it alongside each voter's name — previously
     // this only ever existed as a public chat message (see vote()/voteAs()).
     this.ensureColumn('hr_votes','justification',"TEXT");
+    // When an engine-filed bookmark happened, in game time rather than wall
+    // time — mirrors hr_notes' round/phase stamp so "My Actions" can show
+    // N3/D4 the same way manual notes already do. Nullable and left NULL for
+    // manual bookmarks (toggleBookmark): a player picking a chat message to
+    // save has no equivalent "when I formed this read" moment worth stamping,
+    // and the client only renders the stamp when phase is present.
+    this.ensureColumn('hr_bookmarks','round',"INTEGER");
+    this.ensureColumn('hr_bookmarks','phase',"TEXT");
     this.now = now; this.random = random; this.adminPlayerCodes = adminPlayerCodes; this.config = loadGameConfig();
     this._announcementListeners = [];
     this._botPromptListeners = [];
@@ -339,7 +349,7 @@ export class HeresyGameManager {
   /** @returns {Bookmark|undefined} */
   bookmarkRow(c, ownerCode, messageId) {
     return /** @type {Bookmark|undefined} */ (this.db.prepare(
-      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,own_action AS ownAction,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?'
+      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,own_action AS ownAction,round,phase,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND message_id=?'
     ).get(c, ownerCode, messageId));
   }
 
@@ -352,7 +362,7 @@ export class HeresyGameManager {
       'SELECT id,subject_code AS subjectCode,body,round,phase,created_at AS createdAt,updated_at AS updatedAt FROM hr_notes WHERE game_code=? AND owner_code=? ORDER BY created_at,id'
     ).all(c, ownerCode));
     const bookmarks = /** @type {Bookmark[]} */ (this.db.prepare(
-      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,own_action AS ownAction,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? ORDER BY created_at,message_id'
+      'SELECT message_id AS messageId,subject_code AS subjectCode,author,excerpt,channel,note,auto,own_action AS ownAction,round,phase,created_at AS createdAt FROM hr_bookmarks WHERE game_code=? AND owner_code=? ORDER BY created_at,message_id'
     ).all(c, ownerCode));
     return { notes, bookmarks };
   }
@@ -469,9 +479,13 @@ export class HeresyGameManager {
     const { n } = /** @type {{n:number}} */ (this.db.prepare('SELECT COUNT(*) AS n FROM hr_bookmarks WHERE game_code=? AND owner_code=? AND auto=1').get(c, ownerCode));
     if (n >= AUTO_BOOKMARK_CAP) { this.event(c, 'bookmark-cap-hit', { ownerCode, messageId: message.id, scope: 'auto' }); return null; }
     const subject = meta?.target && this.player(c, meta.target) ? meta.target : null;
+    // Stamped with the game's CURRENT round/phase, same as addNote — for a
+    // night report this runs before resolveNight's setPhase call, so it
+    // still reads the night just resolved, not the day it's about to become.
+    const g = this.requireGame(c);
     this.db.prepare(
-      'INSERT INTO hr_bookmarks(game_code,owner_code,message_id,subject_code,author,excerpt,channel,note,created_at,auto,own_action) VALUES(?,?,?,?,?,?,?,?,?,1,?)'
-    ).run(c, ownerCode, message.id, subject, message.author, String(message.body || '').slice(0, 300), message.channel, null, this.now(), ownAction ? 1 : 0);
+      'INSERT INTO hr_bookmarks(game_code,owner_code,message_id,subject_code,author,excerpt,channel,note,created_at,auto,own_action,round,phase) VALUES(?,?,?,?,?,?,?,?,?,1,?,?,?)'
+    ).run(c, ownerCode, message.id, subject, message.author, String(message.body || '').slice(0, 300), message.channel, null, this.now(), ownAction ? 1 : 0, g.round, g.phase);
     const row = this.bookmarkRow(c, ownerCode, message.id);
     this.emitBookmark(c, ownerCode, row);
     return row;

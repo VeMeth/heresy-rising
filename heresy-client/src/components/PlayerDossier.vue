@@ -72,6 +72,7 @@
               <div class="bookmark-head">
                 <strong>{{ activeTab === 'actions' ? subjectLabelFor(b) : (b.auto ? 'Recorded' : b.author) }}</strong>
                 <span v-if="b.auto" class="auto-tag" title="Filed automatically when this happened to you or you acted">AUTO</span>
+                <span v-if="b.phase" class="bookmark-stamp">{{ stampFor(b) }}</span>
                 <time>{{ formatBookmarkTime(b.createdAt) }}</time>
                 <button type="button" class="entry-btn" :disabled="busy" aria-label="Remove bookmark" @click="emit('remove-bookmark', { messageId: b.messageId })">&times;</button>
               </div>
@@ -445,6 +446,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   color: var(--gold);
   border: 1px solid rgba(182, 154, 92, 0.4);
   padding: 1px 4px;
+}
+/* Game-time stamp (N3/D4) on an engine-filed entry — only present when the
+   server sent round/phase (auto-filed rows), so a manual bookmark never
+   shows one. Reuses stampFor(), the same helper the Notes tab uses. */
+.bookmark-stamp {
+  font: 700 9px Cinzel, serif;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  text-transform: uppercase;
 }
 .bookmark-head time {
   font-size: 9px;
