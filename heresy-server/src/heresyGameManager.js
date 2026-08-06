@@ -618,37 +618,19 @@ export class HeresyGameManager {
    * @param {string} [params.mode]
    * @param {{dayMs?:number,nightMs?:number,maxDrift?:number,hintProfile?:string,dayStartMinuteUtc?:number}} [params.options]
    */
-  // Shared by create() and adminCreate() — everything about founding a
-  // Conclave EXCEPT seating the founder as its first player, which is the
-  // one thing that differs between a normal host and a seatless admin.
-  _foundGame({playerCode,mode='live',options={}}){
-    if(!['live','async'].includes(mode))throw new Error('Invalid game mode');
+  create({playerCode,name,mode='live',options={}}){
+    if(!playerCode)throw new Error('playerCode is required'); if(!['live','async'].includes(mode))throw new Error('Invalid game mode');
     const code=generateRoomCode(this.codes(),6),now=this.now(),dayMs=mode==='async'?this.config.phases.ASYNC_PHASE_MS:(Number(options.dayMs)||this.config.phases.SYNC_DAY_MS),nightMs=mode==='async'?this.config.phases.ASYNC_PHASE_MS:(Number(options.nightMs)||this.config.phases.SYNC_NIGHT_MS),max=Math.max(1,Number(options.maxDrift)||this.config.drift.MAX_DRIFT),hintProfile=this.config.hintProfiles[options.hintProfile] ? options.hintProfile : 'default';
     const rawDayStart=Number(options.dayStartMinuteUtc),dayStartMinuteUtc=mode==='async'?Math.max(0,Math.min(1439,Number.isFinite(rawDayStart)?Math.round(rawDayStart):this.config.phases.DEFAULT_DAY_START_MINUTE_UTC)):null;
     this.db.prepare('INSERT INTO hr_games(code,host_code,mode,day_ms,night_ms,max_drift,hint_profile,warp_taint_visible,day_start_minute_utc,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(code,playerCode,mode,dayMs,nightMs,max,hintProfile,0,dayStartMinuteUtc,now,now);
-    return {code,now};
-  }
-  create({playerCode,name,mode='live',options={}}){
-    if(!playerCode)throw new Error('playerCode is required');
-    const {code,now}=this._foundGame({playerCode,mode,options});
     this.db.prepare('INSERT INTO hr_players(game_code,player_code,name,seat,joined_at) VALUES(?,?,?,?,?)').run(code,playerCode,sanitizePlayerName(name),0,now); return {code,state:this.state(code,playerCode)};
   }
-  // Admin-only: found a Conclave without taking a seat in it — host_code is
-  // set to the admin's playerCode (so requireHostOrAdmin()'s host check still
-  // resolves), but no hr_players row exists for them, so they never appear
-  // in the roster and never count toward MIN/MAX_PLAYERS. Mirrors
-  // game:admin-observe's "never a player" contract.
-  adminCreate({playerCode,mode='live',options={}}){
-    this.requireAdmin(playerCode);
-    const {code}=this._foundGame({playerCode,mode,options});
-    return {code,state:this.adminState(code)};
-  }
   // Admin-only: give up a seat you already hold in a lobby you're already
-  // in, converting to the same seatless full-visibility mode as
-  // adminCreate/game:admin-observe — the "I want to run a bot game without
-  // playing in it" path. Lobby-phase-only, same as kick(); host_code is left
-  // pointing at the vacated code (nobody resolves as host to real players
-  // from then on) rather than reassigned, matching adminCreate's contract.
+  // in, converting to the same seatless full-visibility mode game:spectate/
+  // game:state silently upgrade into — the "I want to run a bot game
+  // without playing in it" path. Lobby-phase-only, same as kick(); host_code
+  // is left pointing at the vacated code (nobody resolves as host to real
+  // players from then on) rather than reassigned.
   vacateSeat(c,p){
     this.requireAdmin(p);
     const g=this.requireGame(c);

@@ -322,28 +322,32 @@ export function createHeresyServer({ databasePath, now } = {}) {
     ackWrap(socket,'bookmark:note',p=>{const code=normalizeRoomCode(p.code),ownerCode=auth(socket,p);return {bookmark:gameManager.annotateBookmark(code,ownerCode,p.messageId,p.note)};});
     ackWrap(socket,'game:list-mine',p=>({games:gameManager.listPlayerGames(auth(socket,p))}));
     ackWrap(socket,'game:create',p=>{const playerCode=auth(socket,p);const result=gameManager.create({playerCode,name:p.name,mode:p.mode,options:p.options});socket.join(result.code);return result;});
-    // Admin-only: found a Conclave without taking a seat — same "never a
-    // player" contract as game:admin-observe (no hr_players row, socket
-    // never trusted on playerCode alone for anything privileged).
-    ackWrap(socket,'game:admin-create',p=>{const playerCode=auth(socket,p);const result=gameManager.adminCreate({playerCode,mode:p.mode,options:p.options});socket.data.isAdminObserver=true;socket.join(result.code);return result;});
-    // Lets the client silently check "is this browser's identity an admin"
-    // before deciding whether to even render the admin entry points —
-    // answers only about the CALLER's own playerCode, never anyone else's,
-    // so it can't be used to probe the allowlist.
-    ackWrap(socket,'player:is-admin',p=>({isAdmin:gameManager.isAdmin(auth(socket,p))}));
     // Give up a seat already held in a lobby, converting to the same
-    // seatless admin mode as game:admin-observe/game:admin-create.
+    // seatless admin mode game:spectate/game:state silently upgrade into
+    // below for a recognized admin identity.
     ackWrap(socket,'game:admin-vacate-seat',p=>{const code=normalizeRoomCode(p.code);const playerCode=auth(socket,p);const state=gameManager.vacateSeat(code,playerCode);socket.data.isAdminObserver=true;broadcast(code);return {state};});
     ackWrap(socket,'game:join',p=>{const playerCode=auth(socket,p),code=normalizeRoomCode(p.code);const state=gameManager.join({code,playerCode,name:p.name});socket.join(code);broadcast(code);return {state};});
-    ackWrap(socket,'game:spectate',p=>{const code=normalizeRoomCode(p.code);const normalized=typeof p.playerCode==='string'?normalizePlayerCode(p.playerCode):'';const spectatorCode=normalized.length<4?'spec_'+Math.random().toString(36).slice(2,10)+'_'+Date.now().toString(36).slice(-4):normalized;socket.data.spectatorCode=spectatorCode;socket.join(code);const state=gameManager.spectate(code);return {state,playerCode:spectatorCode};});
-    // Full-visibility admin observer: never joins as a player (no hr_players
-    // row, never trusts socket.data.playerCode for admin-ness). auth() below
-    // still sets socket.data.playerCode as a side effect — that's unavoidable
-    // given auth()'s signature, but isAdminObserver is the only flag anything
-    // admin-specific may read; every privileged write path re-validates via
-    // requireAdmin()/requireHostOrAdmin() fresh, same as before this handler.
-    ackWrap(socket,'game:admin-observe',p=>{const code=normalizeRoomCode(p.code);const playerCode=auth(socket,p);gameManager.requireAdmin(playerCode);socket.data.isAdminObserver=true;socket.join(code);return {state:gameManager.adminState(code)};});
-    ackWrap(socket,'game:state',p=>{const code=normalizeRoomCode(p.code),playerCode=auth(socket,p);socket.join(code);const isMember=!!gameManager.player(code,playerCode);if(!isMember){const state=gameManager.spectate(code);return {state};}const state=gameManager.reconnect(code,playerCode);broadcast(code);return {state};});
+    // No dedicated "observe as admin" entry point — a recognized admin
+    // identity silently gets the full adminState() view here instead of the
+    // redacted spectate() one, covering both "join a game that's already
+    // started" (client's join-then-fallback-to-spectate) and any other
+    // caller-supplied spectate attempt. Identity is peeked WITHOUT calling
+    // auth() unless it actually resolves to an admin — auth() mutates
+    // socket.data.playerCode as a side effect, which would wrongly flip a
+    // genuine anonymous spectator out of the isSpectator branch every other
+    // broadcast()/broadcastMessage() check relies on (see
+    // spectate-multiroom.test.js for why that flag is handled so carefully).
+    ackWrap(socket,'game:spectate',p=>{
+      const code=normalizeRoomCode(p.code);
+      const candidate=typeof p.playerCode==='string'&&p.playerCode.length>=4?normalizePlayerCode(p.playerCode):(socket.handshake.auth?.playerCode||'');
+      if(candidate&&gameManager.isAdmin(candidate)){socket.data.playerCode=candidate;socket.data.isAdminObserver=true;socket.join(code);return{state:gameManager.adminState(code),playerCode:candidate};}
+      const normalized=typeof p.playerCode==='string'?normalizePlayerCode(p.playerCode):'';const spectatorCode=normalized.length<4?'spec_'+Math.random().toString(36).slice(2,10)+'_'+Date.now().toString(36).slice(-4):normalized;socket.data.spectatorCode=spectatorCode;socket.join(code);const state=gameManager.spectate(code);return {state,playerCode:spectatorCode};
+    });
+    // Reconnect path: already resolves a real identity via auth() for every
+    // caller (no anonymous-spectator branch here to protect), so the same
+    // admin upgrade is a plain check — also fixes a seatless admin's own
+    // reconnect after a refresh, which used to have no path back in at all.
+    ackWrap(socket,'game:state',p=>{const code=normalizeRoomCode(p.code),playerCode=auth(socket,p);socket.join(code);const isMember=!!gameManager.player(code,playerCode);if(!isMember){if(gameManager.isAdmin(playerCode)){socket.data.isAdminObserver=true;return{state:gameManager.adminState(code)};}const state=gameManager.spectate(code);return {state};}const state=gameManager.reconnect(code,playerCode);broadcast(code);return {state};});
     ackWrap(socket,'game:ready',p=>{const code=normalizeRoomCode(p.code),state=gameManager.ready(code,auth(socket,p),p.ready);broadcast(code);return {state};});
     ackWrap(socket,'game:start',p=>{const code=normalizeRoomCode(p.code);const result=gameManager.start(code,auth(socket,p),p.setup);if(result&&'ok' in result&&result.ok===false)return result;broadcast(code,'phase:updated');// After role seal, push a per-bot session_init so the bot-manager can wire its role/faction/claim block.
       broadcastBots(code,'bot:session_init',(bot)=>gameManager.botSessionInit(code,bot.player_code));return{state:result};});

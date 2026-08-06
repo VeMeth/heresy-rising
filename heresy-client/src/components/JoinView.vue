@@ -26,34 +26,19 @@
       </form>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
       <details class="recovery"><summary>Restore an existing identity</summary><form @submit.prevent="$emit('recover', recoveryCode.trim().toUpperCase())"><input v-model="recoveryCode" placeholder="Player recovery code" maxlength="40"><button class="ghost">Restore</button></form></details>
-      <!-- Only ever rendered for a browser the server has already confirmed
-           is on the hidden admin allowlist (see App.vue's player:is-admin
-           check on connect) — nobody else's page has this in the DOM at all. -->
-      <details v-if="isAdminIdentity" class="recovery">
-        <summary>Enter without a seat</summary>
-        <form class="seatless-form" @submit.prevent>
-          <input v-model.trim="seatlessCode" maxlength="8" autocapitalize="characters"
-                 placeholder="Conclave code — blank founds a new one"
-                 @input="seatlessCode = seatlessCode.toUpperCase()">
-          <button type="button" class="ghost" :disabled="busy || !!seatlessCode" @click="emitAdminCreate">Found conclave</button>
-          <button type="button" class="ghost" :disabled="busy || !seatlessCode" @click="emitObserve">Enter conclave</button>
-        </form>
-      </details>
       <div v-if="profile?.playerCode" class="identity"><span>Identity secured</span><code>{{ profile.playerCode }}</code></div>
     </div>
   </section>
 </template>
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref } from 'vue';
-const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object, isAdminIdentity:Boolean });
-const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref(''); const seatlessCode = ref('');
+const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object });
+const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref('');
 const fallbackQuote = { lead: 'Trust is a ', highlight: 'fatal weakness.' };
 const quoteParts = ref(fallbackQuote);
 function join(){ if(name.value && code.value) emitJoin(); }
-const emit = defineEmits(['join','create','recover','observe','admin-create']);
+const emit = defineEmits(['join','create','recover']);
 function emitJoin(){ emit('join',{ name:name.value, roomCode:code.value.toUpperCase() }); }
-function emitObserve(){ if(seatlessCode.value) emit('observe',{ roomCode:seatlessCode.value.toUpperCase() }); }
-function emitAdminCreate(){ if(!seatlessCode.value) emit('admin-create',{ mode:mode.value }); }
 function splitQuote(text) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return fallbackQuote;
@@ -117,11 +102,3 @@ onUnmounted(() => {
   clearTimeout(resizeTimer);
 });
 </script>
-<style scoped>
-/* Deliberately unobtrusive — folded into the same collapsed-by-default
-   pattern as "Restore an existing identity" just above it, not a second CTA
-   competing with "Join existing conclave" / "Create a conclave". */
-.recovery .seatless-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.recovery .seatless-form input { flex: 1 1 140px; width: auto; }
-.recovery .seatless-form button { flex: 0 0 auto; white-space: nowrap; }
-</style>

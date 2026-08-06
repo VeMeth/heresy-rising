@@ -25,7 +25,7 @@
 
     <main>
       <JoinView v-if="!game" :busy="busy" :error="error" :initial-room-code="initialCode"
-        :profile="profile" :is-admin-identity="isAdminIdentity" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" @observe="observeGame" @admin-create="adminCreateGame" />
+        :profile="profile" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
         :composition-errors="compositionErrors" :messages="messages"
         :has-more="hasMoreByChannel[channel]" :admin-observer="adminObserver"
@@ -93,12 +93,13 @@ const me = computed(() => { const g = game.value; if (!g) return null; const myC
 const connectionState = computed(() => connected.value ? 'online' : reconnecting.value ? 'reconnecting' : 'offline');
 const connectionLabel = computed(() => connected.value ? 'Vox online' : reconnecting.value ? 'Reconnecting' : 'Vox offline');
 const spectator = computed(() => game.value?.isSpectator === true);
+// Set on any state the server hands back as adminState() — now reachable
+// from the ordinary spectate-fallback and reconnect paths (see game:spectate/
+// game:state server-side), not just a dedicated entry point. There is no
+// longer a client-visible "admin mode" button anywhere; the server just
+// quietly upgrades a recognized admin identity wherever it would otherwise
+// have gotten the redacted spectator view.
 const adminObserver = computed(() => game.value?.isAdminObserver === true);
-// Whether THIS browser's identity is on the server's hidden admin allowlist —
-// checked once on connect so JoinView can decide whether to render the
-// "Enter without a seat" entry point at all, rather than showing it to every
-// visitor and letting the server silently reject non-admins.
-const isAdminIdentity = ref(false);
 
 function readJson(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
 function saveProfile(data) { if (!data) return; profile.value = { ...(profile.value || {}), ...data }; localStorage.setItem('heresy-rising:profile', JSON.stringify(profile.value)); if (data.playerCode) setPlayerCode(data.playerCode); }
@@ -138,6 +139,12 @@ async function switchToGame(code) {
     }
   } catch (e) { notify(e.message || 'Unable to switch conclaves.'); }
 }
+// The server silently upgrades a recognized admin identity to the full
+// adminState() view here instead of the redacted spectate() one — see
+// game:spectate server-side. When that happens there's no seat to attach
+// notes/bookmarks to and chat:history would reject the call anyway (no
+// hr_players row), so this skips straight past the normal spectator
+// bookkeeping for that case.
 async function spectateGame(code) {
   if (!code) return;
   try {
@@ -148,63 +155,21 @@ async function spectateGame(code) {
       game.value = state;
       saveGameCode(state.code);
       history.replaceState({}, '', `?game=${state.code}`);
+      channel.value = 'public';
+      messagesByChannel.value = { public: [], faction: [], graveyard: [] };
+      hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
+      if (state.isAdminObserver) return;
       // data.playerCode is a throwaway spec_ tag the server mints purely to
       // filter broadcasts to this socket (index.js game:spectate handler) —
       // nothing persists it server-side, so it must never overwrite the
       // real identity createGame()/joinGame() read from profile.playerCode.
       saveProfile({ isSpectator: true });
-      messagesByChannel.value = { public: [], faction: [], graveyard: [] };
-      hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
       await loadHistory();
     }
   } catch (e) { error.value = e.message; notify(e.message); }
 }
-// Admin full-visibility observer: never inserts an hr_players row server-side
-// (see game:admin-observe), so this deliberately skips saveProfile/loadNotes/
-// loadHistory — there is no player seat to attach notes/bookmarks to, and
-// chat:history's per-channel authorization assumes a real player. The
-// adminState payload already carries everything (allMessages/allActions/
-// allVotes/unredacted roles) in one shot, and keeps arriving live via the
-// same game:state/phase:updated/game:ended pushes every other viewer gets
-// (see receiveState) — GameView reads game.allMessages directly for this
-// viewer rather than the per-channel messagesByChannel history flow.
-async function observeGame(form) {
-  const roomCode = form?.roomCode;
-  if (!roomCode) return;
-  try {
-    await ensureConnected();
-    const data = await emitWithAck('game:admin-observe', { code: roomCode });
-    const state = normalize(data);
-    if (state) {
-      game.value = state;
-      saveGameCode(state.code);
-      history.replaceState({}, '', `?game=${state.code}`);
-      channel.value = 'public';
-      messagesByChannel.value = { public: [], faction: [], graveyard: [] };
-      hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
-    }
-  } catch (e) { notify(e.message || 'Observe failed'); }
-}
-// Admin-only: found a Conclave without taking a seat in it — same
-// no-hr_players-row contract as observeGame above, so the same bookkeeping
-// (or lack of it) applies.
-async function adminCreateGame(form) {
-  try {
-    await ensureConnected();
-    const data = await emitWithAck('game:admin-create', { mode: form?.mode || 'live' });
-    const state = normalize(data);
-    if (state) {
-      game.value = state;
-      saveGameCode(state.code);
-      history.replaceState({}, '', `?game=${state.code}`);
-      channel.value = 'public';
-      messagesByChannel.value = { public: [], faction: [], graveyard: [] };
-      hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
-    }
-  } catch (e) { notify(e.message || 'Could not found conclave'); }
-}
 // Admin-only: give up a seat already held in THIS lobby, converting to the
-// same seatless full-visibility mode as observeGame/adminCreateGame above.
+// same seatless full-visibility mode spectateGame can upgrade into above.
 // Lobby-phase-only server-side (see vacateSeat()).
 async function vacateSeat() {
   if (!game.value?.code) return;
@@ -385,7 +350,7 @@ function receiveAnnouncement(payload) {
   clearTimeout(announcementTimer);
 }
 function dismissAnnouncement() { clearTimeout(announcementTimer); announcement.value = null; }
-function onConnect() { connected.value = true; reconnecting.value = false; emitWithAck('player:is-admin', {}).then(data => { isAdminIdentity.value = !!data?.isAdmin; }).catch(() => {}); const code=game.value?.code||readJson('heresy-rising:game');const profile=readJson('heresy-rising:profile',{});if(code){if(profile.isSpectator){spectateGame(code).catch(()=>{});}else{emitWithAck('game:state',{code,playerCode:getPlayerCode()}).then(data=>{receiveState(data);return loadHistory();}).then(()=>loadNotes()).catch(()=>{});}}}
+function onConnect() { connected.value = true; reconnecting.value = false; const code=game.value?.code||readJson('heresy-rising:game');const profile=readJson('heresy-rising:profile',{});if(code){if(profile.isSpectator){spectateGame(code).catch(()=>{});}else{emitWithAck('game:state',{code,playerCode:getPlayerCode()}).then(data=>{receiveState(data);return loadHistory();}).then(()=>loadNotes()).catch(()=>{});}}}
 function onDisconnect() { connected.value = false; reconnecting.value = true; }
 async function maybeAutoJoin() {
   if (game.value) return;
@@ -393,6 +358,35 @@ async function maybeAutoJoin() {
   const savedCode = profile.value?.playerCode;
   const target = initialCode.value;
   if (!target || !savedName || !savedCode) return;
+  // Two distinct cases share this one entry point, and need different
+  // handling: returning to a game we were already part of after a full page
+  // reload (game.value starts null, so game:state's own smart reconnect —
+  // member -> reconnect(), admin -> adminState(), else -> spectate() — is
+  // what should decide what we get back) vs. a genuinely fresh invite link
+  // to a game we've never touched (where join-then-fallback-to-spectate is
+  // right, since a brand new player hitting a still-open lobby should
+  // become a player). heresy-rising:game (raw string, NOT JSON — saveGameCode
+  // stores it directly) is the signal: matches this URL's code -> we were
+  // just here, use game:state; anything else -> joinOrSpectate. A plain
+  // joinOrSpectate() for the "returning" case has no idea about admin
+  // status and would silently re-seat a seatless admin as an ordinary
+  // player the instant the lobby's still open.
+  if (target === localStorage.getItem('heresy-rising:game')) {
+    try {
+      const data = await emitWithAck('game:state', { code: target, playerCode: savedCode });
+      receiveState(data);
+      // A seatless admin has no hr_players row to fetch history/notes for —
+      // chat:history/notes:list would reject the call and command() surfaces
+      // that as a visible toast regardless of this try/catch (it notifies
+      // before re-throwing), so this must skip them entirely rather than
+      // just letting them fail silently. Same guard spectateGame() already
+      // uses for the same reason.
+      if (game.value?.isAdminObserver) return;
+      await loadHistory();
+      await loadNotes();
+    } catch {}
+    return;
+  }
   await joinOrSpectate({ name: savedName, roomCode: target });
 }
 onMounted(() => { if (isAdminRoute) return; loadSettings(); clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); socket.on('bookmark:added', receiveBookmarkAdded); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); window.addEventListener('click', unlockAudio, { once: true }); window.addEventListener('keydown', unlockAudio, { once: true }); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
