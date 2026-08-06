@@ -757,7 +757,7 @@
           </g>
         </svg>
       </div>
-      <figcaption>The bodyguard is checked <b>before</b> the protect, so a doubled-up defence wastes the Chirurgeon entirely — the Arbitrator claims the hit and dies for it. The target-trap branch is the only interrupt in the chain that taxes without stopping.</figcaption>
+      <figcaption>The bodyguard is checked <b>before</b> the protect, so on a doubled-up defence the Arbitrator claims the hit and dies for it while the protect is never consulted at all. The target-trap branch is the only interrupt in the chain that taxes without stopping.</figcaption>
     </figure>
   </section>
 
@@ -1011,8 +1011,8 @@
       </div>
 
       <div class="note">
-        <h3>Doubling defences is strictly worse</h3>
-        <p>Bodyguard is checked before protect, and once a guard claims the hit the protect is never consulted. Chirurgeon and Arbitrator both covering the same player costs the table a dead Arbitrator and a wasted Chirurgeon night, where either alone would have cost nothing.</p>
+        <h3>Doubling defences costs you the Arbitrator</h3>
+        <p>Protect is <em>registered</em> first, at station 2 — but the attack <em>reads</em> the bodyguard first, and once a guard claims the hit the protect is never consulted. Against a kill or a ritual, covering one player with both leaves the target alive either way and the Arbitrator dead. The protect still does its other work that night, though: it cured plague at station 2, and <code>protectedIds</code> still blocks a Catalyst conversion (7) and a possession (10) independently of any guard. The overlap is only wasteful against violence.</p>
       </div>
 
       <div class="note">
@@ -1055,6 +1055,11 @@
       <div class="note edge">
         <h3>Blood Ritual ignores actor-traps</h3>
         <p>A trapped attacker loses a kill but not a ritual — the Blood Ritual station only checks the target. The in-code comment justifies this by claiming a trapped Heretic cannot submit, which is not how traps work; they resolve at night-end and never touch submission.</p>
+      </div>
+
+      <div class="note edge">
+        <h3>A protected bodyguard still dies</h3>
+        <p>The redirect reassigns the victim to the guard, but the protect check that follows tests the <em>original</em> target and is skipped outright once a redirect happened. A Chirurgeon covering the Arbitrator cannot save them from a hit the Arbitrator intercepted.</p>
       </div>
 
       <div class="note edge">
