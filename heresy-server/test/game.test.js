@@ -938,3 +938,42 @@ test('admin: adminState() exposes all roles and actions even pre-game-end', () =
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('admin: adminCreate() founds a game with no seat for the founder', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      adminPlayerCodes: new Set(['founder'])
+    });
+
+    const { code, state } = manager.adminCreate({ playerCode: 'founder', mode: 'live' });
+    assert.equal(state.isAdminObserver, true, 'returns an adminState, not a player state');
+    assert.equal(state.players.length, 0, 'founder is not seated as a player');
+    assert.equal(manager.player(code, 'founder'), undefined, 'no hr_players row exists for the founder');
+
+    // A real player can still join and see a normal, playable lobby.
+    manager.join({ code, playerCode: 'p1', name: 'Real Player' });
+    const playerState = manager.state(code, 'p1');
+    assert.equal(playerState.players.length, 1);
+    assert.equal(playerState.players[0].isHost, false, 'nobody resolves as host — the founder never took a seat');
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: adminCreate() rejects a non-admin caller', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      adminPlayerCodes: new Set()
+    });
+    assert.throws(() => manager.adminCreate({ playerCode: 'not-admin', mode: 'live' }), /Admin permission required/);
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

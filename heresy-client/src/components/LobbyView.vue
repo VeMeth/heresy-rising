@@ -53,7 +53,7 @@
           </li>
         </ul>
         <p v-if="players.length < rules.MIN_PLAYERS" class="notice">At least {{ rules.MIN_PLAYERS }} operatives are required.</p>
-        <button class="secondary wide ready-in-ops" :class="{selected:me?.ready}" :disabled="busy" @click="$emit('ready')">{{ me?.ready?'Stand down':'Mark ready' }}</button>
+        <button v-if="me" class="secondary wide ready-in-ops" :class="{selected:me?.ready}" :disabled="busy" @click="$emit('ready')">{{ me?.ready?'Stand down':'Mark ready' }}</button>
       </article>
 
       <article class="panel setup-card params-cell">

@@ -322,6 +322,10 @@ export function createHeresyServer({ databasePath, now } = {}) {
     ackWrap(socket,'bookmark:note',p=>{const code=normalizeRoomCode(p.code),ownerCode=auth(socket,p);return {bookmark:gameManager.annotateBookmark(code,ownerCode,p.messageId,p.note)};});
     ackWrap(socket,'game:list-mine',p=>({games:gameManager.listPlayerGames(auth(socket,p))}));
     ackWrap(socket,'game:create',p=>{const playerCode=auth(socket,p);const result=gameManager.create({playerCode,name:p.name,mode:p.mode,options:p.options});socket.join(result.code);return result;});
+    // Admin-only: found a Conclave without taking a seat — same "never a
+    // player" contract as game:admin-observe (no hr_players row, socket
+    // never trusted on playerCode alone for anything privileged).
+    ackWrap(socket,'game:admin-create',p=>{const playerCode=auth(socket,p);const result=gameManager.adminCreate({playerCode,mode:p.mode,options:p.options});socket.data.isAdminObserver=true;socket.join(result.code);return result;});
     ackWrap(socket,'game:join',p=>{const playerCode=auth(socket,p),code=normalizeRoomCode(p.code);const state=gameManager.join({code,playerCode,name:p.name});socket.join(code);broadcast(code);return {state};});
     ackWrap(socket,'game:spectate',p=>{const code=normalizeRoomCode(p.code);const normalized=typeof p.playerCode==='string'?normalizePlayerCode(p.playerCode):'';const spectatorCode=normalized.length<4?'spec_'+Math.random().toString(36).slice(2,10)+'_'+Date.now().toString(36).slice(-4):normalized;socket.data.spectatorCode=spectatorCode;socket.join(code);const state=gameManager.spectate(code);return {state,playerCode:spectatorCode};});
     // Full-visibility admin observer: never joins as a player (no hr_players

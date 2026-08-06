@@ -17,7 +17,6 @@
         <label>Operative name<input v-model.trim="name" required maxlength="30" autocomplete="nickname" placeholder="Enter a callsign"></label>
         <label>Conclave code<input v-model.trim="code" maxlength="8" autocapitalize="characters" placeholder="e.g. CADIA" @input="code = code.toUpperCase()"></label>
         <button class="primary wide" :disabled="busy || !name || !code">Join existing conclave</button>
-        <button type="button" class="ghost compact observe-btn" :disabled="busy || !code" @click="emitObserve">Observe</button>
         <div class="divider"><span>or found a new conclave</span></div>
         <div class="mode-select" role="group" aria-label="Game pace">
           <button type="button" :class="{ active: mode === 'live' }" @click="mode='live'"><strong>Live</strong><small>Minutes per phase</small></button>
@@ -27,6 +26,16 @@
       </form>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
       <details class="recovery"><summary>Restore an existing identity</summary><form @submit.prevent="$emit('recover', recoveryCode.trim().toUpperCase())"><input v-model="recoveryCode" placeholder="Player recovery code" maxlength="40"><button class="ghost">Restore</button></form></details>
+      <details class="recovery">
+        <summary>Enter without a seat</summary>
+        <form class="seatless-form" @submit.prevent>
+          <input v-model.trim="seatlessCode" maxlength="8" autocapitalize="characters"
+                 placeholder="Conclave code — blank founds a new one"
+                 @input="seatlessCode = seatlessCode.toUpperCase()">
+          <button type="button" class="ghost" :disabled="busy || !!seatlessCode" @click="emitAdminCreate">Found conclave</button>
+          <button type="button" class="ghost" :disabled="busy || !seatlessCode" @click="emitObserve">Enter conclave</button>
+        </form>
+      </details>
       <div v-if="profile?.playerCode" class="identity"><span>Identity secured</span><code>{{ profile.playerCode }}</code></div>
     </div>
   </section>
@@ -34,13 +43,14 @@
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref } from 'vue';
 const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object });
-const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref('');
+const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref(''); const seatlessCode = ref('');
 const fallbackQuote = { lead: 'Trust is a ', highlight: 'fatal weakness.' };
 const quoteParts = ref(fallbackQuote);
 function join(){ if(name.value && code.value) emitJoin(); }
-const emit = defineEmits(['join','create','recover','observe']);
+const emit = defineEmits(['join','create','recover','observe','admin-create']);
 function emitJoin(){ emit('join',{ name:name.value, roomCode:code.value.toUpperCase() }); }
-function emitObserve(){ if(code.value) emit('observe',{ roomCode:code.value.toUpperCase() }); }
+function emitObserve(){ if(seatlessCode.value) emit('observe',{ roomCode:seatlessCode.value.toUpperCase() }); }
+function emitAdminCreate(){ if(!seatlessCode.value) emit('admin-create',{ mode:mode.value }); }
 function splitQuote(text) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return fallbackQuote;
@@ -105,7 +115,10 @@ onUnmounted(() => {
 });
 </script>
 <style scoped>
-/* Deliberately unobtrusive — this is a hidden admin entry point, not a
-   second CTA competing with "Join existing conclave". */
-.observe-btn { margin-top: 8px; width: 100%; }
+/* Deliberately unobtrusive — folded into the same collapsed-by-default
+   pattern as "Restore an existing identity" just above it, not a second CTA
+   competing with "Join existing conclave" / "Create a conclave". */
+.recovery .seatless-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.recovery .seatless-form input { flex: 1 1 140px; width: auto; }
+.recovery .seatless-form button { flex: 0 0 auto; white-space: nowrap; }
 </style>

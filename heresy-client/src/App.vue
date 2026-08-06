@@ -25,7 +25,7 @@
 
     <main>
       <JoinView v-if="!game" :busy="busy" :error="error" :initial-room-code="initialCode"
-        :profile="profile" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" @observe="observeGame" />
+        :profile="profile" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" @observe="observeGame" @admin-create="adminCreateGame" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
         :composition-errors="compositionErrors" :messages="messages"
         :has-more="hasMoreByChannel[channel]" :admin-observer="adminObserver"
@@ -179,6 +179,24 @@ async function observeGame(form) {
       hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
     }
   } catch (e) { notify(e.message || 'Observe failed'); }
+}
+// Admin-only: found a Conclave without taking a seat in it — same
+// no-hr_players-row contract as observeGame above, so the same bookkeeping
+// (or lack of it) applies.
+async function adminCreateGame(form) {
+  try {
+    await ensureConnected();
+    const data = await emitWithAck('game:admin-create', { mode: form?.mode || 'live' });
+    const state = normalize(data);
+    if (state) {
+      game.value = state;
+      saveGameCode(state.code);
+      history.replaceState({}, '', `?game=${state.code}`);
+      channel.value = 'public';
+      messagesByChannel.value = { public: [], faction: [], graveyard: [] };
+      hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
+    }
+  } catch (e) { notify(e.message || 'Could not found conclave'); }
 }
 async function toggleReady() { try { await command('game:ready', { code: game.value.code, ready: !me.value?.ready }); } catch {} }
 async function kickPlayer(targetCode) { if (!targetCode || !game.value?.code) return; try { await command('game:kick', { code: game.value.code, targetCode }); } catch (e) { notify(e.message || 'Kick failed'); } }
