@@ -21,7 +21,7 @@
         <ul class="player-list">
           <li v-for="p in alive" :key="p.playerCode" :class="{me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.playerCode!==me?.playerCode,unavailable:p.playerCode===me?.playerCode,'lynch-leader':lynchLeaders.includes(p.playerCode),kill:lynchLeaders.includes(p.playerCode)&&lynchLeaderOutcome==='kill',torture:lynchLeaders.includes(p.playerCode)&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
             <span class="portrait" :class="{'admin-seal': p.isAdmin}" :data-status="portraitStatus(p)" :title="p.isAdmin ? 'Inquisitorial seal — admin access' : null" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
-            <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.torturedBefore" class="tortured-badge" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">TORTURED</small></div>
+            <div><strong :title="p.name">{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.torturedBefore" class="tortured-badge" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">TORTURED</small></div>
             <span class="row-controls">
               <button v-if="!readOnly" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
               <small v-if="votingOpen" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
@@ -34,7 +34,7 @@
           <ul class="player-list dead-list">
             <li v-for="p in dead" :key="p.playerCode" class="dead" :class="{me:p.playerCode===me?.playerCode,'lynch-leader':lynchLeaders.includes(p.playerCode),kill:lynchLeaders.includes(p.playerCode)&&lynchLeaderOutcome==='kill',torture:lynchLeaders.includes(p.playerCode)&&lynchLeaderOutcome==='torture'}" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
               <span class="portrait" :class="{'admin-seal': p.isAdmin}" data-status="deceased" :title="p.isAdmin ? 'Inquisitorial seal — admin access' : null" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
-              <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
+              <div><strong :title="p.name">{{ p.name }}</strong><span>{{ status(p) }}</span></div>
               <span class="row-controls">
                 <span class="death-badge" :class="{executed:['lynch','execute-on-sight'].includes(p.deathCause)}" :title="deathCauseLabel(p)"><svg class="death-glyph" aria-hidden="true"><use :href="deathGlyph(p)"/></svg></span>
                 <button v-if="!readOnly" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
@@ -790,7 +790,11 @@ onBeforeUnmount(()=>{cancelLongPress();clearTimeout(jumpHighlightTimer)});
   border-left: 2px solid rgba(182, 154, 92, 0.4);
   border-radius: 2px;
   background: linear-gradient(160deg, rgba(24, 26, 22, 0.6), rgba(13, 15, 13, 0.6));
-  padding: 10px 12px;
+  padding: 10px 10px;
+  /* Tighter than the 12px this shares with the lobby roster (style.css) —
+     the sidebar column is a fixed 250px (game-grid), and every pixel of
+     gap/padding here is a pixel the name doesn't get before it truncates. */
+  gap: 8px;
   margin: 0;
   transition: border-color 0.15s ease, background-color 0.15s ease;
   /* Long-press opens the dossier — without this, iOS shows its own text
@@ -798,34 +802,31 @@ onBeforeUnmount(()=>{cancelLongPress();clearTimeout(jumpHighlightTimer)});
      text-selection long-press of its own. */
   -webkit-touch-callout: none;
   user-select: none;
-  /* A long or double-barrelled name plus its status line can outgrow the
-     row before the trailing controls run out of room. Letting the row wrap
-     drops the controls to their own line instead of pushing them past the
-     panel edge — see .row-controls below. */
-  flex-wrap: wrap;
 }
 /* The name/status column is a flex item like any other, so without an
    explicit basis it defaults to its own min-content width (the longest
    unbreakable run of characters) and refuses to shrink below that,
-   overflowing the row. min-width:0 lifts that floor; basis:auto keeps its
-   hypothetical size content-driven (not a guessed pixel value) so the
-   wrap decision above reflects how much room the actual name needs. */
+   overflowing the row. min-width:0 lifts that floor so it can actually
+   shrink down to whatever's left after the portrait and controls, and the
+   name/status text below truncates into that space instead of wrapping the
+   row into a tall, unbalanced card. */
 .player-list li > div {
   min-width: 0;
   flex: 1 1 auto;
 }
-.player-list li > div > strong {
-  overflow-wrap: anywhere;
+.player-list li > div > strong,
+.player-list li > div > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-/* Dossier button, vote tally and the online dot travel together — if they
-   don't fit on the name's line they drop to their own line as a group,
-   right-aligned, rather than splitting apart mid-row. */
+/* Dossier button, vote tally and the online dot travel together at the row's
+   trailing edge. */
 .player-list .row-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex: 0 0 auto;
-  margin-left: auto;
 }
 .player-list li.me {
   border-color: var(--gold);
