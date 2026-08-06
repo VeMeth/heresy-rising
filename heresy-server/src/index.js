@@ -326,6 +326,14 @@ export function createHeresyServer({ databasePath, now } = {}) {
     // player" contract as game:admin-observe (no hr_players row, socket
     // never trusted on playerCode alone for anything privileged).
     ackWrap(socket,'game:admin-create',p=>{const playerCode=auth(socket,p);const result=gameManager.adminCreate({playerCode,mode:p.mode,options:p.options});socket.data.isAdminObserver=true;socket.join(result.code);return result;});
+    // Lets the client silently check "is this browser's identity an admin"
+    // before deciding whether to even render the admin entry points —
+    // answers only about the CALLER's own playerCode, never anyone else's,
+    // so it can't be used to probe the allowlist.
+    ackWrap(socket,'player:is-admin',p=>({isAdmin:gameManager.isAdmin(auth(socket,p))}));
+    // Give up a seat already held in a lobby, converting to the same
+    // seatless admin mode as game:admin-observe/game:admin-create.
+    ackWrap(socket,'game:admin-vacate-seat',p=>{const code=normalizeRoomCode(p.code);const playerCode=auth(socket,p);const state=gameManager.vacateSeat(code,playerCode);socket.data.isAdminObserver=true;broadcast(code);return {state};});
     ackWrap(socket,'game:join',p=>{const playerCode=auth(socket,p),code=normalizeRoomCode(p.code);const state=gameManager.join({code,playerCode,name:p.name});socket.join(code);broadcast(code);return {state};});
     ackWrap(socket,'game:spectate',p=>{const code=normalizeRoomCode(p.code);const normalized=typeof p.playerCode==='string'?normalizePlayerCode(p.playerCode):'';const spectatorCode=normalized.length<4?'spec_'+Math.random().toString(36).slice(2,10)+'_'+Date.now().toString(36).slice(-4):normalized;socket.data.spectatorCode=spectatorCode;socket.join(code);const state=gameManager.spectate(code);return {state,playerCode:spectatorCode};});
     // Full-visibility admin observer: never joins as a player (no hr_players
@@ -342,7 +350,12 @@ export function createHeresyServer({ databasePath, now } = {}) {
     ackWrap(socket,'game:configure',p=>{const code=normalizeRoomCode(p.code);gameManager.configure(code,auth(socket,p),p.setup);broadcast(code);return{state:gameManager.player(code,socket.data.playerCode)?gameManager.state(code,socket.data.playerCode):gameManager.adminState(code)};});
     ackWrap(socket,'game:advance-phase',p=>{const code=normalizeRoomCode(p.code);gameManager.advance(code,auth(socket,p));broadcast(code,'phase:updated');return {state:gameManager.state(code,socket.data.playerCode)};});
     ackWrap(socket,'chat:history',p=>(gameManager.historyMessages(normalizeRoomCode(p.code),auth(socket,p),p.channel,p.before,p.limit)));
-    ackWrap(socket,'chat:send',p=>{const code=normalizeRoomCode(p.code),message=gameManager.sendMessage(code,auth(socket,p),p.channel||'public',p.body);broadcastMessage(code,message);return {message};});
+    // pushAdminObservers here (unlike the plain broadcastMessage admin
+    // branch, which only streams the raw single message live) refreshes
+    // admin-observer sockets' whole game.allMessages — LobbyView/GameView's
+    // effectiveMessages reads from that array, not from incrementally
+    // merged chat:message events (see Ticket 5's shape-mismatch note).
+    ackWrap(socket,'chat:send',p=>{const code=normalizeRoomCode(p.code),message=gameManager.sendMessage(code,auth(socket,p),p.channel||'public',p.body,p.name);broadcastMessage(code,message);pushAdminObservers(code);return {message};});
     // H6 Animus's possession-day chat — no once-per-day limit (unlike
     // Conspirator's forge), target is never client-supplied (see
     // sendMessageAs's own comment).

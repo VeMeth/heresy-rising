@@ -643,6 +643,20 @@ export class HeresyGameManager {
     const {code}=this._foundGame({playerCode,mode,options});
     return {code,state:this.adminState(code)};
   }
+  // Admin-only: give up a seat you already hold in a lobby you're already
+  // in, converting to the same seatless full-visibility mode as
+  // adminCreate/game:admin-observe — the "I want to run a bot game without
+  // playing in it" path. Lobby-phase-only, same as kick(); host_code is left
+  // pointing at the vacated code (nobody resolves as host to real players
+  // from then on) rather than reassigned, matching adminCreate's contract.
+  vacateSeat(c,p){
+    this.requireAdmin(p);
+    const g=this.requireGame(c);
+    if(g.phase!=='lobby')throw new Error('You can only vacate your seat while still in the lobby');
+    this.requirePlayer(c,p);
+    this.db.prepare('DELETE FROM hr_players WHERE game_code=? AND player_code=?').run(c,p);
+    return this.adminState(c);
+  }
   join({code,playerCode,name}){const g=this.requireGame(code);let p=this.player(code,playerCode);if(!p){if(g.phase!=='lobby')throw new Error('Game already started');const count=this.players(code).length;if(count>=this.config.rules.MAX_PLAYERS)throw new Error('Game is full');this.db.prepare('INSERT INTO hr_players(game_code,player_code,name,seat,joined_at) VALUES(?,?,?,?,?)').run(code,playerCode,sanitizePlayerName(name),count,this.now());}else this.db.prepare('UPDATE hr_players SET connected=1 WHERE game_code=? AND player_code=?').run(code,playerCode);return this.state(code,playerCode);}
   disconnect(playerCode,gameCode){if(gameCode)this.db.prepare('UPDATE hr_players SET connected=0 WHERE game_code=? AND player_code=?').run(gameCode,playerCode);else this.db.prepare('UPDATE hr_players SET connected=0 WHERE player_code=?').run(playerCode);}
   // Explicit "Leave conclave" — distinct from disconnect() (a dropped
@@ -1256,7 +1270,14 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   finishIfWon(c){const players=this.players(c),living=players.filter(x=>x.alive),h=living.filter(x=>x.faction==='heretic').length,l=living.filter(x=>x.faction==='loyalist').length;let winner=h>=l?'heretic':null;if(!winner&&players.filter(x=>x.faction==='heretic').every(x=>!x.alive))winner='loyalist';if(!winner)return false;
     // TODO(heresy-spec): Q32 — Pyrrhic/no-clean-win is explicitly deferred from v1.
     this.db.prepare("UPDATE hr_games SET phase='ended',status='ended',winner=?,deadline=NULL WHERE code=?").run(winner,c);this.system(c,`Game over. ${winner} victory.`);const gEnd=this.game(c);this.emitAnnouncement(c,{type:'gameover',title:'GAME OVER',message:`${winner} victory. The conclave is dissolved.`,winner,round:gEnd.round});saveGameLogSnapshot({gameLogId:c,code:c,phase:gEnd.phase,winner:gEnd.winner,round:gEnd.round,maxDrift:gEnd.max_drift,mode:gEnd.mode,status:gEnd.status,players:this.players(c).map(p=>({id:p.player_code,name:p.name,hero:p.role_id||null,playerCode:p.player_code,seat:p.seat,roleId:p.role_id||null,faction:p.faction,drift:p.drift,alive:!!p.alive,crippleTier:p.cripple_tier,isBot:!!p.is_bot})),debugLog:this.db.prepare('SELECT * FROM hr_events WHERE game_code=? ORDER BY id').all(c),history:this.db.prepare('SELECT id,channel,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? ORDER BY id').all(c),createdAt:gEnd.created_at});return true;}
-  sendMessage(c,p,channel,body){const g=this.game(c),player=this.requirePlayer(c,p);this.authorizeChannel(g,player,channel,true);return this.insertMessage(c,channel,null,p,this.displayName(g,player),String(body||'').trim().slice(0,1000),'player');}
+  // Seatless admin path: no hr_players row, so none of authorizeChannel's
+  // alive/phase/possession checks apply to them — deliberate, since an
+  // "emergency broadcast" is exactly for the moments normal public chat is
+  // closed (night phase, dead-required, etc). Restricted to 'public' only —
+  // there's no faction/graveyard/alive state to authorize against for a
+  // non-player. adminName is client-supplied (their own saved profile name,
+  // see App.vue's sendMessage) purely for display — cosmetic, not identity.
+  sendMessage(c,p,channel,body,adminName){const g=this.game(c),player=this.player(c,p);if(!player){this.requireAdmin(p);if(channel!=='public')throw new Error('Admin broadcast is public-channel only');const author='God Emperor of Mankind'+(adminName?` (${String(adminName).trim().slice(0,30)})`:'');return this.insertMessage(c,'public',null,p,author,String(body||'').trim().slice(0,1000),'admin');}this.authorizeChannel(g,player,channel,true);return this.insertMessage(c,channel,null,p,this.displayName(g,player),String(body||'').trim().slice(0,1000),'player');}
   // H6 Animus: unlike Conspirator's forge() (day action, once/day, caller
   // names the target), this is unlimited for the possession day and the
   // target is never client-supplied — always derived from the server's own

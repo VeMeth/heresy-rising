@@ -10,19 +10,19 @@
     </div>
     <div class="lobby-grid">
       <section class="panel chat-panel chat-cell">
-        <header><h2>Lobby vox</h2><span>{{ messages.length }} transmission{{ messages.length===1?'':'s' }}</span></header>
-        <button v-if="messages.length && hasMore" class="load-history" @click="$emit('history', messages[0]?.id)">Load earlier transmissions</button>
+        <header><h2>Lobby vox</h2><span>{{ effectiveMessages.length }} transmission{{ effectiveMessages.length===1?'':'s' }}</span></header>
+        <button v-if="!isSeatless && effectiveMessages.length && hasMore" class="load-history" @click="$emit('history', effectiveMessages[0]?.id)">Load earlier transmissions</button>
         <div ref="feed" class="message-feed">
-          <div v-if="!messages.length" class="empty-chat">
+          <div v-if="!effectiveMessages.length" class="empty-chat">
             <strong>No transmissions recorded</strong>
             <p>Be the first to break the silence.</p>
           </div>
-          <article v-for="m in messages" :key="m.id || (m.createdAt + '-' + m.author)" :class="['message',{system:m.kind==='system',vote:m.kind==='vote'}]">
+          <article v-for="m in effectiveMessages" :key="m.id || (m.createdAt + '-' + m.author)" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',admin:m.kind==='admin'}]">
             <span v-if="m.kind==='system'" class="system-line">{{ m.body }}</span>
             <template v-else>
               <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
               <div>
-                <header><strong>{{ m.author }}</strong><time>{{ formatTime(m.createdAt) }}</time></header>
+                <header><strong>{{ m.author }}</strong><small v-if="m.kind==='admin'" class="admin-msg-badge">ADMIN</small><time>{{ formatTime(m.createdAt) }}</time></header>
                 <p>{{ m.body }}</p>
               </div>
             </template>
@@ -54,6 +54,10 @@
         </ul>
         <p v-if="players.length < rules.MIN_PLAYERS" class="notice">At least {{ rules.MIN_PLAYERS }} operatives are required.</p>
         <button v-if="me" class="secondary wide ready-in-ops" :class="{selected:me?.ready}" :disabled="busy" @click="$emit('ready')">{{ me?.ready?'Stand down':'Mark ready' }}</button>
+        <!-- Admin-only: convert this seat into a seatless admin observer of
+             the same lobby — the "run a bot game without playing in it"
+             path. Only ever visible to the admin's own client. -->
+        <button v-if="me && isAdmin" type="button" class="ghost wide vacate-seat-btn" :disabled="busy" @click="$emit('vacate-seat')">Vacate seat — become admin</button>
       </article>
 
       <article class="panel setup-card params-cell">
@@ -384,7 +388,7 @@ const props = defineProps({
   // than folded into it.
   adminObserver: { type: Boolean, default: false },
 });
-const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors', 'send', 'history', 'kick']);
+const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors', 'send', 'history', 'kick', 'vacate-seat']);
 
 const players = computed(() => props.game.players || []);
 const isHost = computed(() => props.me?.isHost);
@@ -394,6 +398,14 @@ const isAdmin = computed(() => props.me?.isAdmin === true);
 // picking, pacing, and "Seal the chamber" all gate on this rather than
 // isHost alone, per requireHostOrAdmin() on the server side.
 const canManageLobby = computed(() => isHost.value || isAdmin.value || props.adminObserver);
+// No `me` only ever happens for a seatless admin here — a plain spectator
+// can't reach LobbyView at all (spectate() rejects lobby-phase games), so
+// this reliably means adminCreate/admin-observe/vacateSeat. Their chat
+// history arrives whole via adminState()'s allMessages (see App.vue's
+// admin flows, which all skip loadHistory()), not the normal paginated
+// per-channel fetch — so effectiveMessages reads straight from it instead.
+const isSeatless = computed(() => !props.me);
+const effectiveMessages = computed(() => isSeatless.value ? (props.game.allMessages || []).filter(m => (m.channel || 'public') === 'public') : props.messages);
 const playerCount = computed(() => players.value.length);
 const canStart = computed(() => playerCount.value >= rules.MIN_PLAYERS && players.value.every(p => p.ready));
 const presetCounts = Array.from({ length: rules.MAX_PLAYERS - rules.MIN_PLAYERS + 1 }, (_, i) => rules.MIN_PLAYERS + i);
@@ -1388,6 +1400,15 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 .ops-cell .kick-btn:disabled { opacity: .3; cursor: not-allowed; }
 .ops-cell .ready-in-ops { margin: 14px 18px 0; width: calc(100% - 36px); }
 .ops-cell .ready-in-ops.selected { border-color: #71905e; color: #c2d9b3; background: #1f2c1c; }
+.ops-cell .vacate-seat-btn { margin: 8px 18px 0; width: calc(100% - 36px); font-size: 9px; padding: 9px 14px; }
+
+/* Admin broadcast — obviously distinct from a normal operative's message,
+   never confusable with a real player line. */
+.chat-panel .message.admin { border-left: 3px solid var(--gold); background: rgba(182, 154, 92, .07); padding-left: 8px; }
+.chat-panel .admin-msg-badge {
+  background: var(--gold); color: #1a1710; font: 700 8px Inter; text-transform: uppercase;
+  letter-spacing: .08em; padding: 2px 6px; border-radius: 2px; margin-left: 7px; vertical-align: middle;
+}
 
 .avatar.mini { flex: 0 0 30px; height: 30px; font-size: 12px; }
 .composition-card { margin-top: 18px; padding: 22px 26px 28px; }

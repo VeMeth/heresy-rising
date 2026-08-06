@@ -977,3 +977,105 @@ test('admin: adminCreate() rejects a non-admin caller', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('admin: vacateSeat() removes the seat and switches to seatless admin state', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      adminPlayerCodes: new Set(['p0'])
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Admin Host' });
+    manager.join({ code, playerCode: 'p1', name: 'Real Player' });
+
+    const state = manager.vacateSeat(code, 'p0');
+    assert.equal(state.isAdminObserver, true);
+    assert.equal(manager.player(code, 'p0'), undefined, 'no hr_players row remains for the vacating admin');
+
+    // The real player is unaffected and no longer sees anyone as host.
+    const playerState = manager.state(code, 'p1');
+    assert.equal(playerState.players.length, 1);
+    assert.equal(playerState.players[0].isHost, false);
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: vacateSeat() rejects a non-admin and a non-seated caller', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      adminPlayerCodes: new Set(['admin1'])
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    assert.throws(() => manager.vacateSeat(code, 'p0'), /Admin permission required/, 'a normal seated host is not an admin');
+    assert.throws(() => manager.vacateSeat(code, 'admin1'), /Not a member/, 'an admin with no seat here has nothing to vacate');
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: vacateSeat() is blocked once the game has started', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      adminPlayerCodes: new Set(['p0'])
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    for (let i = 1; i < 5; i++) {
+      manager.join({ code, playerCode: `p${i}`, name: `P${i}` });
+      manager.ready(code, `p${i}`, true);
+    }
+    manager.ready(code, 'p0', true);
+    manager.start(code, 'p0');
+    assert.throws(() => manager.vacateSeat(code, 'p0'), /only vacate your seat while still in the lobby/);
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: sendMessage() lets a seatless admin post to public, marked distinctly', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      adminPlayerCodes: new Set(['founder'])
+    });
+    const { code } = manager.adminCreate({ playerCode: 'founder', mode: 'live' });
+
+    const msg = manager.sendMessage(code, 'founder', 'public', 'Testing, testing.', 'Vance');
+    assert.equal(msg.kind, 'admin');
+    assert.equal(msg.author, 'God Emperor of Mankind (Vance)');
+    assert.equal(msg.body, 'Testing, testing.');
+
+    const noName = manager.sendMessage(code, 'founder', 'public', 'No name given.');
+    assert.equal(noName.author, 'God Emperor of Mankind', 'no parenthetical when no admin name is supplied');
+
+    assert.throws(() => manager.sendMessage(code, 'founder', 'faction', 'sneaky'), /public-channel only/);
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: sendMessage() rejects a non-admin, non-seated caller', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      adminPlayerCodes: new Set()
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    assert.throws(() => manager.sendMessage(code, 'ghost', 'public', 'hi'), /Admin permission required/);
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

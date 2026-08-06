@@ -25,14 +25,14 @@
 
     <main>
       <JoinView v-if="!game" :busy="busy" :error="error" :initial-room-code="initialCode"
-        :profile="profile" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" @observe="observeGame" @admin-create="adminCreateGame" />
+        :profile="profile" :is-admin-identity="isAdminIdentity" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" @observe="observeGame" @admin-create="adminCreateGame" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
         :composition-errors="compositionErrors" :messages="messages"
         :has-more="hasMoreByChannel[channel]" :admin-observer="adminObserver"
         @ready="toggleReady" @start="startGame" @clear-errors="clearCompositionErrors"
         @configure="configureGame" @leave="leaveGame"
         @send="sendMessage" @history="loadHistory"
-        @kick="kickPlayer" />
+        @kick="kickPlayer" @vacate-seat="vacateSeat" />
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :has-more="hasMoreByChannel[channel]"
         :busy="busy" :now="now" :spectator="spectator" :admin-observer="adminObserver" :voting-enabled="game?.votingEnabled"
@@ -94,6 +94,11 @@ const connectionState = computed(() => connected.value ? 'online' : reconnecting
 const connectionLabel = computed(() => connected.value ? 'Vox online' : reconnecting.value ? 'Reconnecting' : 'Vox offline');
 const spectator = computed(() => game.value?.isSpectator === true);
 const adminObserver = computed(() => game.value?.isAdminObserver === true);
+// Whether THIS browser's identity is on the server's hidden admin allowlist —
+// checked once on connect so JoinView can decide whether to render the
+// "Enter without a seat" entry point at all, rather than showing it to every
+// visitor and letting the server silently reject non-admins.
+const isAdminIdentity = ref(false);
 
 function readJson(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
 function saveProfile(data) { if (!data) return; profile.value = { ...(profile.value || {}), ...data }; localStorage.setItem('heresy-rising:profile', JSON.stringify(profile.value)); if (data.playerCode) setPlayerCode(data.playerCode); }
@@ -198,13 +203,33 @@ async function adminCreateGame(form) {
     }
   } catch (e) { notify(e.message || 'Could not found conclave'); }
 }
+// Admin-only: give up a seat already held in THIS lobby, converting to the
+// same seatless full-visibility mode as observeGame/adminCreateGame above.
+// Lobby-phase-only server-side (see vacateSeat()).
+async function vacateSeat() {
+  if (!game.value?.code) return;
+  try {
+    const data = await emitWithAck('game:admin-vacate-seat', { code: game.value.code });
+    const state = normalize(data);
+    if (state) {
+      game.value = state;
+      channel.value = 'public';
+      messagesByChannel.value = { public: [], faction: [], graveyard: [] };
+      hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
+    }
+  } catch (e) { notify(e.message || 'Could not vacate seat'); }
+}
 async function toggleReady() { try { await command('game:ready', { code: game.value.code, ready: !me.value?.ready }); } catch {} }
 async function kickPlayer(targetCode) { if (!targetCode || !game.value?.code) return; try { await command('game:kick', { code: game.value.code, targetCode }); } catch (e) { notify(e.message || 'Kick failed'); } }
 function receiveKicked() { notify('You were removed from the conclave.'); leaveGame(); }
 async function startGame(composition) { try { await command('game:start', { code: game.value.code, setup: { maxDrift: game.value.setup?.maxDrift || game.value.maxDrift, dayMs: game.value.setup?.dayMs || game.value.dayMs, nightMs: game.value.setup?.nightMs || game.value.nightMs, ...(composition ? { composition } : {}) } }); compositionErrors.value = []; channel.value = 'public'; messagesByChannel.value = { public: [], faction: [], graveyard: [] }; hasMoreByChannel.value = { public: true, faction: true, graveyard: true }; await loadHistory(); } catch (e) { if (e.data?.errors) { compositionErrors.value = e.data.errors; error.value = ''; toast.value = ''; } } }
 function clearCompositionErrors() { compositionErrors.value = []; }
 async function configureGame(setup) { try { await command('game:configure', { code: game.value.code, setup }); } catch (e) { notify(e.message || 'Failed to update parameters'); } }
-async function sendMessage(body) { try { await command('chat:send', { code: game.value.code, channel: channel.value, body }); } catch {} }
+// name only matters server-side for a seatless admin's message (see
+// sendMessage()'s admin branch — it composes "God Emperor of Mankind (name)"
+// from it); the server ignores it entirely for a normal seated player's
+// message, which always uses their real seated displayName instead.
+async function sendMessage(body) { try { await command('chat:send', { code: game.value.code, channel: channel.value, body, name: profile.value?.name }); } catch {} }
 // H6 Animus's possession-day "speak as" — always public, no channel param
 // (the server derives who you're speaking as from its own live
 // possessed_by record, never from anything the client sends).
@@ -360,7 +385,7 @@ function receiveAnnouncement(payload) {
   clearTimeout(announcementTimer);
 }
 function dismissAnnouncement() { clearTimeout(announcementTimer); announcement.value = null; }
-function onConnect() { connected.value = true; reconnecting.value = false; const code=game.value?.code||readJson('heresy-rising:game');const profile=readJson('heresy-rising:profile',{});if(code){if(profile.isSpectator){spectateGame(code).catch(()=>{});}else{emitWithAck('game:state',{code,playerCode:getPlayerCode()}).then(data=>{receiveState(data);return loadHistory();}).then(()=>loadNotes()).catch(()=>{});}}}
+function onConnect() { connected.value = true; reconnecting.value = false; emitWithAck('player:is-admin', {}).then(data => { isAdminIdentity.value = !!data?.isAdmin; }).catch(() => {}); const code=game.value?.code||readJson('heresy-rising:game');const profile=readJson('heresy-rising:profile',{});if(code){if(profile.isSpectator){spectateGame(code).catch(()=>{});}else{emitWithAck('game:state',{code,playerCode:getPlayerCode()}).then(data=>{receiveState(data);return loadHistory();}).then(()=>loadNotes()).catch(()=>{});}}}
 function onDisconnect() { connected.value = false; reconnecting.value = true; }
 async function maybeAutoJoin() {
   if (game.value) return;

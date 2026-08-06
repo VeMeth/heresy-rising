@@ -74,12 +74,12 @@
                   <span class="day-count">{{ day.messages.length }}</span>
                 </header>
                 <div class="day-messages" v-show="day.expanded">
-                  <article :id="'hr-msg-'+m.id" v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
+                  <article :id="'hr-msg-'+m.id" v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',admin:m.kind==='admin',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
                     <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><button v-if="!readOnly" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
                     <template v-else>
                       <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
                       <div>
-                        <header><strong>{{ m.author }}</strong><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><time>{{ formatTime(m.createdAt) }}</time></header>
+                        <header><strong>{{ m.author }}</strong><small v-if="m.kind==='admin'" class="admin-msg-badge">ADMIN</small><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><time>{{ formatTime(m.createdAt) }}</time></header>
                         <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
                       </div>
                       <button v-if="!readOnly" type="button" class="bookmark-btn" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this message'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button>
@@ -88,12 +88,12 @@
                 </div>
               </section>
             </div>
-            <article :id="'hr-msg-'+m.id" v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
+            <article :id="'hr-msg-'+m.id" v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',admin:m.kind==='admin',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
               <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><button v-if="!readOnly" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
               <template v-else>
                 <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
                 <div>
-                  <header><strong>{{ m.author }}</strong><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><time>{{ formatTime(m.createdAt) }}</time></header>
+                  <header><strong>{{ m.author }}</strong><small v-if="m.kind==='admin'" class="admin-msg-badge">ADMIN</small><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><time>{{ formatTime(m.createdAt) }}</time></header>
                   <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
                 </div>
                 <button v-if="!readOnly" type="button" class="bookmark-btn" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this message'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button>
@@ -101,7 +101,7 @@
             </article>
           </template>
         </div>
-        <form v-if="!readOnly" class="composer" @submit.prevent="post">
+        <form v-if="!readOnly || (adminObserver && emergencyChatOpen)" class="composer" :class="{'admin-composer':adminObserver}" @submit.prevent="post">
           <label v-if="possessedTarget" class="speak-as-toggle">
             <input type="checkbox" v-model="speakAsTarget">
             Speak as {{ possessedTarget.name }}
@@ -110,11 +110,15 @@
             <ul v-if="mentionSuggestions.length" class="mention-suggestions">
               <li v-for="(p,i) in mentionSuggestions" :key="p.playerCode" :class="{active:i===mentionActiveIndex}" @mousedown.prevent="selectMention(p)">{{ p.name }}</li>
             </ul>
-            <textarea ref="composerInput" v-model.trim="draft" maxlength="1000" rows="2" :disabled="!canChat" :class="{'speaking-as':speakAsTarget&&possessedTarget}" :placeholder="canChat?(speakAsTarget&&possessedTarget?'Transmit as '+possessedTarget.name+'… (Enter to send)':'Transmit… (Enter to send, Shift+Enter for newline, @ to mention)'):(me?.possessed?'Possessed — you cannot speak today':'Channel sealed')" @keydown="onComposerKeydown" @input="syncMentionQuery" @keyup="onComposerKeyup" @click="syncMentionQuery"></textarea>
+            <textarea ref="composerInput" v-model.trim="draft" maxlength="1000" rows="2" :disabled="!canChat" :class="{'speaking-as':speakAsTarget&&possessedTarget}" :placeholder="adminObserver?'Emergency broadcast — visible to everyone, marked ADMIN… (Enter to send)':canChat?(speakAsTarget&&possessedTarget?'Transmit as '+possessedTarget.name+'… (Enter to send)':'Transmit… (Enter to send, Shift+Enter for newline, @ to mention)'):(me?.possessed?'Possessed — you cannot speak today':'Channel sealed')" @keydown="onComposerKeydown" @input="syncMentionQuery" @keyup="onComposerKeyup" @click="syncMentionQuery"></textarea>
           </div>
-          <button class="primary" :disabled="!draft||!canChat">Transmit</button>
+          <button class="primary" :disabled="!draft||!canChat">{{ adminObserver ? 'Broadcast' : 'Transmit' }}</button>
+          <button v-if="adminObserver" type="button" class="ghost" @click="emergencyChatOpen=false">Cancel</button>
         </form>
-        <div v-else class="composer"><p class="spectator-composer-note">{{ adminObserver ? 'Observing — transmissions sealed.' : 'Spectating — transmissions sealed.' }}</p></div>
+        <div v-else-if="adminObserver" class="composer admin-composer-gate">
+          <button type="button" class="ghost wide" @click="emergencyChatOpen=true">Emergency broadcast</button>
+        </div>
+        <div v-else class="composer"><p class="spectator-composer-note">Spectating — transmissions sealed.</p></div>
       </section>
       <aside class="panel orders-panel" :class="{'mobile-hidden':mobileTab!=='orders'}">
         <span class="panel-frame-corner tl"></span><span class="panel-frame-corner tr"></span>
@@ -316,6 +320,10 @@ const readOnly=computed(()=>props.spectator||props.adminObserver);
 // props.messages, unchanged.
 const effectiveMessages=computed(()=>props.adminObserver?(props.game.allMessages||[]).filter(m=>(m.channel||'public')===props.channel):props.messages);
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
+// Emergency broadcast: an admin observer's composer stays hidden behind a
+// deliberate click, and re-hides itself after every send — a running game
+// should never be one accidental keystroke away from an admin message.
+const emergencyChatOpen=ref(false);
 const dayExpanded = ref({});
 const showEarlierDays = ref(false);
 function isDayStart(m){return m.kind==='system'&&/Day\s+\d+(\s*:|\s+begins)/i.test(m.body);}
@@ -360,7 +368,7 @@ const channels=computed(()=>[{id:'public',label:'Conclave',note:'public'},...(pr
 // Post-game: public chat reopens for everyone (dead, possessed, whoever) so
 // the table can talk about the game afterward — mirrors authorizeChannel's
 // server-side gate exactly (see heresyGameManager.js).
-canChat=computed(()=>props.game.phase==='ended'?props.channel==='public':(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard')&&!props.me?.possessed);
+canChat=computed(()=>props.adminObserver?emergencyChatOpen.value:props.game.phase==='ended'?props.channel==='public':(props.channel!=='public'||props.game.phase!=='night')&&(props.me?.alive||props.channel==='graveyard')&&!props.me?.possessed);
 // H6 Animus: only the Animus's own client ever sees `possessed:true` on
 // another player's row before the reveal (server-gated, see state()'s
 // per-row comment in heresyGameManager.js) — so finding "the possessed row
@@ -411,7 +419,7 @@ function voteFor(p){
   if(suppressVoteClick){suppressVoteClick=false;return}
   if(readOnly.value||!votingOpen.value||!p.alive||p.playerCode===effectiveVoterCode.value)return;if(myVote.value?.choice===p.playerCode)return;castVote(p.playerCode)}function act(targetCode){if(isRotationBlocked(targetCode))return;emit('action',{targetCode,variant:variant.value||undefined})}
 // Mirrors the engine's validateRotation for protect/bodyguard only.
-function isRotationBlocked(targetCode){const k=nightAction.value?.kind;if(k!=='protect'&&k!=='bodyguard')return false;return !!props.game.lastProtectTarget&&props.game.lastProtectTarget===targetCode}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}const liveMode = computed(() => props.game.mode !== 'async');
+function isRotationBlocked(targetCode){const k=nightAction.value?.kind;if(k!=='protect'&&k!=='bodyguard')return false;return !!props.game.lastProtectTarget&&props.game.lastProtectTarget===targetCode}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null;if(props.adminObserver)emergencyChatOpen.value=false;}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}const liveMode = computed(() => props.game.mode !== 'async');
 function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(!liveMode.value)return'';return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function tortureTooltip(tier){if(!tier)return'Tortured once. Next vote will kill them.';if(tier===1)return'Tortured once (T1). Next vote will escalate to death.';if(tier===2)return'Tortured twice (T2). One more vote and they die.';if(tier===3)return'Dead.';return'Tortured. At risk of death.';}
 function tortureTip(p){return{kind:'TORTURE STATUS',label:p.crippleTier?`Tier ${p.crippleTier}`:'Tortured',gloss:tortureTooltip(p.crippleTier)};}function targetVoteCount(choice){return voteCounts.value[choice]||0}
 function voterNames(choice){return (props.game.votes||[]).filter(v=>v.choice===choice).map(v=>players.value.find(p=>p.playerCode===v.voterCode)?.name||'Unknown')}
@@ -1602,6 +1610,19 @@ button.ghost.wide.stand-down-leading {
   width: 100%;
   letter-spacing: .06em;
   text-transform: uppercase;
+}
+/* Emergency broadcast: hidden behind a deliberate click, re-hides itself
+   after every send (see post()) — never left armed by accident mid-game. */
+.admin-composer-gate { justify-content: center; padding: 10px 0; }
+.admin-composer-gate button { width: auto; padding: 9px 22px; }
+.composer.admin-composer { border-color: var(--gold); }
+.composer.admin-composer textarea { border-color: #4a4025; }
+/* Admin broadcast — obviously distinct from a normal operative's message,
+   never confusable with a real player line. */
+.message.admin { border-left: 3px solid var(--gold); background: rgba(182, 154, 92, .07); padding-left: 8px; }
+.admin-msg-badge {
+  background: var(--gold); color: #1a1710; font: 700 8px Inter; text-transform: uppercase;
+  letter-spacing: .08em; padding: 2px 6px; border-radius: 2px; margin-left: 7px; vertical-align: middle;
 }
 
 /* ═══ Generated graphics kit — sigils/seal/portraits, adapted to the app palette ═══ */

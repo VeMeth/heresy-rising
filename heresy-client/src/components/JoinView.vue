@@ -26,7 +26,10 @@
       </form>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
       <details class="recovery"><summary>Restore an existing identity</summary><form @submit.prevent="$emit('recover', recoveryCode.trim().toUpperCase())"><input v-model="recoveryCode" placeholder="Player recovery code" maxlength="40"><button class="ghost">Restore</button></form></details>
-      <details class="recovery">
+      <!-- Only ever rendered for a browser the server has already confirmed
+           is on the hidden admin allowlist (see App.vue's player:is-admin
+           check on connect) — nobody else's page has this in the DOM at all. -->
+      <details v-if="isAdminIdentity" class="recovery">
         <summary>Enter without a seat</summary>
         <form class="seatless-form" @submit.prevent>
           <input v-model.trim="seatlessCode" maxlength="8" autocapitalize="characters"
@@ -42,7 +45,7 @@
 </template>
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref } from 'vue';
-const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object });
+const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object, isAdminIdentity:Boolean });
 const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref(''); const seatlessCode = ref('');
 const fallbackQuote = { lead: 'Trust is a ', highlight: 'fatal weakness.' };
 const quoteParts = ref(fallbackQuote);
