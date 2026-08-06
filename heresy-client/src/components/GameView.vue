@@ -19,23 +19,27 @@
           <span class="roster-count"><strong>{{ alive.length }}</strong><small>Alive</small></span>
         </header>
         <ul class="player-list">
-          <li v-for="p in alive" :key="p.playerCode" :class="{me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.playerCode!==me?.playerCode,unavailable:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
+          <li v-for="p in alive" :key="p.playerCode" :class="{me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.playerCode!==me?.playerCode,unavailable:p.playerCode===me?.playerCode,'lynch-leader':lynchLeaders.includes(p.playerCode),kill:lynchLeaders.includes(p.playerCode)&&lynchLeaderOutcome==='kill',torture:lynchLeaders.includes(p.playerCode)&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
             <span class="portrait" :class="{'admin-seal': p.isAdmin}" :data-status="portraitStatus(p)" :title="p.isAdmin ? 'Inquisitorial seal — admin access' : null" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.torturedBefore" class="tortured-badge" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">TORTURED</small></div>
-            <button v-if="!readOnly" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
-            <small v-if="votingOpen" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
-            <i v-if="liveMode" :class="{online:p.connected}"></i>
+            <span class="row-controls">
+              <button v-if="!readOnly" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
+              <small v-if="votingOpen" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
+              <i v-if="liveMode" :class="{online:p.connected}"></i>
+            </span>
           </li>
         </ul>
         <template v-if="dead.length">
           <div class="fallen-header"><span class="eyebrow">Fallen</span><span class="fallen-count">{{ dead.length }}</span></div>
           <ul class="player-list dead-list">
-            <li v-for="p in dead" :key="p.playerCode" class="dead" :class="{me:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
+            <li v-for="p in dead" :key="p.playerCode" class="dead" :class="{me:p.playerCode===me?.playerCode,'lynch-leader':lynchLeaders.includes(p.playerCode),kill:lynchLeaders.includes(p.playerCode)&&lynchLeaderOutcome==='kill',torture:lynchLeaders.includes(p.playerCode)&&lynchLeaderOutcome==='torture'}" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
               <span class="portrait" :class="{'admin-seal': p.isAdmin}" data-status="deceased" :title="p.isAdmin ? 'Inquisitorial seal — admin access' : null" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
               <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
-              <span class="death-badge" :class="{executed:['lynch','execute-on-sight'].includes(p.deathCause)}" :title="deathCauseLabel(p)"><svg class="death-glyph" aria-hidden="true"><use :href="deathGlyph(p)"/></svg></span>
-              <button v-if="!readOnly" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
-              <i v-if="liveMode" :class="{online:p.connected}"></i>
+              <span class="row-controls">
+                <span class="death-badge" :class="{executed:['lynch','execute-on-sight'].includes(p.deathCause)}" :title="deathCauseLabel(p)"><svg class="death-glyph" aria-hidden="true"><use :href="deathGlyph(p)"/></svg></span>
+                <button v-if="!readOnly" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
+                <i v-if="liveMode" :class="{online:p.connected}"></i>
+              </span>
             </li>
           </ul>
         </template>
@@ -75,12 +79,12 @@
                 </header>
                 <div class="day-messages" v-show="day.expanded">
                   <article :id="'hr-msg-'+m.id" v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',admin:m.kind==='admin',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
-                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><button v-if="!readOnly" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
+                    <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @touchstart="onTermTouchStart" @touchend="onTermTouchEnd(seg.term,$event)" @click="onTermClick(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><button v-if="!readOnly" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
                     <template v-else>
                       <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
                       <div>
                         <header><strong>{{ m.author }}</strong><small v-if="m.kind==='admin'" class="admin-msg-badge">ADMIN</small><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><time>{{ formatTime(m.createdAt) }}</time></header>
-                        <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
+                        <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @touchstart="onTermTouchStart" @touchend="onTermTouchEnd(seg.term,$event)" @click="onTermClick(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
                       </div>
                       <button v-if="!readOnly" type="button" class="bookmark-btn" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this message'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button>
                     </template>
@@ -89,12 +93,12 @@
               </section>
             </div>
             <article :id="'hr-msg-'+m.id" v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',admin:m.kind==='admin',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
-              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><button v-if="!readOnly" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
+              <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @touchstart="onTermTouchStart" @touchend="onTermTouchEnd(seg.term,$event)" @click="onTermClick(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><button v-if="!readOnly" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
               <template v-else>
                 <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
                 <div>
                   <header><strong>{{ m.author }}</strong><small v-if="m.kind==='admin'" class="admin-msg-badge">ADMIN</small><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><time>{{ formatTime(m.createdAt) }}</time></header>
-                  <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @click="openTerm(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
+                  <p><template v-for="(seg,si) in messageSegments(m)" :key="si"><span v-if="seg.mention" class="mention">@{{ seg.text }}</span><button v-else-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @touchstart="onTermTouchStart" @touchend="onTermTouchEnd(seg.term,$event)" @click="onTermClick(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></p>
                 </div>
                 <button v-if="!readOnly" type="button" class="bookmark-btn" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this message'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button>
               </template>
@@ -244,8 +248,11 @@
       </div>
       <div v-if="voteTip" class="vote-tip" :class="'is-'+voteTipPos.placement" :style="voteTipStyle" role="tooltip">
         <span class="vote-tip-kind">{{ voteTip.label }}</span>
-        <ul v-if="voteTip.names.length" class="vote-tip-names">
-          <li v-for="(name,i) in voteTip.names" :key="i">{{ name }}</li>
+        <ul v-if="voteTip.voters.length" class="vote-tip-names">
+          <li v-for="(voter,i) in voteTip.voters" :key="i">
+            <span class="vote-tip-name">{{ voter.name }}</span>
+            <span v-if="voter.justification" class="vote-tip-justification">{{ voter.justification }}</span>
+          </li>
         </ul>
         <p v-else class="vote-tip-empty">No votes yet</p>
       </div>
@@ -379,13 +386,13 @@ const possessedTarget=computed(()=>role.value.id==='animus'?players.value.find(p
 // vote/retract actions below act as the possessed target (server derives
 // the target from possessed_by itself; this is only which button we press).
 const effectiveVoterCode=computed(()=>(speakAsTarget.value&&possessedTarget.value)?possessedTarget.value.playerCode:props.me?.playerCode);
-const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));const h=Math.floor(s/3600);const m=Math.floor((s%3600)/60);const sec=s%60;return h>0?`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeader=computed(()=>{if(!votingOpen.value||standDownLeading.value)return null;const counts=voteCounts.value;let leader=null,max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max){max=count;leader=code;}}return leader}),
+const deadline=computed(()=>props.game.deadline),timeLeft=computed(()=>{if(!deadline.value)return'—';const s=Math.max(0,Math.floor((deadline.value-props.now)/1000));const h=Math.floor(s/3600);const m=Math.floor((s%3600)/60);const sec=s%60;return h>0?`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`}),stageTitle=computed(()=>props.game.phase==='day'?`Day ${props.game.round} · ${props.game.dayStage}`:props.game.phase==='night'?`Night ${props.game.round}`:props.game.phase),stageKicker=computed(()=>props.game.phase==='night'?'THE LIGHT WITHDRAWS':'THE CONCLAVE SITS'),actionLabel=computed(()=>hasNightAction.value?pretty(nightAction.value.kind):'Keep the vigil'),lynchLeaders=computed(()=>{if(!votingOpen.value||standDownLeading.value)return[];const counts=voteCounts.value;let max=-1;for(const [code,count] of Object.entries(counts)){if(code==='skip')continue;if(count>max)max=count;}return Object.entries(counts).filter(([code,count])=>code!=='skip'&&count===max).map(([code])=>code)}),
 // Tiered Lynch (tiered-lynch.md v1.0.0): outcome is same-day, decided by
 // what fraction of LIVING votes the leader cleared — >=60% executes,
 // otherwise (any positive count) tortures. Border color previews this
 // live during the vote so players can coordinate before it resolves.
 lynchThreshold=computed(()=>Math.ceil(alive.value.length*rules.day.EXECUTION_THRESHOLD)),
-lynchLeaderOutcome=computed(()=>{if(!lynchLeader.value)return null;const leader=players.value.find(p=>p.playerCode===lynchLeader.value);if(leader?.crippleTier===2)return'kill';return targetVoteCount(lynchLeader.value)>=lynchThreshold.value?'kill':'torture'}),
+lynchLeaderOutcome=computed(()=>{if(!lynchLeaders.value.length)return null;if(lynchLeaders.value.length>1)return'torture';const solo=lynchLeaders.value[0];const leader=players.value.find(p=>p.playerCode===solo);if(leader?.crippleTier===2)return'kill';return targetVoteCount(solo)>=lynchThreshold.value?'kill':'torture'}),
 standDownLeading=computed(()=>{if(!votingOpen.value)return false;const skip=voteCounts.value.skip||0;for(const [code,count] of Object.entries(voteCounts.value)){if(code!=='skip'&&count>=skip)return false;return true;}});
 const secondsLeft=computed(()=>{if(!deadline.value)return null;return Math.max(0,Math.floor((deadline.value-props.now)/1000));});
 const phaseProgress=computed(()=>{const total=(props.game.phase==='night'?props.game.nightMs:props.game.dayMs)||0;if(!total||secondsLeft.value==null)return 0;return Math.min(1,Math.max(0,1-(secondsLeft.value*1000)/total));});
@@ -422,7 +429,11 @@ function voteFor(p){
 function isRotationBlocked(targetCode){const k=nightAction.value?.kind;if(k!=='protect'&&k!=='bodyguard')return false;return !!props.game.lastProtectTarget&&props.game.lastProtectTarget===targetCode}function bloodRitual(targetCode){emit('faction-action',{targetCode})}function forge(){emit('action',{asPlayerCode:forgeAs.value,body:forgeBody.value});forgeBody.value=''}function post(){if(!draft.value||!canChat.value)return;if(speakAsTarget.value&&possessedTarget.value)emit('send-as',draft.value);else emit('send',draft.value);draft.value='';mentionQuery.value=null;if(props.adminObserver)emergencyChatOpen.value=false;}function pretty(s){return String(s||'').replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}function intensityLabel(v){return v==='T1'?'T1 — Soft':v==='T2'?'T2 — Standard':v==='T3'?'T3 — Brutal':pretty(v)}const liveMode = computed(() => props.game.mode !== 'async');
 function status(p){if(!p.alive)return'Deceased';if(p.possessed)return'Possessed';if(!liveMode.value)return'';return p.connected?'':'Vox lost'}function formatTime(t){return t?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}function tortureTooltip(tier){if(!tier)return'Tortured once. Next vote will kill them.';if(tier===1)return'Tortured once (T1). Next vote will escalate to death.';if(tier===2)return'Tortured twice (T2). One more vote and they die.';if(tier===3)return'Dead.';return'Tortured. At risk of death.';}
 function tortureTip(p){return{kind:'TORTURE STATUS',label:p.crippleTier?`Tier ${p.crippleTier}`:'Tortured',gloss:tortureTooltip(p.crippleTier)};}function targetVoteCount(choice){return voteCounts.value[choice]||0}
-function voterNames(choice){return (props.game.votes||[]).filter(v=>v.choice===choice).map(v=>players.value.find(p=>p.playerCode===v.voterCode)?.name||'Unknown')}
+// Voters for a given choice, name plus their optional justification, for the
+// tally tooltip. justification is per-voter optional (a tied vote can mix
+// voters who typed a reason with ones who didn't), so it's left null rather
+// than coerced to '' — the template decides whether to render a line for it.
+function voterEntries(choice){return (props.game.votes||[]).filter(v=>v.choice===choice).map(v=>({name:players.value.find(p=>p.playerCode===v.voterCode)?.name||'Unknown',justification:v.justification?String(v.justification).trim()||null:null}))}
 // @mention autocomplete: player names can contain spaces ("Player 1",
 // "Priestess Vale"), so the token can't just stop at the first whitespace —
 // findMentionQuery instead scans left from the caret for the nearest '@'
@@ -483,6 +494,24 @@ const TIP_W=290;
 function showTip(term,ev){const r=ev.currentTarget.getBoundingClientRect();const above=r.top>190;const left=Math.min(Math.max(10,r.left+r.width/2-TIP_W/2),window.innerWidth-TIP_W-10);tipPos.value={left,top:above?r.top-10:r.bottom+10,placement:above?'above':'below'};tip.value=term;}
 function hideTip(){tip.value=null;}
 function openTerm(term){hideTip();emit('open-manual',term.doc);}
+// Mobile taps on a glossary term don't reliably deliver the deferred
+// synthetic click: these buttons live inside .message-feed, a scrollable
+// overflow:auto column (style.css), and mobile browsers can drop that click
+// either because the touch sequence reads as a scroll gesture on a
+// scrollable ancestor, or because showTip()'s mouseenter-triggered teleport
+// mount mutates the DOM between touchstart and the ~300ms-later click. Act
+// on touchend directly instead — same touch-first approach as
+// startLongPress/cancelLongPress on the roster rows above — but only when
+// the touch didn't drift far enough to be a scroll/swipe (touch events keep
+// firing on their original target throughout a scroll, so a naive touchend
+// handler would also fire while the user is just scrolling past the word).
+// suppressTermTap then eats the trailing synthetic click on browsers that
+// still deliver one, so the manual doesn't open twice.
+const TERM_TAP_SLOP=10;
+let termTouchStart=null,suppressTermTap=false;
+function onTermTouchStart(ev){const t=ev.touches[0];termTouchStart=t?{x:t.clientX,y:t.clientY}:null;}
+function onTermTouchEnd(term,ev){const start=termTouchStart;termTouchStart=null;if(!term.doc)return;const t=ev.changedTouches[0];if(start&&t&&(Math.abs(t.clientX-start.x)>TERM_TAP_SLOP||Math.abs(t.clientY-start.y)>TERM_TAP_SLOP))return;ev.preventDefault();suppressTermTap=true;setTimeout(()=>{suppressTermTap=false},400);openTerm(term);}
+function onTermClick(term){if(suppressTermTap){suppressTermTap=false;return}openTerm(term)}
 const tipStyle=computed(()=>({left:tipPos.value.left+'px',top:tipPos.value.top+'px',width:TIP_W+'px',transform:tipPos.value.placement==='above'?'translateY(-100%)':'none'}));
 // Any scroll moves the anchor out from under a fixed-position tooltip, so drop
 // it rather than let it float detached. Capture phase catches the inner feed.
@@ -492,7 +521,7 @@ if(typeof window!=='undefined'){window.addEventListener('scroll',hideTip,true);o
 // content (a label plus the list of voters for that choice).
 const voteTip=ref(null),voteTipPos=ref({left:0,top:0,placement:'above'});
 const VOTE_TIP_W=200;
-function showVoteTip(label,choice,ev){const r=ev.currentTarget.getBoundingClientRect();const above=r.top>190;const left=Math.min(Math.max(10,r.left+r.width/2-VOTE_TIP_W/2),window.innerWidth-VOTE_TIP_W-10);voteTipPos.value={left,top:above?r.top-10:r.bottom+10,placement:above?'above':'below'};voteTip.value={label,names:voterNames(choice)};}
+function showVoteTip(label,choice,ev){const r=ev.currentTarget.getBoundingClientRect();const above=r.top>190;const left=Math.min(Math.max(10,r.left+r.width/2-VOTE_TIP_W/2),window.innerWidth-VOTE_TIP_W-10);voteTipPos.value={left,top:above?r.top-10:r.bottom+10,placement:above?'above':'below'};voteTip.value={label,voters:voterEntries(choice)};}
 function hideVoteTip(){voteTip.value=null;}
 const voteTipStyle=computed(()=>({left:voteTipPos.value.left+'px',top:voteTipPos.value.top+'px',width:VOTE_TIP_W+'px',transform:voteTipPos.value.placement==='above'?'translateY(-100%)':'none'}));
 if(typeof window!=='undefined'){window.addEventListener('scroll',hideVoteTip,true);onBeforeUnmount(()=>window.removeEventListener('scroll',hideVoteTip,true));}
@@ -769,6 +798,34 @@ onBeforeUnmount(()=>{cancelLongPress();clearTimeout(jumpHighlightTimer)});
      text-selection long-press of its own. */
   -webkit-touch-callout: none;
   user-select: none;
+  /* A long or double-barrelled name plus its status line can outgrow the
+     row before the trailing controls run out of room. Letting the row wrap
+     drops the controls to their own line instead of pushing them past the
+     panel edge — see .row-controls below. */
+  flex-wrap: wrap;
+}
+/* The name/status column is a flex item like any other, so without an
+   explicit basis it defaults to its own min-content width (the longest
+   unbreakable run of characters) and refuses to shrink below that,
+   overflowing the row. min-width:0 lifts that floor; basis:auto keeps its
+   hypothetical size content-driven (not a guessed pixel value) so the
+   wrap decision above reflects how much room the actual name needs. */
+.player-list li > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.player-list li > div > strong {
+  overflow-wrap: anywhere;
+}
+/* Dossier button, vote tally and the online dot travel together — if they
+   don't fit on the name's line they drop to their own line as a group,
+   right-aligned, rather than splitting apart mid-row. */
+.player-list .row-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 .player-list li.me {
   border-color: var(--gold);
@@ -1135,8 +1192,20 @@ onBeforeUnmount(()=>{cancelLongPress();clearTimeout(jumpHighlightTimer)});
   gap: 4px;
 }
 .vote-tip-names li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vote-tip-name {
   font: 500 12px Georgia, serif;
   color: var(--pale);
+}
+.vote-tip-justification {
+  font: 400 10.5px Georgia, serif;
+  font-style: italic;
+  color: var(--muted);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .vote-tip-empty {
   margin: 0;
