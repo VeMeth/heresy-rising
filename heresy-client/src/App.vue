@@ -67,7 +67,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ensureConnected, emitWithAck, getPlayerCode, setPlayerCode, socket } from './socket';
-import { settings, loadSettings } from './settings.js';
+import { settings, loadSettings, setName as setSavedName } from './settings.js';
 import AdminView from './components/AdminView.vue';
 import AnnouncementOverlay from './components/AnnouncementOverlay.vue';
 import EmberField from './components/EmberField.vue';
@@ -113,8 +113,8 @@ function saveGameCode(code){if(code)localStorage.setItem('heresy-rising:game',co
 function normalize(data) { return data?.state || data?.game || data?.room || data || null; }
 function notify(text) { toast.value = text; clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.value = '', 2600); }
 async function command(event, payload = {}) { busy.value = true; error.value = ''; try { await ensureConnected(); const data = await emitWithAck(event, { ...payload, playerCode: getPlayerCode() }); const state = normalize(data); if (state?.code && state?.players) { game.value = state; saveGameCode(state.code); } if (data?.profile || data?.playerCode) saveProfile(data.profile || data); return data; } catch (e) { error.value = e.message; notify(e.message); throw e; } finally { busy.value = false; } }
-async function createGame(form) { try { saveProfile({ name: form.name }); const data = await command('game:create', { name: form.name, mode: form.mode, options: {}, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if (data?.code&&game.value&&!game.value.code)game.value.code=data.code; if(game.value?.code){saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();await loadNotes();}}catch{}}
-async function joinGame(form) { saveProfile({ name: form.name }); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if(game.value?.code)saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code||form.roomCode}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();await loadNotes();}
+async function createGame(form) { try { saveProfile({ name: form.name }); setSavedName(form.name); const data = await command('game:create', { name: form.name, mode: form.mode, options: {}, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if (data?.code&&game.value&&!game.value.code)game.value.code=data.code; if(game.value?.code){saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();await loadNotes();}}catch{}}
+async function joinGame(form) { saveProfile({ name: form.name }); setSavedName(form.name); const data = await command('game:join', { code: form.roomCode, name: form.name, playerCode: profile.value?.playerCode }); const state=normalize(data); game.value=state; if(game.value?.code)saveGameCode(game.value.code);history.replaceState({},'',`?game=${game.value.code||form.roomCode}`);messagesByChannel.value={public:[],faction:[],graveyard:[]};hasMoreByChannel.value={public:true,faction:true,graveyard:true};await loadHistory();await loadNotes();}
 async function joinOrSpectate(form) {
   // A player who isn't already in the game will fail to join once it has
   // started (or is full) — fall back to read-only spectating instead of

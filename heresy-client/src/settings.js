@@ -1,4 +1,4 @@
-// Player preferences (operative seal style, sound mute).
+// Player preferences (operative seal style, sound mute, last-used callsign).
 //
 // Two tiers, deliberately: a localStorage cache keyed by playerCode (instant,
 // works offline, survives a refresh with zero round trip), and the server —
@@ -14,7 +14,12 @@ import { DEFAULT_SEAL_STYLE, SEAL_STYLES } from './seals.js';
 
 const STORAGE_KEY = 'heresy-rising:settings';
 
-export const settings = reactive({ sealStyle: DEFAULT_SEAL_STYLE, muted: false });
+export const settings = reactive({ sealStyle: DEFAULT_SEAL_STYLE, muted: false, name: '' });
+const MAX_NAME_LENGTH = 30; // matches JoinView's <input maxlength="30">
+
+function isValidName(v) {
+  return typeof v === 'string' && v.trim().length > 0 && v.length <= MAX_NAME_LENGTH;
+}
 
 function isKnownSealStyle(id) {
   return SEAL_STYLES.some(s => s.id === id);
@@ -46,6 +51,7 @@ function loadLocal() {
   const mine = (code && all[code]) || {};
   settings.sealStyle = isKnownSealStyle(mine.sealStyle) ? mine.sealStyle : DEFAULT_SEAL_STYLE;
   settings.muted = mine.muted === true;
+  settings.name = isValidName(mine.name) ? mine.name : '';
 }
 
 function saveLocal(patch) {
@@ -91,6 +97,12 @@ export async function loadSettings() {
     } else if (settings.muted) {
       pushUp.muted = settings.muted;
     }
+    if (isValidName(prefs.name)) {
+      settings.name = prefs.name;
+      saveLocal({ name: prefs.name });
+    } else if (settings.name) {
+      pushUp.name = settings.name;
+    }
     if (Object.keys(pushUp).length) {
       emitWithAck('player:prefs:set', { playerCode: code, prefs: pushUp }).catch(() => {});
     }
@@ -119,5 +131,22 @@ export function setMuted(muted) {
   emitWithAck('player:prefs:set', { playerCode: code, prefs: { muted: settings.muted } }).catch(() => {
     // Offline — the local cache above already has it; next successful
     // loadSettings() (or another setMuted) will retry the push.
+  });
+}
+
+// Called whenever a name is actually used to join/create a game (see
+// createGame/joinGame in App.vue) — not on every keystroke, so a one-off
+// typo or a deliberately different name for a single game doesn't overwrite
+// the saved default. Silently ignores an invalid/empty name rather than
+// throwing — this is a best-effort convenience, not a required field here.
+export function setName(name) {
+  if (!isValidName(name)) return;
+  settings.name = name;
+  saveLocal({ name });
+  const code = getPlayerCode();
+  if (!code) return;
+  emitWithAck('player:prefs:set', { playerCode: code, prefs: { name } }).catch(() => {
+    // Offline — the local cache above already has it; next successful
+    // loadSettings() (or another setName) will retry the push.
   });
 }

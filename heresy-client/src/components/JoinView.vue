@@ -42,9 +42,18 @@
   </section>
 </template>
 <script setup>
-import { nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { settings } from '../settings.js';
 const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object, needsAdminPassword:Boolean });
-const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref(''); const recoveryPassword = ref('');
+// settings.name is the server-synced callsign (follows the identity across
+// devices/browsers — see settings.js); profile.name is the older, purely
+// local fallback for a browser that hasn't synced yet. Reactive to
+// settings.name specifically so restoring a different identity (which
+// re-runs loadSettings() and repopulates it) updates this field even though
+// the component itself never remounts.
+const name = ref(settings.name || props.profile?.username || props.profile?.name || '');
+watch(() => settings.name, (next) => { if (next) name.value = next; });
+const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref(''); const recoveryPassword = ref('');
 const fallbackQuote = { lead: 'Trust is a ', highlight: 'fatal weakness.' };
 const quoteParts = ref(fallbackQuote);
 function join(){ if(name.value && code.value) emitJoin(); }
