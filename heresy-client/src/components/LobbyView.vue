@@ -41,21 +41,12 @@
           <span v-if="liveMode">{{ onlineCount }}/{{ players.length }} online</span>
           <span v-else>{{ players.length }}/{{ rules.MAX_PLAYERS }}</span>
         </header>
-        <button v-if="isAdmin || adminObserver" type="button" class="ghost small manual-assign-toggle" @click="manualAssignEnabled = !manualAssignEnabled">
-          {{ manualAssignEnabled ? 'Hide manual assignment' : 'Manual assignment' }}
-        </button>
         <ul class="lobby-players compact">
           <li v-for="p in players" :key="p.playerCode" :class="{offline:liveMode && !p.connected}">
-            <span class="avatar" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
+            <span class="avatar" :class="{'admin-seal': p.isAdmin}" :title="p.isAdmin ? 'Inquisitorial seal — admin access' : null" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><small>{{ p.isHost ? 'Commander' : (liveMode && p.connected === false) ? 'Vox lost' : (p.ready ? 'Ready' : 'Awaiting') }}</small></div>
             <i v-if="liveMode" class="presence" :class="{online:p.connected}" :title="p.connected ? 'Online' : 'Disconnected'"></i>
             <span class="ready" :class="{yes:p.ready}">{{ p.ready?'READY':'…' }}</span>
-            <span v-if="(isAdmin || adminObserver) && manualAssignEnabled" class="manual-assign-slot">
-              <select :value="manualAssignments[p.playerCode] || ''" @change="setManualAssignment(p.playerCode, $event.target.value)">
-                <option value="">— unassigned —</option>
-                <option v-for="opt in availableRolesFor(p.playerCode)" :key="opt.id" :value="opt.id">{{ roleDisplay(opt.id) }}{{ opt.count > 1 ? ' (' + opt.count + ' left)' : '' }}</option>
-              </select>
-            </span>
             <span class="kick-slot">
               <button v-if="isHost && !p.isHost" class="kick-btn" :title="'Remove ' + p.name" :aria-label="'Remove ' + p.name" @click="confirmKick(p)">×</button>
             </span>
@@ -70,7 +61,7 @@
         <div class="params-row">
           <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>Sealed at launch; revealed privately per dossier.</p></div>
 
-          <div v-if="isHost || isAdmin || adminObserver" class="param-fields">
+          <div v-if="canManageLobby" class="param-fields">
             <div class="param-group">
               <span class="eyebrow">Pacing</span>
               <div class="pacing-tiles">
@@ -170,13 +161,13 @@
     <article class="panel full-row composition-card">
       <header>
         <h2>Conclave composition</h2>
-        <span v-if="isHost" :class="compositionValid ? 'ok' : 'warn'">
+        <span v-if="canManageLobby" :class="compositionValid ? 'ok' : 'warn'">
           {{ compositionValid ? 'Valid' : headcountMismatch ? 'Awaiting operatives' : `${[...serverErrors, ...localErrors].length} issue(s)` }}
         </span>
       </header>
 
       <!-- Host-only picker -->
-      <template v-if="isHost">
+      <template v-if="canManageLobby">
         <div class="composition-mode">
           <button :class="{selected: compositionMode==='preset'}" @click="setCompositionMode('preset')">Preset doctrine</button>
           <button :class="{selected: compositionMode==='custom'}" @click="setCompositionMode('custom')">Custom roster</button>
@@ -193,7 +184,7 @@
         <div v-if="compositionMode==='preset'" class="preset-picker">
           <label v-for="n in presetCounts" :key="n" class="preset-option"
                  :class="{selected: presetCount===n, mismatched: n!==playerCount}">
-            <input type="radio" :value="n" v-model="presetCount" :disabled="!isHost" />
+            <input type="radio" :value="n" v-model="presetCount" :disabled="!canManageLobby" />
             <span>
               <strong>{{ n }}p</strong>
               <small>{{ presetFlavor[n] }}</small>
@@ -302,6 +293,36 @@
           </button>
         </div>
 
+        <!-- Admin-only: pin specific operatives to specific roles. Hidden
+             from the table and from any host who isn't also an admin — see
+             requireHostOrAdmin() / isAdmin() server-side. -->
+        <div v-if="isAdmin || adminObserver" class="manual-assign-panel">
+          <header class="manual-assign-head">
+            <div>
+              <span class="eyebrow">Admin override</span>
+              <h3>Assign seats manually</h3>
+            </div>
+            <button type="button" class="ghost small" @click="manualAssignEnabled = !manualAssignEnabled">
+              {{ manualAssignEnabled ? 'Hide' : 'Show' }}
+            </button>
+          </header>
+          <p class="picker-hint">
+            Pin an operative to a role from the roster above. Seats left on "random" still draw from whatever's left, the same as an ordinary seal. Never shown to the table.
+          </p>
+          <ul v-if="manualAssignEnabled" class="assign-list">
+            <li v-for="p in players" :key="p.playerCode" class="assign-row">
+              <span class="assign-name">
+                <span class="avatar mini" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
+                {{ p.name }}
+              </span>
+              <select :value="manualAssignments[p.playerCode] || ''" @change="setManualAssignment(p.playerCode, $event.target.value)">
+                <option value="">— random —</option>
+                <option v-for="opt in availableRolesFor(p.playerCode)" :key="opt.id" :value="opt.id">{{ roleDisplay(opt.id) }}{{ opt.count > 1 ? ' ×' + opt.count : '' }}</option>
+              </select>
+            </li>
+          </ul>
+        </div>
+
         <!-- Private balance-check preview -->
         <div class="sim-panel">
           <header class="sim-panel-head">
@@ -334,7 +355,7 @@
     </article>
 
     <div class="lobby-actions">
-      <button v-if="isHost" class="primary" :disabled="!canStart||busy||!compositionValid" @click="emitStart">Seal the chamber</button>
+      <button v-if="canManageLobby" class="primary" :disabled="!canStart||busy||!compositionValid" @click="emitStart">Seal the chamber</button>
       <span v-else>Waiting for the conclave commander.</span>
     </div>
   </section>
@@ -368,6 +389,11 @@ const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors'
 const players = computed(() => props.game.players || []);
 const isHost = computed(() => props.me?.isHost);
 const isAdmin = computed(() => props.me?.isAdmin === true);
+// Anyone who's allowed to run the lobby — the seated host, an admin sitting
+// in as a normal player, or a non-seated admin observer. Composition
+// picking, pacing, and "Seal the chamber" all gate on this rather than
+// isHost alone, per requireHostOrAdmin() on the server side.
+const canManageLobby = computed(() => isHost.value || isAdmin.value || props.adminObserver);
 const playerCount = computed(() => players.value.length);
 const canStart = computed(() => playerCount.value >= rules.MIN_PLAYERS && players.value.every(p => p.ready));
 const presetCounts = Array.from({ length: rules.MAX_PLAYERS - rules.MIN_PLAYERS + 1 }, (_, i) => rules.MIN_PLAYERS + i);
@@ -1343,20 +1369,16 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   background: #5b5e55; margin-right: 4px;
 }
 .ops-cell .presence.online { background: #71905e; box-shadow: 0 0 5px #71905e; }
-/* Manual role assignment: an admin-only, hidden-by-default dev tool, so it
-   stays visually quiet — a plain small link-style toggle and a compact
-   per-row select, not styled to compete with the rest of the roster card. */
-.ops-cell .manual-assign-toggle {
-  margin: 4px 25px 0; padding: 4px 8px; width: auto;
-  background: transparent; border: 1px solid #33352e; color: var(--muted);
-  font-size: 9px; text-transform: none; letter-spacing: normal;
-}
-.ops-cell .manual-assign-slot { flex: 0 0 auto; }
-.ops-cell .manual-assign-slot select {
-  width: auto; min-width: 96px; max-width: 130px;
-  padding: 4px 20px 4px 6px; font-size: 10px;
-}
 .ops-cell .kick-slot { flex: 0 0 26px; display: flex; align-items: center; justify-content: center; }
+
+/* Inquisitorial seal of office — the only outward sign an admin identity is
+   active. Server only ever sends p.isAdmin on the viewer's OWN row (see
+   state()'s per-viewer redaction), so this can never light up on anyone
+   else's avatar. */
+.avatar.admin-seal {
+  border-color: var(--gold2);
+  box-shadow: 0 0 0 2px var(--gold), 0 0 12px 1px rgba(223, 194, 124, .45);
+}
 .ops-cell .kick-btn {
   width: 22px; height: 22px; padding: 0;
   background: transparent; border: 1px solid #43463d; color: var(--muted);
@@ -1495,6 +1517,21 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
 
 .nonhost-note { color:var(--muted); font-size:13px; line-height:1.6; margin:0; max-width:640px; }
 .full-row { width:100%; }
+
+/* Admin-only seat assignment. Lives full-width inside the composition card,
+   not crammed into the 320px roster rail — a select this wide has no room
+   to breathe next to the ready badge and kick button there. */
+.manual-assign-panel { margin-top:20px; padding-top:18px; border-top:1px dashed #34372f; }
+.manual-assign-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:4px; }
+.manual-assign-head h3 { font:700 14px Cinzel; letter-spacing:.06em; margin:2px 0 0; color:var(--gold2); }
+.manual-assign-panel .picker-hint { margin-bottom:14px; }
+.assign-list { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:8px; }
+.assign-row {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  border:1px solid #2a2c25; background:#0c0e0c; border-radius:2px; padding:7px 10px 7px 7px;
+}
+.assign-name { display:flex; align-items:center; gap:8px; min-width:0; font-size:12.5px; color:var(--pale); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.assign-row select { flex:0 0 auto; width:auto; max-width:150px; padding:5px 22px 5px 8px; font-size:11px; }
 
 .sim-panel { margin-top:20px; padding-top:18px; border-top:1px dashed #34372f; }
 .sim-panel-head { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }

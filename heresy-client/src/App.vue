@@ -13,6 +13,10 @@
       <ConclaveSwitcher :current-code="game?.code || ''" @switch="switchToGame" />
       <div class="mast-actions">
         <button class="ghost compact" @click="openManual" aria-haspopup="dialog">Manual</button>
+        <!-- Observing admins hold no seat, so they have no avatar for the
+             usual gold-seal ring (see LobbyView/GameView .admin-seal) — this
+             is their only persistent "you're in admin mode" cue. -->
+        <span v-if="adminObserver" class="connection admin-mode" title="Full-visibility admin observer — no seat, nothing you do here is visible to the table.">Admin</span>
         <span class="connection" :class="connectionState"><i></i>{{ connectionLabel }}</span>
         <button v-if="game" class="ghost compact" @click="copyInvite">Copy invite</button>
         <SettingsMenu />
@@ -159,7 +163,8 @@ async function spectateGame(code) {
 // same game:state/phase:updated/game:ended pushes every other viewer gets
 // (see receiveState) — GameView reads game.allMessages directly for this
 // viewer rather than the per-channel messagesByChannel history flow.
-async function observeGame(roomCode) {
+async function observeGame(form) {
+  const roomCode = form?.roomCode;
   if (!roomCode) return;
   try {
     await ensureConnected();
@@ -352,6 +357,15 @@ onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.o
 </script>
 
 <style scoped>
+.connection.admin-mode {
+  border: 1px solid var(--gold);
+  color: var(--gold2);
+  padding: 3px 9px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-size: 10px;
+}
 .manual-overlay {
   position: fixed;
   inset: 0;

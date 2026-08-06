@@ -20,7 +20,7 @@
         </header>
         <ul class="player-list">
           <li v-for="p in alive" :key="p.playerCode" :class="{me:p.playerCode===me?.playerCode,crippled:p.crippleTier||p.torturedBefore,voted:myVote?.choice===p.playerCode,selectable:votingOpen&&!myVote&&p.playerCode!==me?.playerCode,unavailable:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @click="voteFor(p)" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
-            <span class="portrait" :data-status="portraitStatus(p)" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
+            <span class="portrait" :class="{'admin-seal': p.isAdmin}" :data-status="portraitStatus(p)" :title="p.isAdmin ? 'Inquisitorial seal — admin access' : null" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span><small v-if="p.possessed" class="possessed-badge">POSSESSED</small><small v-if="p.torturedBefore" class="tortured-badge" tabindex="0" @mouseenter="showTip(tortureTip(p),$event)" @mouseleave="hideTip" @focus="showTip(tortureTip(p),$event)" @blur="hideTip">TORTURED</small></div>
             <button v-if="!readOnly" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
             <small v-if="votingOpen" class="vote-count" :style="tallyStyle(p.playerCode)" @mouseenter="showVoteTip(p.name,p.playerCode,$event)" @mouseleave="hideVoteTip" @focus="showVoteTip(p.name,p.playerCode,$event)" @blur="hideVoteTip" tabindex="0">{{ targetVoteCount(p.playerCode) }}</small>
@@ -31,7 +31,7 @@
           <div class="fallen-header"><span class="eyebrow">Fallen</span><span class="fallen-count">{{ dead.length }}</span></div>
           <ul class="player-list dead-list">
             <li v-for="p in dead" :key="p.playerCode" class="dead" :class="{me:p.playerCode===me?.playerCode,'lynch-leader':lynchLeader===p.playerCode,kill:lynchLeader===p.playerCode&&lynchLeaderOutcome==='kill',torture:lynchLeader===p.playerCode&&lynchLeaderOutcome==='torture'}" @contextmenu.prevent="openDossier(p)" @touchstart="startLongPress(p)" @touchmove="cancelLongPress" @touchend="cancelLongPress" @touchcancel="cancelLongPress">
-              <span class="portrait" data-status="deceased" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
+              <span class="portrait" :class="{'admin-seal': p.isAdmin}" data-status="deceased" :title="p.isAdmin ? 'Inquisitorial seal — admin access' : null" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
               <div><strong>{{ p.name }}</strong><span>{{ status(p) }}</span></div>
               <span class="death-badge" :class="{executed:['lynch','execute-on-sight'].includes(p.deathCause)}" :title="deathCauseLabel(p)"><svg class="death-glyph" aria-hidden="true"><use :href="deathGlyph(p)"/></svg></span>
               <button v-if="!readOnly" type="button" class="dossier-btn" :class="{filled:effectiveCount(p)}" :title="dossierTitle(p)" :aria-label="dossierAria(p)" @click.stop="openDossier(p)"><svg class="dossier-glyph" aria-hidden="true"><use href="#hr-quill"/></svg><small v-if="effectiveCount(p)">{{ effectiveCount(p) }}</small></button>
@@ -1643,6 +1643,14 @@ button.ghost.wide.stand-down-leading {
   to   { box-shadow: 0 0 10px 1px rgba(255, 147, 51, .6); }
 }
 .player-list .portrait[data-status="deceased"]::after { box-shadow: none; }
+/* Inquisitorial seal of office — opposite corner from the status pip so the
+   two never compete. Server only ever sends p.isAdmin on the viewer's own
+   row, so this can never light up on anyone else's portrait. */
+.player-list .portrait.admin-seal::before {
+  content: ''; position: absolute; left: -1px; top: -1px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold2); box-shadow: 0 0 8px var(--gold2);
+}
 .portrait-glyph { width: 18px; height: 18px; stroke: currentColor; fill: none; display: block; }
 
 /* Dossier role-card sigil */
