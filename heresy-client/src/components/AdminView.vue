@@ -350,6 +350,7 @@
         <header class="detail-head">
           <div><span>PROFILES</span><h2>Player Overview</h2></div>
           <div class="actions">
+            <button type="button" :class="{ active: hideBots }" @click="hideBots = !hideBots">{{ hideBots ? 'Bots hidden' : 'Bots shown' }}</button>
             <button type="button" @click="loadPlayers" :disabled="loadingPlayers">Refresh</button>
           </div>
         </header>
@@ -373,13 +374,13 @@
         </div>
 
         <div class="players-list">
-          <h3>All Players ({{ players.length }})</h3>
+          <h3>All Players ({{ visiblePlayers.length }}{{ hideBots && players.length !== visiblePlayers.length ? ` of ${players.length}` : '' }})</h3>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Callsign</th><th>Player Code</th><th>Total Games</th><th>Ended</th><th>Active</th><th>Last Seen</th><th></th></tr></thead>
               <tbody>
-                <tr v-for="player in players" :key="player.playerCode" :class="{ 'has-active': player.activeGames.length > 0 }">
-                  <td><strong>{{ player.name || '(unnamed)' }}</strong></td>
+                <tr v-for="player in visiblePlayers" :key="player.playerCode" :class="{ 'has-active': player.activeGames.length > 0 }">
+                  <td><strong>{{ player.name || '(unnamed)' }}</strong><span v-if="player.isBot" class="badge badge-na" title="Bot">BOT</span></td>
                   <td><code>{{ player.playerCode }}</code></td>
                   <td><strong>{{ player.gameCount }}</strong></td>
                   <td>{{ player.endedCount }}</td>
@@ -399,7 +400,7 @@
               </tbody>
             </table>
           </div>
-          <p v-if="!players.length" class="empty">No players found.</p>
+          <p v-if="!visiblePlayers.length" class="empty">{{ hideBots && players.length ? 'No human players found (bots hidden).' : 'No players found.' }}</p>
         </div>
       </section>
 
@@ -789,6 +790,8 @@ const selectedLog = ref(null);
 const players = ref([]);
 const loadingPlayers = ref(false);
 const playerError = ref('');
+const hideBots = ref(true);
+const visiblePlayers = computed(() => hideBots.value ? players.value.filter(p => !p.isBot) : players.value);
 const mergeForm = ref({ fromPlayerCode: '', toPlayerCode: '' });
 const mergeResult = ref(null);
 
