@@ -37,7 +37,15 @@
           <button class="ghost">Restore</button>
         </form>
       </details>
-      <div v-if="profile?.playerCode" class="identity"><span>Identity secured</span><code>{{ profile.playerCode }}</code></div>
+      <div v-if="profile?.playerCode" class="identity">
+        <span>Identity secured</span>
+        <button type="button" class="identity-code" :class="{revealed: identityRevealed}"
+                @click="identityRevealed = !identityRevealed"
+                :aria-label="identityRevealed ? 'Hide player code' : 'Reveal player code'"
+                title="Blurred by default so it doesn't leak in screenshots — click to reveal">
+          <code>{{ profile.playerCode }}</code>
+        </button>
+      </div>
     </div>
   </section>
 </template>
@@ -54,6 +62,12 @@ const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, 
 const name = ref(settings.name || props.profile?.username || props.profile?.name || '');
 watch(() => settings.name, (next) => { if (next) name.value = next; });
 const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref(''); const recoveryPassword = ref('');
+// Blurred by default — this is the one place a player's own identity code
+// is ever shown, and it's exactly the string "Restore an existing
+// identity"/player:claim-identity treats as sensitive for an admin
+// identity. Starts hidden every mount; click to reveal for actually
+// copying it, never captured by an incidental screenshot.
+const identityRevealed = ref(false);
 const fallbackQuote = { lead: 'Trust is a ', highlight: 'fatal weakness.' };
 const quoteParts = ref(fallbackQuote);
 function join(){ if(name.value && code.value) emitJoin(); }
@@ -123,3 +137,23 @@ onUnmounted(() => {
   clearTimeout(resizeTimer);
 });
 </script>
+<style scoped>
+.identity-code {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.identity-code code {
+  filter: blur(5px);
+  transition: filter .15s ease;
+  user-select: none;
+}
+.identity-code:hover code,
+.identity-code:focus-visible code,
+.identity-code.revealed code {
+  filter: none;
+  user-select: text;
+}
+</style>
