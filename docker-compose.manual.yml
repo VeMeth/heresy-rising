@@ -9,6 +9,7 @@ services:
       - SERVER_PORT=${SERVER_PORT:-4100}
       - PORT=${SERVER_PORT:-4100}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me-before-production}
+      - ADMIN_PLAYER_CODES=${ADMIN_PLAYER_CODES:-}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8281}
       - TRUST_PROXY=${TRUST_PROXY:-true}
       - GAME_DB_PATH=/usr/src/app/data/heresy-rising.db
