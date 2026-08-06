@@ -41,12 +41,21 @@
           <span v-if="liveMode">{{ onlineCount }}/{{ players.length }} online</span>
           <span v-else>{{ players.length }}/{{ rules.MAX_PLAYERS }}</span>
         </header>
+        <button v-if="isAdmin || adminObserver" type="button" class="ghost small manual-assign-toggle" @click="manualAssignEnabled = !manualAssignEnabled">
+          {{ manualAssignEnabled ? 'Hide manual assignment' : 'Manual assignment' }}
+        </button>
         <ul class="lobby-players compact">
           <li v-for="p in players" :key="p.playerCode" :class="{offline:liveMode && !p.connected}">
             <span class="avatar" v-bind="sealAttrs(p.name)">{{ sealText(p.name) }}</span>
             <div><strong>{{ p.name }}</strong><small>{{ p.isHost ? 'Commander' : (liveMode && p.connected === false) ? 'Vox lost' : (p.ready ? 'Ready' : 'Awaiting') }}</small></div>
             <i v-if="liveMode" class="presence" :class="{online:p.connected}" :title="p.connected ? 'Online' : 'Disconnected'"></i>
             <span class="ready" :class="{yes:p.ready}">{{ p.ready?'READY':'…' }}</span>
+            <span v-if="(isAdmin || adminObserver) && manualAssignEnabled" class="manual-assign-slot">
+              <select :value="manualAssignments[p.playerCode] || ''" @change="setManualAssignment(p.playerCode, $event.target.value)">
+                <option value="">— unassigned —</option>
+                <option v-for="opt in availableRolesFor(p.playerCode)" :key="opt.id" :value="opt.id">{{ roleDisplay(opt.id) }}{{ opt.count > 1 ? ' (' + opt.count + ' left)' : '' }}</option>
+              </select>
+            </span>
             <span class="kick-slot">
               <button v-if="isHost && !p.isHost" class="kick-btn" :title="'Remove ' + p.name" :aria-label="'Remove ' + p.name" @click="confirmKick(p)">×</button>
             </span>
@@ -61,7 +70,7 @@
         <div class="params-row">
           <div class="preset"><strong>{{ players.length }}-operative conclave</strong><p>Sealed at launch; revealed privately per dossier.</p></div>
 
-          <div v-if="isHost" class="param-fields">
+          <div v-if="isHost || isAdmin || adminObserver" class="param-fields">
             <div class="param-group">
               <span class="eyebrow">Pacing</span>
               <div class="pacing-tiles">
@@ -349,11 +358,16 @@ const props = defineProps({
   compositionErrors: { type: Array, default: () => [] },
   messages: { type: Array, default: () => [] },
   hasMore: { type: Boolean, default: true },
+  // Non-seated admin observer (game:admin-observe) — no `me` at all, so this
+  // is a separate gate from isAdmin (which reads props.me?.isAdmin) rather
+  // than folded into it.
+  adminObserver: { type: Boolean, default: false },
 });
 const emit = defineEmits(['ready', 'start', 'configure', 'leave', 'clear-errors', 'send', 'history', 'kick']);
 
 const players = computed(() => props.game.players || []);
 const isHost = computed(() => props.me?.isHost);
+const isAdmin = computed(() => props.me?.isAdmin === true);
 const playerCount = computed(() => players.value.length);
 const canStart = computed(() => playerCount.value >= rules.MIN_PLAYERS && players.value.every(p => p.ready));
 const presetCounts = Array.from({ length: rules.MAX_PLAYERS - rules.MIN_PLAYERS + 1 }, (_, i) => rules.MIN_PLAYERS + i);
@@ -455,6 +469,81 @@ const customRoster = ref([]);
 const confirmedWarnings = ref([]);
 const expandedRole = ref(null);
 
+// ── Admin-only manual role assignment ─────────────────────────────────────
+// Hidden dev tool: an admin (not necessarily the host) can pin specific
+// players to specific roles before sealing the chamber. Collapsed/off by
+// default so it never surfaces to a regular host. `manualAssignments` is a
+// plain reactive object (not a ref) keyed by playerCode → roleId, since keys
+// are added/removed dynamically per player rather than replaced wholesale.
+const manualAssignEnabled = ref(false);
+const manualAssignments = reactive({});
+function setManualAssignment(playerCode, roleId) {
+  if (!roleId) delete manualAssignments[playerCode];
+  else manualAssignments[playerCode] = roleId;
+}
+
+// Preset mode deliberately excludes real preset role lists from the client
+// bundle (composition privacy) — so knowing what roles a preset actually
+// contains requires this admin-gated round trip. Custom mode needs no such
+// trip; its roster is already known client-side (customRoster). Only fetched
+// while the manual-assignment panel is open, since that's the only consumer.
+const previewRoster = ref([]);
+const resolvedRosterPool = computed(() => compositionMode.value === 'custom' ? customRoster.value : previewRoster.value);
+let previewFetchTimer = null;
+function schedulePreviewFetch() {
+  if (previewFetchTimer) clearTimeout(previewFetchTimer);
+  previewFetchTimer = setTimeout(fetchPreviewRoster, 300);
+}
+async function fetchPreviewRoster() {
+  if (compositionMode.value !== 'preset' || !manualAssignEnabled.value) return;
+  try {
+    await ensureConnected();
+    const composition = { source: 'preset', presetId: presetCount.value + 'p' };
+    const ack = await new Promise((resolve, reject) => {
+      socket.emit('game:admin-roster-preview', { code: props.game.code, composition }, (res) => {
+        if (!res || res.ok === false) { reject(new Error(res?.error || 'Roster preview failed.')); return; }
+        resolve(res);
+      });
+    });
+    previewRoster.value = Array.isArray(ack.roster) ? ack.roster : [];
+  } catch {
+    previewRoster.value = [];
+  }
+}
+watch([presetCount, manualAssignEnabled, compositionMode], () => {
+  if (compositionMode.value === 'preset' && manualAssignEnabled.value) schedulePreviewFetch();
+});
+// Roster-shape changes (a different preset size, or roles added/removed in
+// custom mode) can leave a manual pick pointing at a role that's no longer
+// in the pool at all — clear rather than let it silently dangle. Not
+// `immediate`, so this never fires on initial mount.
+watch([presetCount, () => customRoster.value.length], () => {
+  for (const k of Object.keys(manualAssignments)) delete manualAssignments[k];
+});
+
+// Per-player dropdown options: the resolved roster pool as a multiset, minus
+// one instance for each OTHER player's current manual pick (pool semantics —
+// two Imperial Citizens in the roster means only one is available once the
+// other is claimed elsewhere). The row's own current selection is exempted
+// from that deduction (skipped in the loop below) and is force-included as a
+// fallback in case it fell out of the pool entirely (e.g. a roster edit).
+function availableRolesFor(playerCode) {
+  const counts = new Map();
+  for (const id of resolvedRosterPool.value) counts.set(id, (counts.get(id) || 0) + 1);
+  for (const [code, roleId] of Object.entries(manualAssignments)) {
+    if (code === playerCode) continue;
+    const n = counts.get(roleId);
+    if (!n) continue;
+    if (n <= 1) counts.delete(roleId);
+    else counts.set(roleId, n - 1);
+  }
+  const own = manualAssignments[playerCode];
+  if (own && !counts.has(own)) counts.set(own, 1);
+  return Array.from(counts.entries())
+    .map(([id, count]) => ({ id, count }))
+    .sort((a, b) => roleDisplay(a.id).localeCompare(roleDisplay(b.id)));
+}
+
 // Custom mode lets the host DRAFT a roster sized for more (or fewer)
 // operatives than have actually joined so far — e.g. planning/simulating a
 // 10p doctrine while only 5 people are in the lobby. targetPlayerCount is
@@ -475,7 +564,15 @@ watch(playerCount, (n) => {
   // "Seal the chamber" impossible to ever satisfy without the host noticing.
   if (n > targetPlayerCount.value) targetPlayerCount.value = n;
 }, { immediate: true });
-watch(compositionMode, () => { confirmedWarnings.value = []; emit('clear-errors'); });
+watch(compositionMode, () => {
+  confirmedWarnings.value = [];
+  emit('clear-errors');
+  // Manual picks reference roles in whichever roster pool was active; a mode
+  // switch swaps that pool out from under them, so they'd otherwise silently
+  // point at roles that may no longer exist in the new pool.
+  for (const k of Object.keys(manualAssignments)) delete manualAssignments[k];
+  previewRoster.value = [];
+});
 
 const rolesByFaction = computed(() => {
   const loy = [], her = [];
@@ -638,10 +735,13 @@ function acknowledgeAllWarnings() {
 }
 
 function buildCompositionPayload() {
-  if (compositionMode.value === 'preset') {
-    return { source: 'preset', presetId: presetCount.value + 'p' };
+  const base = compositionMode.value === 'preset'
+    ? { source: 'preset', presetId: presetCount.value + 'p' }
+    : { source: 'custom', roster: [...customRoster.value], confirmedWarnings: [...confirmedWarnings.value] };
+  if ((isAdmin.value || props.adminObserver) && manualAssignEnabled.value && Object.keys(manualAssignments).length) {
+    base.manualAssignments = { ...manualAssignments };
   }
-  return { source: 'custom', roster: [...customRoster.value], confirmedWarnings: [...confirmedWarnings.value] };
+  return base;
 }
 
 function emitStart() {
@@ -1243,6 +1343,19 @@ function formatTime(t) { return t ? new Date(t).toLocaleTimeString([], { hour: '
   background: #5b5e55; margin-right: 4px;
 }
 .ops-cell .presence.online { background: #71905e; box-shadow: 0 0 5px #71905e; }
+/* Manual role assignment: an admin-only, hidden-by-default dev tool, so it
+   stays visually quiet — a plain small link-style toggle and a compact
+   per-row select, not styled to compete with the rest of the roster card. */
+.ops-cell .manual-assign-toggle {
+  margin: 4px 25px 0; padding: 4px 8px; width: auto;
+  background: transparent; border: 1px solid #33352e; color: var(--muted);
+  font-size: 9px; text-transform: none; letter-spacing: normal;
+}
+.ops-cell .manual-assign-slot { flex: 0 0 auto; }
+.ops-cell .manual-assign-slot select {
+  width: auto; min-width: 96px; max-width: 130px;
+  padding: 4px 20px 4px 6px; font-size: 10px;
+}
 .ops-cell .kick-slot { flex: 0 0 26px; display: flex; align-items: center; justify-content: center; }
 .ops-cell .kick-btn {
   width: 22px; height: 22px; padding: 0;

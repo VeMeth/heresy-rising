@@ -12,6 +12,7 @@ import { resolveScaledCost } from './mechanics/scaledCosts.js';
 import { validateRotation, getLastProtectTarget } from './mechanics/protection.js';
 import { getVisitorsForRound, getVisitorsUnion } from './mechanics/astropath.js';
 import { validateComposition } from './validators/composition.js';
+import { resolveManualAssignment } from './validators/manualAssignment.js';
 import { saveGameLogSnapshot } from './gameLogs.js';
 
 // Phase-length defaults (ms) for the two lobby modes, the bounds
@@ -177,7 +178,7 @@ export function isHostileTo(a, b) {
 }
 
 export class HeresyGameManager {
-  constructor({ databasePath = process.env.GAME_DB_PATH || path.join(process.cwd(), 'data', 'heresy-rising.db'), now = () => Date.now(), random = Math.random } = {}) {
+  constructor({ databasePath = process.env.GAME_DB_PATH || path.join(process.cwd(), 'data', 'heresy-rising.db'), now = () => Date.now(), random = Math.random, adminPlayerCodes = new Set() } = {}) {
     fs.mkdirSync(path.dirname(databasePath), { recursive: true });
     this.db = new Database(databasePath); this.db.pragma('journal_mode = WAL'); this.db.exec(schema);this.ensureColumn('hr_games','hint_profile',"TEXT NOT NULL DEFAULT 'default'");
     this.ensureColumn('hr_players','is_bot',"INTEGER NOT NULL DEFAULT 0");
@@ -271,7 +272,7 @@ export class HeresyGameManager {
     // climbing for the rest of the game, including after the source dies.
     this.ensureColumn('hr_games','patient_zero',"TEXT");
     this.ensureColumn('hr_players','plague_carrier',"INTEGER NOT NULL DEFAULT 0");
-    this.now = now; this.random = random; this.config = loadGameConfig();
+    this.now = now; this.random = random; this.adminPlayerCodes = adminPlayerCodes; this.config = loadGameConfig();
     this._announcementListeners = [];
     this._botPromptListeners = [];
     this._chatMessageListeners = [];
@@ -650,10 +651,10 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
    * @param {number} [params.maxDrift]
    * @param {number} [params.dayMs]
    * @param {number} [params.nightMs]
-   * @param {{source:'preset'|'custom',presetId?:string,roster?:string[],confirmedWarnings?:string[]}} [params.composition]
+   * @param {{source:'preset'|'custom',presetId?:string,roster?:string[],confirmedWarnings?:string[],manualAssignments?:Record<string,string>}} [params.composition]
    */
   start(c,p,params={}){const{maxDrift,dayMs,nightMs,composition}=params;
-    const g=this.requireHost(c,p),players=this.players(c);
+    const g=this.requireHostOrAdmin(c,p),players=this.players(c);
     if(g.phase!=='lobby')throw new Error('Already started');
     const{MIN_PLAYERS,MAX_PLAYERS}=this.config.rules;
     if(players.length<MIN_PLAYERS||players.length>MAX_PLAYERS)throw new Error(`Games require ${MIN_PLAYERS}–${MAX_PLAYERS} players`);
@@ -687,7 +688,9 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     });
     if(!validation.ok)return{ok:false,phase:'lobby',composition:{submitted:ids,source:compositionSource},errors:validation.errors,warnings:validation.warnings};
 
-    const assigned=shuffle(ids);
+    const assigned=(this.isAdmin(p)&&composition?.manualAssignments&&Object.keys(composition.manualAssignments).length)
+      ?resolveManualAssignment({ids,players,manualAssignments:composition.manualAssignments})
+      :shuffle(ids);
     // Async mode: day/night are locked at 12h regardless of what's passed
     // in (defense in depth, same as configure()). Day 1's deadline is the
     // next occurrence of Night's start (day-start + 12h) rather than a
@@ -717,9 +720,9 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
       this.system(c,'Roles sealed. Day 1 begins — review your dossier and discuss.');
     })();
     players.forEach((x,i)=>{const r=this.role(assigned[i]);this.privateSystem(c,x.player_code,`Your role is ${r.displayName}. ${r.objective}`,null,{autoBookmark:false});this.emitAnnouncement(c,{type:'role-reveal',title:'YOUR DOSSIER',message:`You are a ${r.displayName}. ${r.objective}`,role:r.displayName,objective:r.objective,faction:r.faction,round:1,phase:'day',targetCode:x.player_code});});
-    return this.state(c,p);
+    return this.player(c,p)?this.state(c,p):this.adminState(c);
   }
-  configure(c,p,options={}){const g=this.requireGame(c);if(g.phase!=='lobby')throw new Error('Game has already started');this.requireHost(c,p);
+  configure(c,p,options={}){const g=this.requireGame(c);if(g.phase!=='lobby')throw new Error('Game has already started');this.requireHostOrAdmin(c,p);
     // Async mode: day/night are locked at 12h — any client-supplied
     // dayMs/nightMs is ignored (defense in depth; the lobby UI doesn't even
     // offer those fields for async). Host instead tunes day_start_minute_utc.
@@ -731,7 +734,7 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
     const deathReveal=DEATH_REVEALS.includes(options.deathReveal)?options.deathReveal:g.death_reveal;
     const rawDayStart=Number(options.dayStartMinuteUtc);
     const dayStartMinuteUtc=isAsync?(Number.isFinite(rawDayStart)?Math.max(0,Math.min(1439,Math.round(rawDayStart))):(g.day_start_minute_utc??this.config.phases.DEFAULT_DAY_START_MINUTE_UTC)):g.day_start_minute_utc;
-    this.db.prepare('UPDATE hr_games SET day_ms=?,night_ms=?,max_drift=?,anonymized=?,warp_taint_visible=?,day_start_minute_utc=?,death_reveal=?,updated_at=? WHERE code=?').run(dayMs,nightMs,maxDrift,anonymized,warpTaintVisible,dayStartMinuteUtc,deathReveal,this.now(),c);return this.state(c,p);}
+    this.db.prepare('UPDATE hr_games SET day_ms=?,night_ms=?,max_drift=?,anonymized=?,warp_taint_visible=?,day_start_minute_utc=?,death_reveal=?,updated_at=? WHERE code=?').run(dayMs,nightMs,maxDrift,anonymized,warpTaintVisible,dayStartMinuteUtc,deathReveal,this.now(),c);return this.player(c,p)?this.state(c,p):this.adminState(c);}
   advance(c,p){this.requireHost(c,p);return this.resolve(c,true);}
   resolve(c,force=false){const g=this.requireGame(c);if(g.status!=='active')throw new Error('Game is not active');if(!force&&g.deadline&&g.deadline>this.now())throw new Error('Phase is active');if(g.phase==='night')this.resolveNight(g);else if(g.phase==='day')this.resolveDay(g);return this.game(c);}
   setPhase(c,phase,round,dayStage=null){const g=this.game(c),duration=phase==='night'?g.night_ms:g.day_ms,deadline=this.now()+duration,stage=phase==='day'?(dayStage||'vote'):dayStage;this.db.prepare('UPDATE hr_games SET phase=?,round=?,day_stage=?,deadline=?,updated_at=? WHERE code=?').run(phase,round,stage,deadline,this.now(),c);if(phase==='day'){this.db.prepare('UPDATE hr_players SET cripple_tier=0,tier1_until_round=NULL WHERE game_code=? AND cripple_tier=1 AND tier1_until_round<?').run(c,round);const votingEnabled=round>=this.config.rules.day.FIRST_VOTING_ROUND;this.system(c,votingEnabled?`Day ${round}: vote for a target or stand down.`:`Day ${round} begins — no vote today. Introduce yourself and observe.`);}
@@ -1307,8 +1310,14 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   // only the player-facing projection collapses it.
   publicDeathCause(cause){return cause==='blood-ritual'?'murder':cause;}
   atRiskTargets(roster){return roster.filter(p=>p.alive&&p.mark_public).map(p=>p.player_code);}
-  state(c,viewerCode){const g=this.requireGame(c),viewer=this.requirePlayer(c,viewerCode),ended=g.status==='ended',roster=this.rosterPlayers(c),players=roster.map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,deathCause:this.publicDeathCause(p.death_cause),torturedBefore:!!p.mark_public,...((p.player_code===viewerCode||ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.roleForDisplay(this.role(p.role_id),roster.length):null,faction:p.faction}:{}),...(viewer.faction==='heretic'&&p.faction==='heretic'?{faction:'heretic'}:{}),...((viewerCode===p.possessed_by||(viewerCode===p.player_code&&p.possessed_by)||(!p.alive&&p.possessed_by)||(ended&&p.possessed_by))?{possessed:true}:{})}));const privateMessages=/** @type {{id:number,author:string,body:string,kind:string,createdAt:number,meta:string|null}[]} */ (this.db.prepare("SELECT id,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id").all(c,viewerCode)).map(m=>({...m,meta:m.meta?JSON.parse(m.meta):null}));const votingEnabled=g.phase==='day'?g.round>=this.config.rules.day.FIRST_VOTING_ROUND:true;return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,warpTaintVisible:!!g.warp_taint_visible,deathReveal:g.death_reveal,dayStartMinuteUtc:g.day_start_minute_utc,players,me:players.find(x=>x.playerCode===viewerCode),votes:g.phase==='day'?this.voteState(c):[],myAction:this.db.prepare('SELECT kind,target_code AS targetCode,variant FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').get(c,g.round,viewerCode)||null,lastProtectTarget:getLastProtectTarget(this.db,g.code,viewerCode),privateMessages,votingEnabled,atRiskTargets:this.atRiskTargets(roster),...(g.phase==='lobby'?{compositionLabel:`${players.length}-operative doctrine`}:{})};}
+  state(c,viewerCode){const g=this.requireGame(c),viewer=this.requirePlayer(c,viewerCode),ended=g.status==='ended',roster=this.rosterPlayers(c),players=roster.map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,deathCause:this.publicDeathCause(p.death_cause),torturedBefore:!!p.mark_public,...((p.player_code===viewerCode||ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.roleForDisplay(this.role(p.role_id),roster.length):null,faction:p.faction}:{}),...(viewer.faction==='heretic'&&p.faction==='heretic'?{faction:'heretic'}:{}),...((viewerCode===p.possessed_by||(viewerCode===p.player_code&&p.possessed_by)||(!p.alive&&p.possessed_by)||(ended&&p.possessed_by))?{possessed:true}:{}),...(p.player_code===viewerCode&&this.isAdmin(p.player_code)?{isAdmin:true}:{})}));const privateMessages=/** @type {{id:number,author:string,body:string,kind:string,createdAt:number,meta:string|null}[]} */ (this.db.prepare("SELECT id,author,body,kind,created_at AS createdAt,meta FROM hr_messages WHERE game_code=? AND channel='private' AND recipient_code=? ORDER BY id").all(c,viewerCode)).map(m=>({...m,meta:m.meta?JSON.parse(m.meta):null}));const votingEnabled=g.phase==='day'?g.round>=this.config.rules.day.FIRST_VOTING_ROUND:true;return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,warpTaintVisible:!!g.warp_taint_visible,deathReveal:g.death_reveal,dayStartMinuteUtc:g.day_start_minute_utc,players,me:players.find(x=>x.playerCode===viewerCode),votes:g.phase==='day'?this.voteState(c):[],myAction:this.db.prepare('SELECT kind,target_code AS targetCode,variant FROM hr_actions WHERE game_code=? AND round=? AND actor_code=?').get(c,g.round,viewerCode)||null,lastProtectTarget:getLastProtectTarget(this.db,g.code,viewerCode),privateMessages,votingEnabled,atRiskTargets:this.atRiskTargets(roster),...(g.phase==='lobby'?{compositionLabel:`${players.length}-operative doctrine`}:{})};}
   spectate(c){const g=this.requireGame(c);if(g.phase==='lobby')throw new Error('Game has not started yet');const ended=g.status==='ended';const roster=this.rosterPlayers(c);const players=roster.map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,deathCause:this.publicDeathCause(p.death_cause),torturedBefore:!!p.mark_public,...((ended||(!p.alive&&p.possessed_by))?{role:p.role_id?this.roleForDisplay(this.role(p.role_id),roster.length):null,faction:p.faction}:{}),...((!p.alive&&p.possessed_by)||(ended&&p.possessed_by)?{possessed:true}:{})}));return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,warpTaintVisible:!!g.warp_taint_visible,deathReveal:g.death_reveal,dayStartMinuteUtc:g.day_start_minute_utc,players,me:null,votes:g.phase==='day'?this.voteState(c):[],myAction:null,lastProtectTarget:null,privateMessages:[],votingEnabled:g.phase==='day'?g.round>=this.config.rules.day.FIRST_VOTING_ROUND:false,atRiskTargets:this.atRiskTargets(roster),isSpectator:true};}
+  // Full-visibility admin observer: unlike state()/spectate(), role/faction are
+  // ALWAYS included (no phase/ended gating) and chat/actions/votes are raw DB
+  // rows (true sender/recipient, not publicMessage()'s apparent-identity
+  // projection) — this view is for the admin identity only, gated upstream by
+  // requireAdmin() in the game:admin-observe handler, never exposed to players.
+  adminState(c){const g=this.requireGame(c),roster=this.rosterPlayers(c),players=roster.map(p=>({playerCode:p.player_code,name:this.displayName(g,p),alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,crippleTier:p.cripple_tier,deathCause:this.publicDeathCause(p.death_cause),torturedBefore:!!p.mark_public,drift:p.drift,isBot:!!p.is_bot,role:p.role_id?this.roleForDisplay(this.role(p.role_id),roster.length):null,faction:p.faction})),allMessages=this.db.prepare('SELECT id,channel,recipient_code AS recipientCode,player_code AS playerCode,author,body,kind,created_at AS createdAt FROM hr_messages WHERE game_code=? ORDER BY id LIMIT 2000').all(c),allActions=/** @type {{round:number,actorCode:string,kind:string,targetCode:string|null,variant:string|null,data:string|null,createdAt:number}[]} */ (this.db.prepare('SELECT round,actor_code AS actorCode,kind,target_code AS targetCode,variant,data,created_at AS createdAt FROM hr_actions WHERE game_code=? ORDER BY round,created_at').all(c)).map(a=>({...a,data:a.data?JSON.parse(a.data):null})),allVotes=this.db.prepare('SELECT round,stage,voter_code AS voterCode,choice,created_at AS createdAt FROM hr_votes WHERE game_code=? ORDER BY round,created_at').all(c);return {code:c,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,dayMs:g.day_ms,nightMs:g.night_ms,anonymized:!!g.anonymized,warpTaintVisible:!!g.warp_taint_visible,deathReveal:g.death_reveal,dayStartMinuteUtc:g.day_start_minute_utc,players,votes:g.phase==='day'?this.voteState(c):[],allMessages,allActions,allVotes,isAdminObserver:true,...(g.phase==='lobby'?{compositionLabel:`${players.length}-operative doctrine`}:{})};}
   adminRole(id){if(!id)return null;const r=this.config.roles.get(id);return r?{id:r.id,displayName:r.displayName,faction:r.faction,driftWeight:r.driftWeight,objective:r.objective,ability:r.ability}:null;}
   adminPlayer(p,g){return {playerCode:p.player_code,name:p.name,seat:p.seat,roleId:p.role_id,role:this.adminRole(p.role_id),faction:p.faction,drift:p.drift,alive:!!p.alive,ready:!!p.ready,connected:!!p.connected,isHost:p.player_code===g.host_code,isBot:!!p.is_bot,crippleTier:p.cripple_tier,tier1UntilRound:p.tier1_until_round,skipNextNight:!!p.skip_next_night,joinedAt:p.joined_at};}
   adminGameSummary(g){const players=this.players(g.code),messages=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_messages WHERE game_code=?').get(g.code)).count,events=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_events WHERE game_code=?').get(g.code)).count,actions=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_actions WHERE game_code=?').get(g.code)).count,votes=/** @type {{count:number}} */ (this.db.prepare('SELECT COUNT(*) AS count FROM hr_votes WHERE game_code=?').get(g.code)).count;return {code:g.code,mode:g.mode,phase:g.phase,dayStage:g.day_stage,status:g.status,round:g.round,deadline:g.deadline,winner:g.winner,maxDrift:g.max_drift,hintProfile:g.hint_profile,createdAt:g.created_at,updatedAt:g.updated_at,hostCode:g.host_code,hostName:players.find(p=>p.player_code===g.host_code)?.name??null,playerCount:players.length,botCount:players.filter(p=>p.is_bot).length,aliveCount:players.filter(p=>p.alive).length,connectedCount:players.filter(p=>p.connected).length,readyCount:players.filter(p=>p.ready).length,averageDrift:players.length?players.reduce((sum,p)=>sum+p.drift,0)/players.length:0,maxPlayerDrift:players.length?Math.max(...players.map(p=>p.drift)):0,hereticCount:players.filter(p=>p.faction==='heretic').length,loyalistCount:players.filter(p=>p.faction==='loyalist').length,messageCount:messages,eventCount:events,actionCount:actions,voteCount:votes};}
@@ -1455,4 +1464,7 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
   requireAlive(c,p){const x=this.requirePlayer(c,p);if(!x.alive)throw new Error('Dead players cannot do that');return x;}
   /** @returns {GameRow} */
   requireHost(c,p){const g=this.requireGame(c);if(g.host_code!==p)throw new Error('Host permission required');return g;}
+  isAdmin(p){return this.adminPlayerCodes.has(p);}
+  requireAdmin(p){if(!this.isAdmin(p))throw new Error('Admin permission required');return true;}
+  requireHostOrAdmin(c,p){const g=this.requireGame(c);if(g.host_code!==p&&!this.isAdmin(p))throw new Error('Host or admin permission required');return g;}
 }

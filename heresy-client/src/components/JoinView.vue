@@ -17,6 +17,7 @@
         <label>Operative name<input v-model.trim="name" required maxlength="30" autocomplete="nickname" placeholder="Enter a callsign"></label>
         <label>Conclave code<input v-model.trim="code" maxlength="8" autocapitalize="characters" placeholder="e.g. CADIA" @input="code = code.toUpperCase()"></label>
         <button class="primary wide" :disabled="busy || !name || !code">Join existing conclave</button>
+        <button type="button" class="ghost compact observe-btn" :disabled="busy || !code" @click="emitObserve">Observe</button>
         <div class="divider"><span>or found a new conclave</span></div>
         <div class="mode-select" role="group" aria-label="Game pace">
           <button type="button" :class="{ active: mode === 'live' }" @click="mode='live'"><strong>Live</strong><small>Minutes per phase</small></button>
@@ -37,8 +38,9 @@ const name = ref(props.profile?.username || props.profile?.name || ''); const co
 const fallbackQuote = { lead: 'Trust is a ', highlight: 'fatal weakness.' };
 const quoteParts = ref(fallbackQuote);
 function join(){ if(name.value && code.value) emitJoin(); }
-const emit = defineEmits(['join','create','recover']);
+const emit = defineEmits(['join','create','recover','observe']);
 function emitJoin(){ emit('join',{ name:name.value, roomCode:code.value.toUpperCase() }); }
+function emitObserve(){ if(code.value) emit('observe',{ roomCode:code.value.toUpperCase() }); }
 function splitQuote(text) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return fallbackQuote;
@@ -102,3 +104,8 @@ onUnmounted(() => {
   clearTimeout(resizeTimer);
 });
 </script>
+<style scoped>
+/* Deliberately unobtrusive — this is a hidden admin entry point, not a
+   second CTA competing with "Join existing conclave". */
+.observe-btn { margin-top: 8px; width: 100%; }
+</style>

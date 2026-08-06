@@ -21,17 +21,17 @@
 
     <main>
       <JoinView v-if="!game" :busy="busy" :error="error" :initial-room-code="initialCode"
-        :profile="profile" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" />
+        :profile="profile" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" @observe="observeGame" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
         :composition-errors="compositionErrors" :messages="messages"
-        :has-more="hasMoreByChannel[channel]"
+        :has-more="hasMoreByChannel[channel]" :admin-observer="adminObserver"
         @ready="toggleReady" @start="startGame" @clear-errors="clearCompositionErrors"
         @configure="configureGame" @leave="leaveGame"
         @send="sendMessage" @history="loadHistory"
         @kick="kickPlayer" />
       <GameView v-else :game="game" :me="me" :messages="messages" :channel="channel"
         :has-more="hasMoreByChannel[channel]"
-        :busy="busy" :now="now" :spectator="spectator" :voting-enabled="game?.votingEnabled"
+        :busy="busy" :now="now" :spectator="spectator" :admin-observer="adminObserver" :voting-enabled="game?.votingEnabled"
         :notes="notes" :bookmarks="bookmarks" :ensure-channel-history="ensureChannelHistory"
         @channel="changeChannel" @send="sendMessage" @send-as="sendMessageAs" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @vote-as="submitVoteAs" @retract-vote-as="retractVoteAs" @action="submitAction"
@@ -89,6 +89,7 @@ const me = computed(() => { const g = game.value; if (!g) return null; const myC
 const connectionState = computed(() => connected.value ? 'online' : reconnecting.value ? 'reconnecting' : 'offline');
 const connectionLabel = computed(() => connected.value ? 'Vox online' : reconnecting.value ? 'Reconnecting' : 'Vox offline');
 const spectator = computed(() => game.value?.isSpectator === true);
+const adminObserver = computed(() => game.value?.isAdminObserver === true);
 
 function readJson(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
 function saveProfile(data) { if (!data) return; profile.value = { ...(profile.value || {}), ...data }; localStorage.setItem('heresy-rising:profile', JSON.stringify(profile.value)); if (data.playerCode) setPlayerCode(data.playerCode); }
@@ -148,6 +149,31 @@ async function spectateGame(code) {
       await loadHistory();
     }
   } catch (e) { error.value = e.message; notify(e.message); }
+}
+// Admin full-visibility observer: never inserts an hr_players row server-side
+// (see game:admin-observe), so this deliberately skips saveProfile/loadNotes/
+// loadHistory — there is no player seat to attach notes/bookmarks to, and
+// chat:history's per-channel authorization assumes a real player. The
+// adminState payload already carries everything (allMessages/allActions/
+// allVotes/unredacted roles) in one shot, and keeps arriving live via the
+// same game:state/phase:updated/game:ended pushes every other viewer gets
+// (see receiveState) — GameView reads game.allMessages directly for this
+// viewer rather than the per-channel messagesByChannel history flow.
+async function observeGame(roomCode) {
+  if (!roomCode) return;
+  try {
+    await ensureConnected();
+    const data = await emitWithAck('game:admin-observe', { code: roomCode });
+    const state = normalize(data);
+    if (state) {
+      game.value = state;
+      saveGameCode(state.code);
+      history.replaceState({}, '', `?game=${state.code}`);
+      channel.value = 'public';
+      messagesByChannel.value = { public: [], faction: [], graveyard: [] };
+      hasMoreByChannel.value = { public: true, faction: true, graveyard: true };
+    }
+  } catch (e) { notify(e.message || 'Observe failed'); }
 }
 async function toggleReady() { try { await command('game:ready', { code: game.value.code, ready: !me.value?.ready }); } catch {} }
 async function kickPlayer(targetCode) { if (!targetCode || !game.value?.code) return; try { await command('game:kick', { code: game.value.code, targetCode }); } catch (e) { notify(e.message || 'Kick failed'); } }
@@ -245,7 +271,12 @@ function closeManual() { showManual.value = false; document.documentElement.styl
 function onManualKeydown(e) { if (e.key === 'Escape' && showManual.value) closeManual(); }
 function onManualMessage(e) { if (e?.data && e.data.type === 'close-manual' && showManual.value) closeManual(); }
 
-function changeChannel(next) { channel.value = next; if (!messagesByChannel.value[next]?.length) { hasMoreByChannel.value = { ...hasMoreByChannel.value, [next]: true }; loadHistory(); } }
+// Admin observer never calls loadHistory() here — chat:history's server-side
+// historyMessages() throws 'Access denied' for a caller with no hr_players
+// row in this game outside a narrow public/non-lobby carve-out, and there's
+// nothing to fetch anyway: GameView already renders straight from
+// game.allMessages (adminState) for this viewer, filtered client-side by tab.
+function changeChannel(next) { channel.value = next; if (!adminObserver.value && !messagesByChannel.value[next]?.length) { hasMoreByChannel.value = { ...hasMoreByChannel.value, [next]: true }; loadHistory(); } }
 function mergeMessages(ch, incoming, prepend = false) {
   const old = messagesByChannel.value[ch] || [];
   // Dedup by id when present (the common path — server always returns ids).

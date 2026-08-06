@@ -126,7 +126,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
   const app=express(), server=http.createServer(app), allowed=config.cors.allowedOrigins;
   const corsOptions=(req,cb)=>cb(null,{origin:isRequestOriginAllowed(req,allowed),credentials:false});
   app.disable('x-powered-by'); app.set('trust proxy',config.trustProxy?1:false); app.use(helmet({crossOriginResourcePolicy:{policy:'same-site'}})); app.use(cors(corsOptions)); app.use(express.json({limit:'32kb'})); app.use(rateLimit({...config.rateLimit,max:config.rateLimit.max||120}));
-  const gameManager=new HeresyGameManager({databasePath,now});
+  const gameManager=new HeresyGameManager({databasePath,now,adminPlayerCodes:config.adminPlayerCodes});
   gameManager.onAnnouncement((code,a)=>{broadcastAnnouncement(code,a);});
   gameManager.onBotPrompt((code,payload)=>{broadcastBotPrompt(code,payload);});
   gameManager.onChatMessage((code,message)=>{broadcastMessage(code,message);});
@@ -266,11 +266,11 @@ export function createHeresyServer({ databasePath, now } = {}) {
   // instead of scanning every socket connected to the server across all
   // concurrent games.
   function socketsInRoom(code){const ids=io.sockets.adapter.rooms.get(code);if(!ids)return[];const out=[];for(const id of ids){const s=io.sockets.sockets.get(id);if(s)out.push(s);}return out;}
-  function broadcast(code,event='game:state'){for(const socket of socketsInRoom(code)){const isSpectator=!socket.data.playerCode&&socket.data.spectatorCode;if(!socket.data.playerCode&&!isSpectator)continue;try{const state=socket.data.playerCode?gameManager.state(code,socket.data.playerCode):gameManager.spectate(code);socket.emit(event,{state});if(state.status==='ended')socket.emit('game:ended',{state});}catch{}}}
+  function broadcast(code,event='game:state'){for(const socket of socketsInRoom(code)){if(socket.data.isAdminObserver){try{socket.emit(event,{state:gameManager.adminState(code)});}catch{}continue;}const isSpectator=!socket.data.playerCode&&socket.data.spectatorCode;if(!socket.data.playerCode&&!isSpectator)continue;try{const state=socket.data.playerCode?gameManager.state(code,socket.data.playerCode):gameManager.spectate(code);socket.emit(event,{state});if(state.status==='ended')socket.emit('game:ended',{state});}catch{}}}
   function broadcastMessage(code,message){// Sanitized once, outside the loop: routing below still reads the RAW row's
   // recipient_code, but every client receives the projection that carries the
   // apparent author instead of the true one (see publicMessage).
-  const safe=gameManager.publicMessage(code,message);for(const client of socketsInRoom(code)){try{const isSpectator=!client.data.playerCode&&client.data.spectatorCode;if(!client.data.playerCode&&!isSpectator)continue;const player=client.data.playerCode?gameManager.player(code,client.data.playerCode):null;if(!player){if(message.channel==='public')client.emit('chat:message',{message:safe});continue;}if(message.channel==='public'||(message.channel==='faction'&&player.faction==='heretic'&&player.alive)||(message.channel==='graveyard'&&!player.alive)||(message.channel==='private'&&message.recipient_code===client.data.playerCode))client.emit('chat:message',{message:safe});}catch{}}}
+  const safe=gameManager.publicMessage(code,message);for(const client of socketsInRoom(code)){try{if(client.data.isAdminObserver){client.emit('chat:message',{message});continue;}const isSpectator=!client.data.playerCode&&client.data.spectatorCode;if(!client.data.playerCode&&!isSpectator)continue;const player=client.data.playerCode?gameManager.player(code,client.data.playerCode):null;if(!player){if(message.channel==='public')client.emit('chat:message',{message:safe});continue;}if(message.channel==='public'||(message.channel==='faction'&&player.faction==='heretic'&&player.alive)||(message.channel==='graveyard'&&!player.alive)||(message.channel==='private'&&message.recipient_code===client.data.playerCode))client.emit('chat:message',{message:safe});}catch{}}}
   function broadcastAnnouncement(code,announcement){
     // Targeted announcements (role-reveal per-player) must never be
     // broadcast to the whole room — deliver only to the intended socket.
@@ -278,13 +278,19 @@ export function createHeresyServer({ databasePath, now } = {}) {
       for (const s of socketsInRoom(code)) {
         if (s.data.playerCode === announcement.targetCode) {
           s.emit('game:announcement',{announcement});
-          return;
+          continue;
         }
+        // Admin observers get every targeted announcement too (full
+        // visibility), without ever being mistaken for the real target above.
+        if (s.data.isAdminObserver) s.emit('game:announcement',{announcement});
       }
       return;
     }
     io.to(code).emit('game:announcement',{announcement});
   }
+  // Nudges admin-observer sockets with a fresh full-visibility snapshot after
+  // private actions/votes that don't otherwise call broadcast()/broadcastMessage().
+  function pushAdminObservers(code){for(const s of socketsInRoom(code)){if(s.data.isAdminObserver){try{s.emit('game:state',{state:gameManager.adminState(code)});}catch{}}}}
   // Targeted delivery to a single bot socket (identified by payload.playerCode).
   function broadcastBotPrompt(code,payload){const evt=payload.kind;for(const s of socketsInRoom(code)){if(!s.data.playerCode||s.data.playerCode!==payload.playerCode)continue;s.emit(evt,payload);}}
   // Auto-filed bookmarks (autoBookmark) are hidden information — a dossier
@@ -318,11 +324,18 @@ export function createHeresyServer({ databasePath, now } = {}) {
     ackWrap(socket,'game:create',p=>{const playerCode=auth(socket,p);const result=gameManager.create({playerCode,name:p.name,mode:p.mode,options:p.options});socket.join(result.code);return result;});
     ackWrap(socket,'game:join',p=>{const playerCode=auth(socket,p),code=normalizeRoomCode(p.code);const state=gameManager.join({code,playerCode,name:p.name});socket.join(code);broadcast(code);return {state};});
     ackWrap(socket,'game:spectate',p=>{const code=normalizeRoomCode(p.code);const normalized=typeof p.playerCode==='string'?normalizePlayerCode(p.playerCode):'';const spectatorCode=normalized.length<4?'spec_'+Math.random().toString(36).slice(2,10)+'_'+Date.now().toString(36).slice(-4):normalized;socket.data.spectatorCode=spectatorCode;socket.join(code);const state=gameManager.spectate(code);return {state,playerCode:spectatorCode};});
+    // Full-visibility admin observer: never joins as a player (no hr_players
+    // row, never trusts socket.data.playerCode for admin-ness). auth() below
+    // still sets socket.data.playerCode as a side effect — that's unavoidable
+    // given auth()'s signature, but isAdminObserver is the only flag anything
+    // admin-specific may read; every privileged write path re-validates via
+    // requireAdmin()/requireHostOrAdmin() fresh, same as before this handler.
+    ackWrap(socket,'game:admin-observe',p=>{const code=normalizeRoomCode(p.code);const playerCode=auth(socket,p);gameManager.requireAdmin(playerCode);socket.data.isAdminObserver=true;socket.join(code);return {state:gameManager.adminState(code)};});
     ackWrap(socket,'game:state',p=>{const code=normalizeRoomCode(p.code),playerCode=auth(socket,p);socket.join(code);const isMember=!!gameManager.player(code,playerCode);if(!isMember){const state=gameManager.spectate(code);return {state};}const state=gameManager.reconnect(code,playerCode);broadcast(code);return {state};});
     ackWrap(socket,'game:ready',p=>{const code=normalizeRoomCode(p.code),state=gameManager.ready(code,auth(socket,p),p.ready);broadcast(code);return {state};});
     ackWrap(socket,'game:start',p=>{const code=normalizeRoomCode(p.code);const result=gameManager.start(code,auth(socket,p),p.setup);if(result&&'ok' in result&&result.ok===false)return result;broadcast(code,'phase:updated');// After role seal, push a per-bot session_init so the bot-manager can wire its role/faction/claim block.
       broadcastBots(code,'bot:session_init',(bot)=>gameManager.botSessionInit(code,bot.player_code));return{state:result};});
-    ackWrap(socket,'game:configure',p=>{const code=normalizeRoomCode(p.code);gameManager.configure(code,auth(socket,p),p.setup);broadcast(code);return{state:gameManager.state(code,socket.data.playerCode)};});
+    ackWrap(socket,'game:configure',p=>{const code=normalizeRoomCode(p.code);gameManager.configure(code,auth(socket,p),p.setup);broadcast(code);return{state:gameManager.player(code,socket.data.playerCode)?gameManager.state(code,socket.data.playerCode):gameManager.adminState(code)};});
     ackWrap(socket,'game:advance-phase',p=>{const code=normalizeRoomCode(p.code);gameManager.advance(code,auth(socket,p));broadcast(code,'phase:updated');return {state:gameManager.state(code,socket.data.playerCode)};});
     ackWrap(socket,'chat:history',p=>(gameManager.historyMessages(normalizeRoomCode(p.code),auth(socket,p),p.channel,p.before,p.limit)));
     ackWrap(socket,'chat:send',p=>{const code=normalizeRoomCode(p.code),message=gameManager.sendMessage(code,auth(socket,p),p.channel||'public',p.body);broadcastMessage(code,message);return {message};});
@@ -330,13 +343,13 @@ export function createHeresyServer({ databasePath, now } = {}) {
     // Conspirator's forge), target is never client-supplied (see
     // sendMessageAs's own comment).
     ackWrap(socket,'chat:send-as',p=>{const code=normalizeRoomCode(p.code),message=gameManager.sendMessageAs(code,auth(socket,p),p.body);broadcastMessage(code,message);return {message};});
-    ackWrap(socket,'vote:submit',p=>{const code=normalizeRoomCode(p.code),result=gameManager.vote(code,auth(socket,p),String(p.targetCode||''),p.justification);io.to(code).emit('vote:state',{votes:result.votes});if(result.message)broadcastMessage(code,result.message);return {votes:result.votes};});
-    ackWrap(socket,'vote:retract',p=>{const code=normalizeRoomCode(p.code),votes=gameManager.retractVote(code,auth(socket,p));io.to(code).emit('vote:state',{votes});return {votes};});
-    ackWrap(socket,'vote:submit-as',p=>{const code=normalizeRoomCode(p.code),result=gameManager.voteAs(code,auth(socket,p),String(p.targetCode||''),p.justification);io.to(code).emit('vote:state',{votes:result.votes});if(result.message)broadcastMessage(code,result.message);return {votes:result.votes};});
-    ackWrap(socket,'vote:retract-as',p=>{const code=normalizeRoomCode(p.code),votes=gameManager.retractVoteAs(code,auth(socket,p));io.to(code).emit('vote:state',{votes});return {votes};});
-    ackWrap(socket,'action:submit',p=>{const code=normalizeRoomCode(p.code),action=gameManager.submitAction(code,auth(socket,p),p);if(action?.message)broadcastMessage(code,action.message);return {action};});
-    ackWrap(socket,'action:retract',p=>{const code=normalizeRoomCode(p.code);gameManager.retractAction(code,auth(socket,p));return {action:null};});
-    ackWrap(socket,'action:submit-faction',p=>{const code=normalizeRoomCode(p.code),action=gameManager.submitFactionAction(code,auth(socket,p),p);return {action};});
+    ackWrap(socket,'vote:submit',p=>{const code=normalizeRoomCode(p.code),result=gameManager.vote(code,auth(socket,p),String(p.targetCode||''),p.justification);io.to(code).emit('vote:state',{votes:result.votes});if(result.message)broadcastMessage(code,result.message);pushAdminObservers(code);return {votes:result.votes};});
+    ackWrap(socket,'vote:retract',p=>{const code=normalizeRoomCode(p.code),votes=gameManager.retractVote(code,auth(socket,p));io.to(code).emit('vote:state',{votes});pushAdminObservers(code);return {votes};});
+    ackWrap(socket,'vote:submit-as',p=>{const code=normalizeRoomCode(p.code),result=gameManager.voteAs(code,auth(socket,p),String(p.targetCode||''),p.justification);io.to(code).emit('vote:state',{votes:result.votes});if(result.message)broadcastMessage(code,result.message);pushAdminObservers(code);return {votes:result.votes};});
+    ackWrap(socket,'vote:retract-as',p=>{const code=normalizeRoomCode(p.code),votes=gameManager.retractVoteAs(code,auth(socket,p));io.to(code).emit('vote:state',{votes});pushAdminObservers(code);return {votes};});
+    ackWrap(socket,'action:submit',p=>{const code=normalizeRoomCode(p.code),action=gameManager.submitAction(code,auth(socket,p),p);if(action?.message)broadcastMessage(code,action.message);pushAdminObservers(code);return {action};});
+    ackWrap(socket,'action:retract',p=>{const code=normalizeRoomCode(p.code);gameManager.retractAction(code,auth(socket,p));pushAdminObservers(code);return {action:null};});
+    ackWrap(socket,'action:submit-faction',p=>{const code=normalizeRoomCode(p.code),action=gameManager.submitFactionAction(code,auth(socket,p),p);pushAdminObservers(code);return {action};});
     ackWrap(socket,'game:leave',p=>{const code=normalizeRoomCode(p.code),playerCode=auth(socket,p);socket.leave(code);const result=gameManager.leave(code,playerCode);if(!result.disbanded)broadcast(code);return result;});
     ackWrap(socket,'game:kick',p=>{const code=normalizeRoomCode(p.code);const hostCode=auth(socket,p);const targetCode=requirePlayerCode(p.targetCode);const state=gameManager.kick(code,hostCode,targetCode);for(const other of io.sockets.sockets.values()){if(other.data.playerCode===targetCode&&other.rooms.has(code)){other.emit('game:kicked',{code});other.disconnect(true);}}broadcast(code);return {state};});
     // Host-only lobby roster preview. Request/response only (ack), never broadcast —
@@ -379,6 +392,7 @@ export function createHeresyServer({ databasePath, now } = {}) {
       if(upstream.status<200||upstream.status>=300)throw new Error(data?.error||`heresy-sim returned ${upstream.status}`);
       return {result:data};
     });
+    ackWrap(socket,'game:admin-roster-preview',p=>{const playerCode=auth(socket,p);gameManager.requireAdmin(playerCode);const code=normalizeRoomCode(p.code);gameManager.requireGame(code);const composition=p.composition||{};if(composition.source==='preset'){const presetCount=parseInt(String(composition.presetId).replace('p',''))||gameManager.players(code).length;return {roster:gameManager.presetFor(presetCount)};}if(composition.source==='custom'){return {roster:[...(composition.roster||[])]};} throw new Error('Invalid composition source');});
     socket.on('disconnecting',()=>{socketLimiter.clear(socket.id);if(socket.data.playerCode){gameManager.disconnect(socket.data.playerCode);for(const room of socket.rooms)broadcast(room);}});
   });
   const timer=setInterval(()=>{for(const code of gameManager.due()){try{gameManager.resolve(code);broadcast(code,'phase:updated');}catch(e){console.error('deadline resolution failed',code,e);}}},1000); timer.unref();

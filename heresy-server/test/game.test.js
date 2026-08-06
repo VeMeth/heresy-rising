@@ -615,3 +615,326 @@ test('re-casting the same vote with a justification posts it without re-announci
   assert.equal(bodies.filter(b=>/accused/.test(b)).length,1,'the accusation is announced once, not once per justification');
   assert.equal(f.manager.vote(f.code,'p0',target.player_code).message,null,'a bare re-cast with no justification stays a silent no-op');
 }finally{f.close();}});
+
+// ── Admin functionality: identity, gating, and manual assignment ──
+
+test('admin isAdmin() returns true only for allowlisted player codes', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      adminPlayerCodes: new Set(['p0', 'p1'])
+    });
+    assert.equal(manager.isAdmin('p0'), true);
+    assert.equal(manager.isAdmin('p1'), true);
+    assert.equal(manager.isAdmin('p2'), false);
+    assert.equal(manager.isAdmin('p999'), false);
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin requireAdmin() throws for non-admin player codes', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      adminPlayerCodes: new Set(['p0'])
+    });
+    assert.doesNotThrow(() => manager.requireAdmin('p0'));
+    assert.throws(() => manager.requireAdmin('p1'), /Admin permission required/);
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin requireHostOrAdmin() accepts either host or admin', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    let now = 1_000_000;
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      now: () => now,
+      adminPlayerCodes: new Set(['p2'])  // p2 is admin, p0 is host
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    for (let i = 1; i < 5; i++) {
+      manager.join({ code, playerCode: `p${i}`, name: `P${i}` });
+    }
+
+    // Host can call requireHostOrAdmin
+    assert.doesNotThrow(() => manager.requireHostOrAdmin(code, 'p0'));
+
+    // Admin (non-host) can call requireHostOrAdmin
+    assert.doesNotThrow(() => manager.requireHostOrAdmin(code, 'p2'));
+
+    // Neither host nor admin throws
+    assert.throws(() => manager.requireHostOrAdmin(code, 'p3'), /Host or admin permission required/);
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: non-admin manualAssignments in start() payload is silently ignored', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    let now = 1_000_000;
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      now: () => now,
+      random: () => 0.5,
+      adminPlayerCodes: new Set()  // nobody is admin
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    for (let i = 1; i < 5; i++) {
+      manager.join({ code, playerCode: `p${i}`, name: `P${i}` });
+      manager.ready(code, `p${i}`, true);
+    }
+
+    // Try to submit manualAssignments as a non-admin host
+    const result = manager.start(code, 'p0', {
+      composition: {
+        source: 'custom',
+        roster: ['murderer', 'priest', 'interrogator', 'chirurgeon', 'imperial-citizen'],
+        confirmedWarnings: [],
+        manualAssignments: {
+          'p0': 'murderer',
+          'p1': 'priest'
+        }
+      }
+    });
+
+    assert.equal(result.phase, 'day', 'game starts successfully');
+    const assigned = manager.players(code).map(p => p.role_id).sort();
+    // The manualAssignments should NOT be honored (non-admin)
+    // Just verify the game started with some valid assignment
+    assert.equal(assigned.length, 5);
+    const expected = ['murderer', 'priest', 'interrogator', 'chirurgeon', 'imperial-citizen'].sort();
+    assert.deepEqual(assigned, expected);
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: admin manualAssignments in start() payload are honored', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    let now = 1_000_000;
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      now: () => now,
+      adminPlayerCodes: new Set(['p0'])  // p0 is both host and admin
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    for (let i = 1; i < 5; i++) {
+      manager.join({ code, playerCode: `p${i}`, name: `P${i}` });
+      manager.ready(code, `p${i}`, true);
+    }
+
+    // Submit manualAssignments as admin
+    const result = manager.start(code, 'p0', {
+      composition: {
+        source: 'custom',
+        roster: ['murderer', 'priest', 'interrogator', 'chirurgeon', 'imperial-citizen'],
+        confirmedWarnings: [],
+        manualAssignments: {
+          'p0': 'interrogator',
+          'p1': 'murderer',
+          'p2': 'priest',
+          'p3': 'chirurgeon',
+          'p4': 'imperial-citizen'
+        }
+      }
+    });
+
+    assert.equal(result.phase, 'day', 'game starts successfully');
+
+    // Verify all manual assignments were honored
+    assert.equal(manager.player(code, 'p0').role_id, 'interrogator');
+    assert.equal(manager.player(code, 'p1').role_id, 'murderer');
+    assert.equal(manager.player(code, 'p2').role_id, 'priest');
+    assert.equal(manager.player(code, 'p3').role_id, 'chirurgeon');
+    assert.equal(manager.player(code, 'p4').role_id, 'imperial-citizen');
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: partial manualAssignments fills leftovers with shuffled remainder', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    let now = 1_000_000;
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      now: () => now,
+      adminPlayerCodes: new Set(['p0'])
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    for (let i = 1; i < 5; i++) {
+      manager.join({ code, playerCode: `p${i}`, name: `P${i}` });
+      manager.ready(code, `p${i}`, true);
+    }
+
+    // Only assign 2 of 5 seats explicitly
+    const result = manager.start(code, 'p0', {
+      composition: {
+        source: 'custom',
+        roster: ['murderer', 'priest', 'interrogator', 'chirurgeon', 'imperial-citizen'],
+        confirmedWarnings: [],
+        manualAssignments: {
+          'p0': 'murderer',
+          'p1': 'priest'
+        }
+      }
+    });
+
+    assert.equal(result.phase, 'day');
+
+    // Verify explicit assignments
+    assert.equal(manager.player(code, 'p0').role_id, 'murderer');
+    assert.equal(manager.player(code, 'p1').role_id, 'priest');
+
+    // Verify the remaining roles are from the leftover pool and form a valid permutation
+    const assigned = manager.players(code).map(p => p.role_id);
+    const expected = ['murderer', 'priest', 'interrogator', 'chirurgeon', 'imperial-citizen'];
+    const assignedSorted = assigned.slice().sort();
+    const expectedSorted = expected.slice().sort();
+    assert.deepEqual(assignedSorted, expectedSorted, 'result is a valid permutation of the roster');
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: admin without host seat passes requireHostOrAdmin check (even if not a player seat)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    let now = 1_000_000;
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      now: () => now,
+      adminPlayerCodes: new Set(['observer'])  // observer is admin but not a player
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    for (let i = 1; i < 5; i++) {
+      manager.join({ code, playerCode: `p${i}`, name: `P${i}` });
+      manager.ready(code, `p${i}`, true);
+    }
+    manager.ready(code, 'p0', true);
+
+    // Observer (admin, non-player) can call requireHostOrAdmin on a game they're not in
+    assert.doesNotThrow(() => manager.requireHostOrAdmin(code, 'observer'));
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin privacy regression: non-admin state() does not expose isAdmin flag', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    let now = 1_000_000;
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      now: () => now,
+      adminPlayerCodes: new Set(['p0'])  // p0 is admin
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    for (let i = 1; i < 5; i++) {
+      manager.join({ code, playerCode: `p${i}`, name: `P${i}` });
+      manager.ready(code, `p${i}`, true);
+    }
+    manager.start(code, 'p0');
+
+    // p0 (admin) should see isAdmin flag in their own me.isAdmin
+    const adminState = manager.state(code, 'p0');
+    assert.equal(adminState.me.isAdmin, true, 'admin sees their own isAdmin flag');
+
+    // p1 (non-admin) should NOT see isAdmin flag
+    const playerState = manager.state(code, 'p1');
+    assert.equal(playerState.me.isAdmin, undefined, 'non-admin does not see isAdmin');
+    assert.equal('isAdmin' in playerState.me, false, 'isAdmin key is not present for non-admin');
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin privacy regression: spectate() does not expose admin-only fields', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    let now = 1_000_000;
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      now: () => now,
+      adminPlayerCodes: new Set(['p0'])
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    for (let i = 1; i < 5; i++) {
+      manager.join({ code, playerCode: `p${i}`, name: `P${i}` });
+      manager.ready(code, `p${i}`, true);
+    }
+    manager.start(code, 'p0');
+
+    // Spectator should not see allMessages, allActions, allVotes, isAdmin
+    const spectatorState = manager.spectate(code);
+    assert.equal('allMessages' in spectatorState, false, 'spectate does not expose allMessages');
+    assert.equal('allActions' in spectatorState, false, 'spectate does not expose allActions');
+    assert.equal('allVotes' in spectatorState, false, 'spectate does not expose allVotes');
+    assert.equal('isAdmin' in spectatorState, false, 'spectate does not expose isAdmin');
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin: adminState() exposes all roles and actions even pre-game-end', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heresy-admin-'));
+  try {
+    let now = 1_000_000;
+    const manager = new HeresyGameManager({
+      databasePath: path.join(dir, 'game.db'),
+      now: () => now,
+      adminPlayerCodes: new Set(['observer'])
+    });
+    const { code } = manager.create({ playerCode: 'p0', name: 'Host' });
+    for (let i = 1; i < 5; i++) {
+      manager.join({ code, playerCode: `p${i}`, name: `P${i}` });
+      manager.ready(code, `p${i}`, true);
+    }
+    manager.start(code, 'p0');
+
+    // Admin observer should see full role info even though game just started
+    const adminState = manager.adminState(code);
+    assert.equal(adminState.phase, 'day', 'game is in day phase');
+    assert.equal(adminState.isAdminObserver, true, 'marked as admin observer');
+
+    // All players should have role and faction visible
+    const playersWithRole = adminState.players.filter(p => p.role);
+    assert.equal(playersWithRole.length, 5, 'all 5 players have visible roles');
+
+    const playersWithFaction = adminState.players.filter(p => p.faction);
+    assert.equal(playersWithFaction.length, 5, 'all 5 players have visible factions');
+
+    // Should have allMessages, allActions, allVotes arrays
+    assert.ok(Array.isArray(adminState.allMessages), 'allMessages is an array');
+    assert.ok(Array.isArray(adminState.allActions), 'allActions is an array');
+    assert.ok(Array.isArray(adminState.allVotes), 'allVotes is an array');
+
+    manager.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

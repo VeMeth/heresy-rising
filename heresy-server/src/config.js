@@ -28,6 +28,14 @@ function parseOrigins(value) {
     .filter(Boolean);
 }
 
+function parseCodeList(value) {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map(code => code.trim())
+    .filter(Boolean);
+}
+
 export const config = {
   port: parseNumber(process.env.SERVER_PORT || process.env.PORT, 4100),
   adminPassword: process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD,
@@ -35,6 +43,9 @@ export const config = {
   cors: {
     allowedOrigins: parseOrigins(process.env.ALLOWED_ORIGINS)
   },
+  // Hidden admin/testing identity allowlist (see .env.example) — a soft gate,
+  // not a real access-control boundary. Empty by default = fully inert.
+  adminPlayerCodes: new Set(parseCodeList(process.env.ADMIN_PLAYER_CODES)),
   rateLimit: {
     windowMs: parseNumber(process.env.RATE_LIMIT_WINDOW_MS, 60_000),
     max: parseNumber(process.env.RATE_LIMIT_MAX, 120),
