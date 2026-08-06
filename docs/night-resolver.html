@@ -1,0 +1,1073 @@
+<title>Night Resolver — Order of Resolution</title>
+
+<style>
+  :root {
+    color-scheme: dark light;
+    --ground: #0A0B09;
+    --panel: #12140F;
+    --panel-2: #181A15;
+    --hair: #33362E;
+    --hair-soft: #23261F;
+    --ink: #DDD9C8;
+    --ink-dim: #B4B2A2;
+    --muted: #8B8F82;
+    --gold: #B69A5C;
+    --gold-bright: #DFC27C;
+    --blood: #B0443A;
+    --z-green: #6FA05C;
+    --z-yellow: #C0A335;
+    --z-orange: #CC7E2E;
+    --z-red: #B33F34;
+    --z-black: #8266A6;
+
+    --display: 'Optima', 'Trajan Pro', 'Palatino Linotype', 'Book Antiqua', Palatino, 'URW Palladio L', Georgia, serif;
+    --body: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --data: 'DejaVu Sans Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+    --measure: 68ch;
+    --col: 1140px;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #E3E1D5;
+      --panel: #F0EEE4;
+      --panel-2: #E8E6DA;
+      --hair: #C2BFAD;
+      --hair-soft: #D4D1C1;
+      --ink: #1E201A;
+      --ink-dim: #3A3D33;
+      --muted: #5A5D50;
+      --gold: #6F5A20;
+      --gold-bright: #54430F;
+      --blood: #8C2B23;
+      --z-green: #3F6B33;
+      --z-yellow: #7E661A;
+      --z-orange: #96520F;
+      --z-red: #8C2B23;
+      --z-black: #55407A;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #E3E1D5;
+    --panel: #F0EEE4;
+    --panel-2: #E8E6DA;
+    --hair: #C2BFAD;
+    --hair-soft: #D4D1C1;
+    --ink: #1E201A;
+    --ink-dim: #3A3D33;
+    --muted: #5A5D50;
+    --gold: #6F5A20;
+    --gold-bright: #54430F;
+    --blood: #8C2B23;
+    --z-green: #3F6B33;
+    --z-yellow: #7E661A;
+    --z-orange: #96520F;
+    --z-red: #8C2B23;
+    --z-black: #55407A;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0A0B09;
+    --panel: #12140F;
+    --panel-2: #181A15;
+    --hair: #33362E;
+    --hair-soft: #23261F;
+    --ink: #DDD9C8;
+    --ink-dim: #B4B2A2;
+    --muted: #8B8F82;
+    --gold: #B69A5C;
+    --gold-bright: #DFC27C;
+    --blood: #B0443A;
+    --z-green: #6FA05C;
+    --z-yellow: #C0A335;
+    --z-orange: #CC7E2E;
+    --z-red: #B33F34;
+    --z-black: #8266A6;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: var(--col);
+    margin: 0 auto;
+    padding: clamp(32px, 6vw, 72px) clamp(18px, 4vw, 44px) 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    border-bottom: 1px solid var(--hair);
+    padding-bottom: 28px;
+  }
+
+  .eyebrow {
+    font-family: var(--display);
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(30px, 5.2vw, 52px);
+    line-height: 1.02;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .standfirst {
+    max-width: var(--measure);
+    color: var(--ink-dim);
+    font-size: 17px;
+  }
+
+  .source {
+    font-family: var(--data);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  .source b { color: var(--gold); font-weight: 400; }
+
+  /* ---------- sections ---------- */
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: clamp(19px, 2.4vw, 25px);
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    margin: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--hair);
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  h2 small {
+    font-family: var(--data);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: none;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-size: 14px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0;
+  }
+
+  p { margin: 0; max-width: var(--measure); }
+
+  /* ---------- constants strip ---------- */
+
+  .constants {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 1px;
+    background: var(--hair-soft);
+    border: 1px solid var(--hair);
+  }
+
+  .constant {
+    background: var(--panel);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .constant dt {
+    font-family: var(--display);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .constant dd {
+    margin: 0;
+    font-family: var(--data);
+    font-size: 21px;
+    font-variant-numeric: tabular-nums;
+    color: var(--gold-bright);
+    line-height: 1.2;
+  }
+
+  .constant dd span {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- drift ramp ---------- */
+
+  .ramp {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--hair-soft);
+    border: 1px solid var(--hair);
+  }
+
+  .ramp div {
+    background: var(--panel);
+    padding: 11px 14px;
+    border-top: 3px solid var(--zc);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ramp b {
+    font-family: var(--display);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--zc);
+    font-weight: 700;
+  }
+
+  .ramp span {
+    font-family: var(--data);
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .z-green  { --zc: var(--z-green); }
+  .z-yellow { --zc: var(--z-yellow); }
+  .z-orange { --zc: var(--z-orange); }
+  .z-red    { --zc: var(--z-red); }
+  .z-black  { --zc: var(--z-black); }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .scroller {
+    overflow-x: auto;
+    border: 1px solid var(--hair);
+    background: var(--panel);
+    padding: 20px 16px;
+  }
+
+  figure svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    color: var(--ink);
+  }
+
+  #rail-figure svg { min-width: 760px; }
+  #funnel-figure svg { min-width: 640px; }
+
+  figcaption {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: var(--measure);
+    line-height: 1.6;
+  }
+
+  figcaption b { color: var(--ink-dim); font-weight: 400; }
+
+  /* ---------- station cards ---------- */
+
+  .stations {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--hair-soft);
+    border: 1px solid var(--hair);
+  }
+
+  .station {
+    background: var(--panel);
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .station-num {
+    font-family: var(--data);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    color: var(--gold);
+    padding: 18px 0 18px 18px;
+    border-right: 1px solid var(--hair-soft);
+  }
+
+  .station-body {
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-width: 0;
+  }
+
+  .station-title {
+    font-family: var(--display);
+    font-size: 16px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .who {
+    font-family: var(--data);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .station-body ul {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: var(--measure);
+    font-size: 15px;
+    color: var(--ink-dim);
+  }
+
+  .station-body li::marker { color: var(--gold); }
+
+  code, .n {
+    font-family: var(--data);
+    font-size: 0.88em;
+    font-variant-numeric: tabular-nums;
+    color: var(--gold-bright);
+    white-space: nowrap;
+  }
+
+  .warn {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    border-left: 2px solid var(--blood);
+    background: color-mix(in srgb, var(--blood) 9%, transparent);
+    padding: 9px 13px;
+    font-size: 14px;
+    color: var(--ink-dim);
+    max-width: var(--measure);
+  }
+
+  .warn b {
+    font-family: var(--display);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--blood);
+    flex: 0 0 auto;
+    padding-top: 3px;
+  }
+
+  /* ---------- matrix ---------- */
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 720px;
+    font-size: 14px;
+  }
+
+  caption {
+    text-align: left;
+    font-size: 14px;
+    color: var(--muted);
+    padding-bottom: 12px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--hair-soft);
+    vertical-align: top;
+  }
+
+  thead th {
+    font-family: var(--display);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border-bottom: 1px solid var(--hair);
+    white-space: nowrap;
+  }
+
+  tbody th {
+    font-family: var(--data);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  tbody td { color: var(--ink-dim); }
+
+  tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+
+  .stop { color: var(--blood); }
+  .tax { color: var(--z-orange); }
+  .na { color: var(--muted); }
+
+  /* ---------- notes ---------- */
+
+  .notes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1px;
+    background: var(--hair-soft);
+    border: 1px solid var(--hair);
+  }
+
+  .note {
+    background: var(--panel);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .note p { font-size: 15px; color: var(--ink-dim); }
+
+  .note.edge { background: var(--panel-2); }
+  .note.edge h3 { color: var(--blood); }
+
+  footer {
+    border-top: 1px solid var(--hair);
+    padding-top: 22px;
+    font-family: var(--data);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  a { color: var(--gold-bright); }
+  a:focus-visible, .scroller:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 640px) {
+    .station { grid-template-columns: 44px minmax(0, 1fr); }
+    .station-num { padding-left: 12px; }
+    .ramp { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="eyebrow">Heresy Rising · Engine Reference</span>
+    <h1>Night Resolver<br>Order of Resolution</h1>
+    <p class="standfirst">Every night collapses in one synchronous pass over fifteen stations. Order is the mechanic: what a station reads has already been written by the stations above it, and nothing below it can reach back. This is the map of that ordering, drawn from the engine rather than the specs.</p>
+    <p class="source">source · <b>heresy-server/src/heresyGameManager.js:759</b> <code>resolveNight()</code> · balance constants from <b>game_data/drift.json</b> + <b>game_data/rules.json</b></p>
+  </header>
+
+  <!-- ============ CONSTANTS ============ -->
+  <section>
+    <h2>Standing Costs <small>every number the resolver can charge</small></h2>
+
+    <dl class="constants">
+      <div class="constant"><dt>Max drift</dt><dd>20</dd></div>
+      <div class="constant"><dt>Sleep recovery</dt><dd>−1</dd></div>
+      <div class="constant"><dt>Trap sprung</dt><dd>+5</dd></div>
+      <div class="constant"><dt>Witnessed violence</dt><dd>+1 <span>· all living</span></dd></div>
+      <div class="constant"><dt>Blood Ritual cost</dt><dd>+3</dd></div>
+      <div class="constant"><dt>Murderer gate cue</dt><dd>+1 <span>· on target</span></dd></div>
+      <div class="constant"><dt>Plague source</dt><dd>+2</dd></div>
+      <div class="constant"><dt>Plague carrier</dt><dd>+1</dd></div>
+      <div class="constant"><dt>Black cripple roll</dt><dd>50<span>%</span></dd></div>
+      <div class="constant"><dt>Proximity siphon</dt><dd>30<span>% · floor 1</span></dd></div>
+      <div class="constant"><dt>Kill self-cost</dt><dd>+15</dd></div>
+      <div class="constant"><dt>Heretic drift cap</dt><dd>13</dd></div>
+    </dl>
+
+    <div class="ramp">
+      <div class="z-green"><b>Green</b><span>0 – 4 · noise 0</span></div>
+      <div class="z-yellow"><b>Yellow</b><span>5 – 9 · noise .2</span></div>
+      <div class="z-orange"><b>Orange</b><span>10 – 14 · noise .4</span></div>
+      <div class="z-red"><b>Red</b><span>15 – 19 · noise .8</span></div>
+      <div class="z-black"><b>Black</b><span>20 · noise 1</span></div>
+    </div>
+    <p>Zones are read live, mid-resolution. A station that moves drift can move a target across a zone boundary before a later station checks that zone — the whole reason the ordering below is load-bearing.</p>
+  </section>
+
+  <!-- ============ THE RAIL ============ -->
+  <section>
+    <h2>The Execution Rail <small>fifteen stations, four shared buckets</small></h2>
+    <p>The resolver carries four pieces of mutable state from station to station. A filled square is where a bucket is <b>written</b>; a hollow circle is where a later station <b>reads</b> it. The vertical distance between a write and its reads is the counterplay window.</p>
+
+    <figure id="rail-figure">
+      <div class="scroller" tabindex="0">
+        <svg viewBox="0 0 1000 1090" role="img" aria-label="Vertical rail of the fifteen night-resolution stations in execution order, with four lanes to the right showing which station writes and which stations read the traps, protectedIds, bodyguards and nightCharges buckets.">
+          <defs>
+            <marker id="rail-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <!-- legend -->
+          <rect x="52" y="18" width="11" height="11" fill="var(--gold)"/>
+          <text x="70" y="28" font-size="11.5" fill="currentColor" font-family="monospace">writes</text>
+          <circle cx="140" cy="23.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="152" y="28" font-size="11.5" fill="currentColor" font-family="monospace">reads</text>
+
+          <!-- lane headers -->
+          <text x="560" y="28" font-size="11.5" text-anchor="middle" fill="var(--gold)" font-family="monospace">traps</text>
+          <text x="672" y="28" font-size="11.5" text-anchor="middle" fill="var(--gold)" font-family="monospace">protected</text>
+          <text x="784" y="28" font-size="11.5" text-anchor="middle" fill="var(--gold)" font-family="monospace">bodyguards</text>
+          <text x="900" y="28" font-size="11.5" text-anchor="middle" fill="var(--gold)" font-family="monospace">nightCharges</text>
+
+          <line x1="26" y1="42" x2="960" y2="42" stroke="currentColor" stroke-width="1" opacity="0.35"/>
+
+          <!-- lane guides -->
+          <line x1="560" y1="46" x2="560" y2="1062" stroke="currentColor" stroke-width="1" opacity="0.16"/>
+          <line x1="672" y1="46" x2="672" y2="1062" stroke="currentColor" stroke-width="1" opacity="0.16"/>
+          <line x1="784" y1="46" x2="784" y2="1062" stroke="currentColor" stroke-width="1" opacity="0.16"/>
+          <line x1="900" y1="46" x2="900" y2="1062" stroke="currentColor" stroke-width="1" opacity="0.16"/>
+
+          <!-- the rail -->
+          <line x1="26" y1="60" x2="26" y2="1054" stroke="currentColor" stroke-width="1.4" opacity="0.5" marker-end="url(#rail-arrow)"/>
+
+          <!-- row guides -->
+          <g stroke="currentColor" stroke-width="1" opacity="0.09">
+            <line x1="520" y1="78" x2="940" y2="78"/>
+            <line x1="520" y1="146" x2="940" y2="146"/>
+            <line x1="520" y1="214" x2="940" y2="214"/>
+            <line x1="520" y1="282" x2="940" y2="282"/>
+            <line x1="520" y1="350" x2="940" y2="350"/>
+            <line x1="520" y1="418" x2="940" y2="418"/>
+            <line x1="520" y1="486" x2="940" y2="486"/>
+            <line x1="520" y1="554" x2="940" y2="554"/>
+            <line x1="520" y1="622" x2="940" y2="622"/>
+            <line x1="520" y1="690" x2="940" y2="690"/>
+            <line x1="520" y1="758" x2="940" y2="758"/>
+            <line x1="520" y1="826" x2="940" y2="826"/>
+            <line x1="520" y1="894" x2="940" y2="894"/>
+            <line x1="520" y1="962" x2="940" y2="962"/>
+            <line x1="520" y1="1030" x2="940" y2="1030"/>
+          </g>
+
+          <!-- station numbers -->
+          <g fill="none" stroke="var(--gold)" stroke-width="1.3">
+            <circle cx="26" cy="78" r="13"/><circle cx="26" cy="146" r="13"/><circle cx="26" cy="214" r="13"/>
+            <circle cx="26" cy="282" r="13"/><circle cx="26" cy="350" r="13"/><circle cx="26" cy="418" r="13"/>
+            <circle cx="26" cy="486" r="13"/><circle cx="26" cy="554" r="13"/><circle cx="26" cy="622" r="13"/>
+            <circle cx="26" cy="690" r="13"/><circle cx="26" cy="758" r="13"/><circle cx="26" cy="826" r="13"/>
+            <circle cx="26" cy="894" r="13"/><circle cx="26" cy="962" r="13"/><circle cx="26" cy="1030" r="13"/>
+          </g>
+          <g font-size="11.5" font-family="monospace" text-anchor="middle" fill="var(--gold)">
+            <text x="26" y="82">0</text><text x="26" y="150">1</text><text x="26" y="218">2</text>
+            <text x="26" y="286">3</text><text x="26" y="354">4</text><text x="26" y="422">5</text>
+            <text x="26" y="490">6</text><text x="26" y="558">7</text><text x="26" y="626">8</text>
+            <text x="26" y="694">9</text><text x="26" y="762" font-size="10.5">10</text><text x="26" y="830" font-size="10.5">11</text>
+            <text x="26" y="898" font-size="10.5">12</text><text x="26" y="966" font-size="10.5">13</text><text x="26" y="1034" font-size="10.5">14</text>
+          </g>
+
+          <!-- station labels -->
+          <g fill="currentColor" font-size="14.5" font-weight="700" font-family="Georgia, serif">
+            <text x="56" y="74">Build night state</text>
+            <text x="56" y="142">Sleep &amp; flat action costs</text>
+            <text x="56" y="210">Protect</text>
+            <text x="56" y="278">Bodyguard</text>
+            <text x="56" y="346">Infect</text>
+            <text x="56" y="414">Sermons</text>
+            <text x="56" y="482">Intel &amp; Execute on Sight</text>
+            <text x="56" y="550">Heretical Catalyst</text>
+            <text x="56" y="618">Kill</text>
+            <text x="56" y="686">Blood Ritual</text>
+            <text x="56" y="754">Possess</text>
+            <text x="56" y="822">Plague tick</text>
+            <text x="56" y="890">Proximity Siphon</text>
+            <text x="56" y="958">Night report</text>
+            <text x="56" y="1026">Win check → Day n+1</text>
+          </g>
+          <g fill="currentColor" opacity="0.62" font-size="11.5" font-family="monospace">
+            <text x="56" y="92">snapshot alive roster · index every trap by TARGET</text>
+            <text x="56" y="160">−1 sleep · scaled or flat cost · fills nightCharges</text>
+            <text x="56" y="228">Chirurgeon · also silently cures plague</text>
+            <text x="56" y="296">Arbitrator · registers the redirect</text>
+            <text x="56" y="364">Poxwalker · sets Patient Zero, one per game</text>
+            <text x="56" y="432">Priest &amp; Heretic Priest · moves target drift −10…+12</text>
+            <text x="56" y="500">scan · drift hint · warp read → auto-kill on Red/Black</text>
+            <text x="56" y="568">Recruiter · converts a target already sitting at 20</text>
+            <text x="56" y="636">Murderer &amp; Sanctioned Psyker · 15 self-drift</text>
+            <text x="56" y="704">any Heretic, once a night · cripple, then kill</text>
+            <text x="56" y="772">Animus · reads target zone AFTER everything above</text>
+            <text x="56" y="840">+2 source, +1 carrier · then the Black cripple roll</text>
+            <text x="56" y="908">Imperial Citizen pays 30% of each neighbour's charge</text>
+            <text x="56" y="976">one private line per raw action · outcome-blind</text>
+            <text x="56" y="1044">tier-1 cripples dated round+1 survive the transition</text>
+          </g>
+
+          <!-- WRITES (filled) -->
+          <g fill="var(--gold)">
+            <rect x="554" y="72" width="12" height="12"/>              <!-- 0 traps -->
+            <rect x="894" y="140" width="12" height="12"/>             <!-- 1 nightCharges -->
+            <rect x="666" y="208" width="12" height="12"/>             <!-- 2 protected -->
+            <rect x="778" y="276" width="12" height="12"/>             <!-- 3 bodyguards -->
+            <rect x="894" y="412" width="12" height="12"/>             <!-- 5 nightCharges -->
+            <rect x="894" y="616" width="12" height="12"/>             <!-- 8 nightCharges -->
+            <rect x="894" y="684" width="12" height="12"/>             <!-- 9 nightCharges -->
+            <rect x="894" y="752" width="12" height="12"/>             <!-- 10 nightCharges -->
+          </g>
+
+          <!-- READS (hollow) -->
+          <g fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="560" cy="214" r="6"/><circle cx="560" cy="282" r="6"/><circle cx="560" cy="350" r="6"/>
+            <circle cx="560" cy="418" r="6"/><circle cx="560" cy="486" r="6"/><circle cx="560" cy="554" r="6"/>
+            <circle cx="560" cy="622" r="6"/><circle cx="560" cy="690" r="6"/><circle cx="560" cy="758" r="6"/>
+            <circle cx="672" cy="554" r="6"/><circle cx="672" cy="622" r="6"/><circle cx="672" cy="690" r="6"/>
+            <circle cx="672" cy="758" r="6"/>
+            <circle cx="784" cy="622" r="6"/><circle cx="784" cy="690" r="6"/>
+            <circle cx="900" cy="894" r="6"/>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>Traps are the widest-reaching bucket</b> — written once at station 0, read by nine of the ten action stations. <b>protectedIds</b> is written at station 2 and cashed out four stations later, which is what makes the Chirurgeon a blind pre-commitment. <b>nightCharges</b> accumulates across five separate stations and is spent exactly once, at station 12. Stations 11, 13 and 14 touch none of the four.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ THE FUNNEL ============ -->
+  <section>
+    <h2>Attack Funnel <small>stations 8 and 9, gate by gate</small></h2>
+    <p>Kill and Blood Ritual run the same interrupt chain in the same order. A solid exit ends the attack; a dashed exit charges drift and lets it continue.</p>
+
+    <figure id="funnel-figure">
+      <div class="scroller" tabindex="0">
+        <svg viewBox="0 0 820 582" role="img" aria-label="Vertical funnel showing a kill or blood ritual passing through five gates in order: the Murderer drift gate, a trap on the actor, a trap on the target, a bodyguard redirect, and a protect, with the exit consequence at each gate.">
+          <defs>
+            <marker id="fn-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <!-- main column -->
+          <g fill="none" stroke="currentColor" stroke-width="1.2">
+            <rect x="30" y="16" width="300" height="44"/>
+            <rect x="30" y="94" width="300" height="52"/>
+            <rect x="30" y="180" width="300" height="52"/>
+            <rect x="30" y="266" width="300" height="52"/>
+            <rect x="30" y="352" width="300" height="52"/>
+            <rect x="30" y="438" width="300" height="52"/>
+          </g>
+          <rect x="30" y="516" width="300" height="46" fill="none" stroke="var(--blood)" stroke-width="1.8"/>
+
+          <g fill="currentColor" font-size="13" font-family="Georgia, serif">
+            <text x="46" y="44">Kill or Blood Ritual submitted</text>
+            <text x="46" y="116">Murderer only — is drift + 15 &gt; 20?</text>
+            <text x="46" y="202">Trap on the ACTOR?</text>
+            <text x="46" y="288">Trap on the TARGET?</text>
+            <text x="46" y="374">Bodyguard on the target?</text>
+            <text x="46" y="460">Protect on the target?</text>
+          </g>
+          <g fill="currentColor" opacity="0.6" font-size="11" font-family="monospace">
+            <text x="46" y="134">i.e. any Murderer above drift 5</text>
+            <text x="46" y="220">kill only — the ritual skips this</text>
+            <text x="46" y="306">a tax, not a gate</text>
+            <text x="46" y="392">redirect, checked before protect</text>
+            <text x="46" y="478">reached only if no bodyguard took it</text>
+          </g>
+          <text x="46" y="544" font-size="13" font-family="Georgia, serif" font-weight="700" fill="var(--blood)">Target dies · every living witness +1</text>
+
+          <!-- down arrows -->
+          <g stroke="currentColor" stroke-width="1.2" marker-end="url(#fn-arrow)" opacity="0.75">
+            <line x1="180" y1="60" x2="180" y2="90"/>
+            <line x1="180" y1="146" x2="180" y2="176"/>
+            <line x1="180" y1="232" x2="180" y2="262"/>
+            <line x1="180" y1="318" x2="180" y2="348"/>
+            <line x1="180" y1="404" x2="180" y2="434"/>
+            <line x1="180" y1="490" x2="180" y2="512"/>
+          </g>
+
+          <!-- exits -->
+          <g stroke="currentColor" stroke-width="1.2" marker-end="url(#fn-arrow)">
+            <line x1="330" y1="120" x2="426" y2="120"/>
+            <line x1="330" y1="206" x2="426" y2="206"/>
+            <line x1="330" y1="292" x2="426" y2="292" stroke-dasharray="5 4" opacity="0.8"/>
+            <line x1="330" y1="378" x2="426" y2="378"/>
+            <line x1="330" y1="464" x2="426" y2="464"/>
+          </g>
+
+          <g fill="none" stroke="currentColor" stroke-width="1" opacity="0.55">
+            <rect x="430" y="98" width="370" height="44"/>
+            <rect x="430" y="184" width="370" height="44"/>
+            <rect x="430" y="270" width="370" height="44" stroke-dasharray="5 4"/>
+            <rect x="430" y="356" width="370" height="44"/>
+            <rect x="430" y="442" width="370" height="44"/>
+          </g>
+
+          <g fill="currentColor" font-size="11.5" font-family="monospace">
+            <text x="446" y="116">fizzles · no self-cost paid</text>
+            <text x="446" y="132" opacity="0.6">target +1 drift · actor gets a zone cue</text>
+            <text x="446" y="202">actor +5 · kill cancelled</text>
+            <text x="446" y="218" opacity="0.6">self-cost of 15 already charged</text>
+            <text x="446" y="288">actor +5 · attack continues</text>
+            <text x="446" y="304" opacity="0.6">the only gate that does not stop it</text>
+            <text x="446" y="374">the guard dies instead</text>
+            <text x="446" y="390" opacity="0.6">protect on the target is never checked</text>
+            <text x="446" y="460">nothing happens</text>
+            <text x="446" y="476" opacity="0.6">no public trace, no tell to either side</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>The bodyguard is checked <b>before</b> the protect, so a doubled-up defence wastes the Chirurgeon entirely — the Arbitrator claims the hit and dies for it. The target-trap branch is the only interrupt in the chain that taxes without stopping.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ STATIONS ============ -->
+  <section>
+    <h2>Station by Station <small>exact behaviour at each stop</small></h2>
+
+    <div class="stations">
+
+      <article class="station">
+        <div class="station-num">0</div>
+        <div class="station-body">
+          <div class="station-title">Build night state <span class="who">setup</span></div>
+          <ul>
+            <li>Snapshots the <b>alive</b> roster. This snapshot is reused later for Execute-on-Sight witnesses and for the sleep report, and is never refreshed.</li>
+            <li><code>totalPlayers</code> is the <b>full roster including the dead</b> — scaled ability costs are priced against table size at setup, not the survivors.</li>
+            <li>Every <code>boobytrap</code> action is indexed by its <b>target</b>, not its actor. "Trapped" always means "someone laid a trap on this player".</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">1</div>
+        <div class="station-body">
+          <div class="station-title">Sleep &amp; flat action costs <span class="who">every living player, in seat order</span></div>
+          <ul>
+            <li>No action submitted → <code>−1</code> drift.</li>
+            <li><code>kill</code>, <code>blood-ritual</code>, <code>possess</code>, <code>sermon</code>, <code>corrupt-sermon</code> are skipped here and charged in their own stations.</li>
+            <li>Everything else pays now: a scaled cost for the Interrogator and Astropath, otherwise the flat <code>driftWeight</code>. Anything above zero enters <code>nightCharges</code>.</li>
+            <li>Interrogator / Priest / Heretic Priest scale on the <em>standard</em> curve — <code>T1 2→1</code>, <code>T2 4→2</code>, <code>T3 10→4</code> from a 5-player to a 12-player table. The Astropath deliberately does not: <code>3 / 6 / 12</code> flat at every table size.</li>
+          </ul>
+          <div class="warn"><b>edge</b><span><code>skip_next_night</code> is cleared here and the player is skipped — but nothing anywhere blocks them from submitting. A tortured or possessed player who submits still has that action resolved in full at every station below, and pays no cost for it.</span></div>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">2</div>
+        <div class="station-body">
+          <div class="station-title">Protect <span class="who">Chirurgeon · driftWeight 1</span></div>
+          <ul>
+            <li>A trap on the target cancels it outright: Chirurgeon takes <code>+5</code>, the trapper is told who they caught.</li>
+            <li>On landing, the target enters <code>protectedIds</code> <em>and</em> is silently cured of plague — carrier flag cleared, Patient Zero nulled if that was them, and a <b>tier-1</b> cripple lifted. Tier 2+ is never touched.</li>
+            <li>The cure runs before the infect and plague stations, so it lifts what a target already carries but cannot pre-empt tonight's infection.</li>
+            <li>The Chirurgeon is told nothing about any of it — same line whether the protect fired, cured, or was wasted.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">3</div>
+        <div class="station-body">
+          <div class="station-title">Bodyguard <span class="who">Arbitrator · driftWeight 1</span></div>
+          <ul>
+            <li>Trap on the target cancels it. Otherwise registers <code>bodyguards[target] = guard</code>.</li>
+            <li>Read only by the Kill and Blood Ritual stations — a bodyguard does nothing against a Catalyst or a Possession.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">4</div>
+        <div class="station-body">
+          <div class="station-title">Infect <span class="who">Poxwalker · one per game</span></div>
+          <ul>
+            <li>The one shot is <b>burned on submission regardless of outcome</b> — a trapped infect still spends it.</li>
+            <li>Sets <code>patient_zero</code> in the database and in memory, so the plague station reads it the same pass.</li>
+            <li>Self-cost of <code>+3</code> was already charged at station 1.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">5</div>
+        <div class="station-body">
+          <div class="station-title">Sermons <span class="who">Priest · Heretic Priest</span></div>
+          <ul>
+            <li>Trap on the target cancels it.</li>
+            <li>Loyalist: whisper <code>−2</code>, hymn <code>−5</code> (2×), litany <code>−10</code> (1×). Heretic: false comfort <code>+3</code>, twisted hymn <code>+7</code>, warp litany <code>+12</code> (1×).</li>
+            <li><b>Warp Litany fizzles silently</b> if the target is below drift 10 — no self-cost, no target drift, no usage burned, no message to either side. Deliberate: the gate at submission time would have leaked hidden drift.</li>
+            <li>Self-cost is the scaled curve, not the <code>self</code> value in <code>drift.json</code> — that field is a dead fallback for both current sermon roles.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">6</div>
+        <div class="station-body">
+          <div class="station-title">Intel &amp; Execute on Sight <span class="who">Interrogator · Novice Psychic · Astropath</span></div>
+          <ul>
+            <li>Trap on the target cancels the scan.</li>
+            <li>Effective tier = <code>min(3, intensity + zoneUpgrade)</code>, where Yellow/Orange add 1 and Red/Black add 2.</li>
+            <li><b>Execute on Sight</b> fires at intensity ≥ 2 against Red or Black: the target dies on the spot, alignment announced publicly, and every living player takes <code>+1</code> witnessed violence.</li>
+            <li>A T1 read is <code>70%</code> truthful, and separately can set or lift a torture mark off the target's <em>true</em> zone — Green absolves, Red marks them for execution at their next day-vote torture.</li>
+            <li>Astropath warp-reads name visitors from <em>previous</em> nights only; tonight's actions are not history yet.</li>
+          </ul>
+          <div class="warn"><b>edge</b><span>The witness list here is the station-0 snapshot, so a player already killed earlier this same night still takes the <code>+1</code>.</span></div>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">7</div>
+        <div class="station-body">
+          <div class="station-title">Heretical Catalyst <span class="who">Recruiter · driftWeight 3</span></div>
+          <ul>
+            <li>Converts the target to Heretic only if their drift is <b>at 20</b> and they are not protected. Their plague is cleared on conversion.</li>
+            <li>A trap on the target taxes <code>+5</code> but does <b>not</b> stop the conversion — one of only two stations a trap cannot cancel.</li>
+            <li>Because it sits above Kill, Blood Ritual and Possess, it reads drift that stations 5 and 6 have already moved but nothing below has.</li>
+          </ul>
+          <div class="warn"><b>edge</b><span>This station inlines its trap tax instead of calling the shared helper, so the Saboteur receives no "your trap caught someone" message here. It is the only station where a sprung trap is silent to its owner.</span></div>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">8</div>
+        <div class="station-body">
+          <div class="station-title">Kill <span class="who">Murderer · Sanctioned Psyker · driftWeight 15</span></div>
+          <ul>
+            <li><b>Murderer gate:</b> if <code>drift + 15 &gt; 20</code> the kill fizzles — no self-cost, target takes <code>+1</code>, actor gets a zone-flavoured cue. In practice: <b>a Murderer above drift 5 can never kill again.</b></li>
+            <li>Otherwise <code>+15</code> self-drift is charged and enters <code>nightCharges</code>.</li>
+            <li>Trap on actor → <code>+5</code>, kill cancelled (cost already paid). Trap on target → <code>+5</code>, kill continues.</li>
+            <li>Bodyguard redirect is checked <b>before</b> protect. A landing kill announces publicly and gives every living player <code>+1</code>.</li>
+            <li>The Sanctioned Psyker's kill is once per game; the Murderer's is unlimited but gated.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">9</div>
+        <div class="station-body">
+          <div class="station-title">Blood Ritual <span class="who">any Heretic · once per night · +3</span></div>
+          <ul>
+            <li>Two-step escalation: cripples on first use, kills only if <b>last round's</b> ritual crippled this <b>same</b> target and they are still alive. Any kill-stage attempt, landed or blocked, consumes the streak.</li>
+            <li>Cripple raises the tier by one (cap 3); a tier-1 cripple is dated <code>round+1</code> so it survives tonight's day transition.</li>
+            <li>Same bodyguard and protect interrupts as a kill, and the same target-trap tax.</li>
+            <li><b>An actor-trap does nothing here.</b> Unlike a kill, the Blood Ritual station never checks whether the attacker is trapped.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">10</div>
+        <div class="station-body">
+          <div class="station-title">Possess <span class="who">Animus · one per game</span></div>
+          <ul>
+            <li>Runs last of the action stations by design — the target's zone reflects every sermon, kill, ritual and catalyst that happened tonight.</li>
+            <li>Self-drift <code>+3</code> was charged at <b>submission</b>, not here; this station only registers it into <code>nightCharges</code> for the siphon.</li>
+            <li>Succeeds only if the target is in <b>Red (15–19)</b> and not protected. Black does not count.</li>
+            <li>Trap on actor → <code>+5</code> and cancelled, the one shot still burned. Trap on target → <code>+5</code>, continues.</li>
+            <li>A protected target and a wrong-zone guess produce the <b>identical</b> failure message. The Animus never learns why.</li>
+            <li>Success sets <code>skip_next_night</code> and hands the Animus the target's day chat and vote. The body detonates at the end of that day — in <code>resolveDay</code>, not here.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">11</div>
+        <div class="station-body">
+          <div class="station-title">Plague tick <span class="who">contagion · after every action has paid</span></div>
+          <ul>
+            <li>While Patient Zero lives: everyone who targeted them tonight, and everyone they targeted, becomes a <b>permanent carrier</b>. The infect action itself is excluded, so the Poxwalker never catches their own plague.</li>
+            <li>Patient Zero takes <code>+2</code>; every other living carrier takes <code>+1</code>. Carrier marking is cumulative and never re-derived — losing the source stops new infections but not existing ones.</li>
+            <li>Then, for every infected player at <b>drift 20 with no existing cripple</b>: a <code>50%</code> roll applies a one-night tier-1 cripple. Re-rolled every night. Never kills, never stacks.</li>
+            <li>Plague drift is deliberately kept out of <code>nightCharges</code> — the siphon prices actions, and the plague is not one.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">12</div>
+        <div class="station-body">
+          <div class="station-title">Proximity Siphon <span class="who">Imperial Citizen</span></div>
+          <ul>
+            <li>Each living Citizen looks at their two <b>seat-adjacent</b> neighbours and pays <code>max(1, round(0.30 × charge))</code> for each one that spent drift on a night action.</li>
+            <li>Both neighbours can charge in the same night, and the results add.</li>
+            <li>A neighbour on the standard curve costs the Citizen the floor of <code>1</code>; a Murderer's <code>15</code> costs them <code>5</code>.</li>
+          </ul>
+          <div class="warn"><b>edge</b><span>Adjacency is position in the seat-ordered list, and the dead keep their slot. A corpse beside a Citizen permanently deadens that side rather than shifting the siphon to the next living seat.</span></div>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">13</div>
+        <div class="station-body">
+          <div class="station-title">Night report <span class="who">private, outcome-blind</span></div>
+          <ul>
+            <li>One private line per <b>raw submitted action</b> — protect, bodyguard, trap, sermon, kill, infect. Identical whether it landed, was blocked, was redirected, or fizzled.</li>
+            <li>Catalyst, possess and the intel kinds are excluded: the first tells its actor nothing at all, the rest already carry their own message.</li>
+            <li>"You slept" only for players who submitted nothing <em>and</em> were not skipped — a skipped player gets no line rather than a false one.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="station">
+        <div class="station-num">14</div>
+        <div class="station-body">
+          <div class="station-title">Win check → Day n+1 <span class="who">phase transition</span></div>
+          <ul>
+            <li>Heretic parity or Loyalist victory ends the game here; otherwise the phase advances to day, round <code>n+1</code>.</li>
+            <li>The transition clears any tier-1 cripple whose expiry is <b>below</b> the new round — which is exactly why night-set cripples are dated <code>round+1</code> and day-set ones are dated <code>round</code>.</li>
+            <li>Day 1 has no vote; voting opens from round 2.</li>
+          </ul>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ============ MATRIX ============ -->
+  <section>
+    <h2>Counterplay Matrix <small>what each defence does to each incoming effect</small></h2>
+    <div class="scroller" tabindex="0">
+      <table>
+        <caption>Read across: an effect meeting each of the three interrupts. <span class="stop">Red</span> stops it, <span class="tax">orange</span> only charges for it.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Incoming effect</th>
+            <th scope="col">Trap on actor</th>
+            <th scope="col">Trap on target</th>
+            <th scope="col">Bodyguard on target</th>
+            <th scope="col">Protect on target</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">protect</th><td class="na">not checked</td><td class="stop">cancelled, +5</td><td class="na">—</td><td class="na">—</td></tr>
+          <tr><th scope="row">bodyguard</th><td class="na">not checked</td><td class="stop">cancelled, +5</td><td class="na">—</td><td class="na">—</td></tr>
+          <tr><th scope="row">infect</th><td class="na">not checked</td><td class="stop">cancelled, +5, shot still burned</td><td class="na">—</td><td class="na">—</td></tr>
+          <tr><th scope="row">sermon / corrupt-sermon</th><td class="na">not checked</td><td class="stop">cancelled, +5</td><td class="na">—</td><td class="na">—</td></tr>
+          <tr><th scope="row">investigate / drift-hint / warp-read</th><td class="na">not checked</td><td class="stop">cancelled, +5</td><td class="na">—</td><td class="na">—</td></tr>
+          <tr><th scope="row">heretical-catalyst</th><td class="na">not checked</td><td class="tax">+5, resolves anyway (trapper not told)</td><td class="na">no effect</td><td class="stop">conversion blocked</td></tr>
+          <tr><th scope="row">kill</th><td class="stop">+5, cancelled (cost paid)</td><td class="tax">+5, resolves</td><td class="stop">guard dies instead</td><td class="stop">no death</td></tr>
+          <tr><th scope="row">blood-ritual</th><td class="na">not checked</td><td class="tax">+5, resolves</td><td class="stop">guard dies or is crippled</td><td class="stop">no effect</td></tr>
+          <tr><th scope="row">possess</th><td class="stop">+5, cancelled (shot burned)</td><td class="tax">+5, resolves</td><td class="na">no effect</td><td class="stop">possession blocked</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ NOTES ============ -->
+  <section>
+    <h2>What the Ordering Buys <small>consequences that only exist because of position</small></h2>
+    <div class="notes">
+
+      <div class="note">
+        <h3>Sermon → Catalyst is live; Kill → Catalyst is not</h3>
+        <p>The Catalyst at station 7 reads drift after the sermons (5) and after Execute-on-Sight's witnessed violence (6), but before any kill, ritual or possession. A Heretic Priest can warp-litany a target to 20 and have the Recruiter convert them the same night — but a Murderer's kill, which also spreads <code>+1</code> to every witness, lands too late to help.</p>
+      </div>
+
+      <div class="note">
+        <h3>The Animus sees the whole night</h3>
+        <p>Possession is last on purpose. Every drift change made tonight — sermons, witnessed violence from up to two separate deaths, plague ticks are the only thing it misses — is already applied when the target's zone is checked. A target read as Orange at dusk can genuinely be Red by the time the Animus reaches them.</p>
+      </div>
+
+      <div class="note">
+        <h3>Doubling defences is strictly worse</h3>
+        <p>Bodyguard is checked before protect, and once a guard claims the hit the protect is never consulted. Chirurgeon and Arbitrator both covering the same player costs the table a dead Arbitrator and a wasted Chirurgeon night, where either alone would have cost nothing.</p>
+      </div>
+
+      <div class="note">
+        <h3>The Murderer prices itself out</h3>
+        <p>Fifteen self-drift against a cap of twenty means the gate closes above drift 5. Every kill also feeds <code>+1</code> back to the killer as a witness, and the heretic cap of 13 doesn't help — the gate is measured against <code>max_drift</code>, not the cap. A Murderer realistically gets one kill unless a sermon walks their drift back down.</p>
+      </div>
+
+      <div class="note">
+        <h3>Scaled costs never notice the dead</h3>
+        <p>Ability scaling is priced against the full roster including corpses, so an Interrogator's T3 stays at its 12-player price for the entire game even when four players are left. Deliberate, per the Q31 ruling — but it means late-game scans are cheap relative to the surviving table.</p>
+      </div>
+
+      <div class="note">
+        <h3>nightCharges is a public-ish signal</h3>
+        <p>Only drift-<em>spending</em> actions enter the bucket, so the siphon quietly tells an Imperial Citizen that a neighbour acted, and roughly how expensively. Plague drift is kept out precisely so it cannot be read the same way.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Sharp Edges <small>found in the engine, not in any spec</small></h2>
+    <div class="notes">
+
+      <div class="note edge">
+        <h3>Skipped players can still act, for free</h3>
+        <p>Station 1 clears <code>skip_next_night</code> and skips the player's cost — but <code>submitAction</code> never checks the flag. A tortured or possessed player who submits a night action has it resolved at every station below and pays nothing for it. This is the most exploitable ordering consequence on the page.</p>
+      </div>
+
+      <div class="note edge">
+        <h3>Corpses witness executions</h3>
+        <p>Execute-on-Sight distributes witnessed violence over the station-0 snapshot, while the kill station re-queries the living. Someone killed earlier in the same night still accrues <code>+1</code> from an execution that follows.</p>
+      </div>
+
+      <div class="note edge">
+        <h3>A trapped Recruiter is invisible to the trapper</h3>
+        <p>The Catalyst station inlines its <code>+5</code> instead of calling the shared trap helper, so the Saboteur never learns their trap fired. Every other station tells them.</p>
+      </div>
+
+      <div class="note edge">
+        <h3>Blood Ritual ignores actor-traps</h3>
+        <p>A trapped attacker loses a kill but not a ritual — the Blood Ritual station only checks the target. The in-code comment justifies this by claiming a trapped Heretic cannot submit, which is not how traps work; they resolve at night-end and never touch submission.</p>
+      </div>
+
+      <div class="note edge">
+        <h3>Dead seats deaden the siphon</h3>
+        <p>Neighbour lookup is array-index adjacency over the seat-ordered roster with the dead left in place. An Imperial Citizen sitting next to a corpse loses that side of the siphon permanently rather than inheriting the next living neighbour.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    Generated from the live engine on 2026-08-06 · resolveNight() at heresyGameManager.js:759–866, resolvePlague() at :920, applyProximitySiphon() at mechanics/drift.js:40<br>
+    Balance constants are read at runtime from game_data/drift.json and game_data/rules.json — tune there, not in the engine.
+  </footer>
+
+</div>
