@@ -248,7 +248,13 @@ export function createHeresyServer({ databasePath, now } = {}) {
     'game:kick': { points: 6, duration: 60_000 },
     'notes:add': { points: 30, duration: 10_000 },
     'notes:edit': { points: 30, duration: 10_000 },
-    'bookmark:toggle': { points: 30, duration: 10_000 }
+    'bookmark:toggle': { points: 30, duration: 10_000 },
+    // Tight — this is the brute-force surface for the admin password. Weaker
+    // than the REST panel's IP-based adminLoginLimiter (reconnecting resets
+    // this, since it's keyed per socket.id), but matches this feature's
+    // threat model: a soft gate for a single personal admin, not a public
+    // multi-tenant service.
+    'player:claim-identity': { points: 5, duration: 60_000 }
   });
   const io=new Server(server,{cors:{origin:allowed==='*'?'*':allowed,methods:['GET','POST'],credentials:false},allowRequest(req,cb){cb(null,isRequestOriginAllowed(req,allowed));},maxHttpBufferSize:32768,transports:['websocket'],pingTimeout:10000,pingInterval:20000});
   function ackWrap(socket,event,fn){socket.on(event,async(payload={},ack=(/** @type {any} */ _response)=>{})=>{try{if(socketLimiter.isRateLimited(socket.id,event))throw new Error('Rate limit exceeded');const data=await fn(payload);ack({ok:true,...(data&&typeof data==='object'?data:{data})});}catch(error){ack({ok:false,error:error.message});}});}
@@ -304,6 +310,23 @@ export function createHeresyServer({ databasePath, now } = {}) {
   // the per-bot payload (so we can stamp botId/role per recipient).
   function broadcastBots(code,event,payloadFor){for(const s of socketsInRoom(code)){if(!s.data.playerCode)continue;try{const player=gameManager.player(code,s.data.playerCode);if(!player||!player.is_bot)continue;s.emit(event,payloadFor(player));}catch{}}}
   io.on('connection',socket=>{
+    // Gate for the "Restore an existing identity" flow — checked BEFORE the
+    // client ever adopts a player_code as its own (see recoverProfile() in
+    // App.vue), not on every ordinary connection. player_code is otherwise a
+    // self-reported, unsigned value (see admin-tooling-manual-assign-observer
+    // memory) — this is what stops "I saw/guessed the admin's raw code" from
+    // being sufficient on its own to claim it on a different browser. Reuses
+    // the exact same ADMIN_PASSWORD/constantTimeEquals/fail-closed-on-default
+    // machinery the REST /admin panel already uses, rather than a second
+    // secret to manage. A code that ISN'T on the admin allowlist never
+    // touches the password at all — this changes nothing for a normal
+    // player restoring their own identity.
+    ackWrap(socket,'player:claim-identity',p=>{
+      const code=normalizePlayerCode(p.code||'');
+      if(!code)throw new Error('A player code is required.');
+      if(gameManager.isAdmin(code)&&(adminLocked||!constantTimeEquals(p.password,config.adminPassword)))throw new Error('ADMIN_PASSWORD_REQUIRED');
+      return {playerCode:code};
+    });
     // Player preferences (seal style, etc.) — not tied to any specific game.
     ackWrap(socket,'player:prefs:get',p=>({prefs:gameManager.getPlayerPrefs(auth(socket,p))}));
     ackWrap(socket,'player:prefs:set',p=>({prefs:gameManager.setPlayerPrefs(auth(socket,p),p.prefs)}));

@@ -25,20 +25,32 @@
         <button type="button" class="secondary wide" :disabled="busy || !name" @click="$emit('create', { name, mode })">Create a conclave</button>
       </form>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
-      <details class="recovery"><summary>Restore an existing identity</summary><form @submit.prevent="$emit('recover', recoveryCode.trim().toUpperCase())"><input v-model="recoveryCode" placeholder="Player recovery code" maxlength="40"><button class="ghost">Restore</button></form></details>
+      <details class="recovery">
+        <summary>Restore an existing identity</summary>
+        <form @submit.prevent="emitRecover">
+          <input v-model="recoveryCode" placeholder="Player recovery code" maxlength="40">
+          <!-- Only ever appears after the server signals this specific code
+               needs it — a normal player restoring their own identity never
+               sees it at all. -->
+          <input v-if="needsAdminPassword" v-model="recoveryPassword" type="password"
+                 placeholder="Admin password" autocomplete="off">
+          <button class="ghost">Restore</button>
+        </form>
+      </details>
       <div v-if="profile?.playerCode" class="identity"><span>Identity secured</span><code>{{ profile.playerCode }}</code></div>
     </div>
   </section>
 </template>
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref } from 'vue';
-const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object });
-const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref('');
+const props = defineProps({ busy:Boolean, error:String, initialRoomCode:String, profile:Object, needsAdminPassword:Boolean });
+const name = ref(props.profile?.username || props.profile?.name || ''); const code = ref(props.initialRoomCode || ''); const mode = ref('live'); const recoveryCode = ref(''); const recoveryPassword = ref('');
 const fallbackQuote = { lead: 'Trust is a ', highlight: 'fatal weakness.' };
 const quoteParts = ref(fallbackQuote);
 function join(){ if(name.value && code.value) emitJoin(); }
 const emit = defineEmits(['join','create','recover']);
 function emitJoin(){ emit('join',{ name:name.value, roomCode:code.value.toUpperCase() }); }
+function emitRecover(){ emit('recover', { code: recoveryCode.value.trim().toUpperCase(), password: recoveryPassword.value }); }
 function splitQuote(text) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return fallbackQuote;

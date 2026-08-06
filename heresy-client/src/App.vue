@@ -25,7 +25,7 @@
 
     <main>
       <JoinView v-if="!game" :busy="busy" :error="error" :initial-room-code="initialCode"
-        :profile="profile" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" />
+        :profile="profile" :needs-admin-password="needsAdminPassword" @create="createGame" @join="joinOrSpectate" @recover="recoverProfile" />
       <LobbyView v-else-if="game.phase === 'lobby'" :game="game" :me="me" :busy="busy"
         :composition-errors="compositionErrors" :messages="messages"
         :has-more="hasMoreByChannel[channel]" :admin-observer="adminObserver"
@@ -100,6 +100,12 @@ const spectator = computed(() => game.value?.isSpectator === true);
 // quietly upgrades a recognized admin identity wherever it would otherwise
 // have gotten the redacted spectator view.
 const adminObserver = computed(() => game.value?.isAdminObserver === true);
+// Set when recoverProfile() learns (via player:claim-identity) that the code
+// just typed into "Restore an existing identity" is an admin one and needs
+// ADMIN_PASSWORD too — reveals the password field in JoinView. Reset on
+// every fresh attempt so a corrected code that turns out NOT to be admin
+// doesn't leave a stale password field lying around.
+const needsAdminPassword = ref(false);
 
 function readJson(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
 function saveProfile(data) { if (!data) return; profile.value = { ...(profile.value || {}), ...data }; localStorage.setItem('heresy-rising:profile', JSON.stringify(profile.value)); if (data.playerCode) setPlayerCode(data.playerCode); }
@@ -115,7 +121,35 @@ async function joinOrSpectate(form) {
   // leaving them stuck on the join screen.
   await joinGame(form).catch(() => spectateGame(form.roomCode));
 }
-async function recoverProfile(code) { if (!code) return; setPlayerCode(code); saveProfile({ playerCode: code }); socket.disconnect(); await ensureConnected().catch(() => {}); await loadSettings(); notify('Identity restored'); }
+// Checks with the server BEFORE adopting a typed-in identity (unlike every
+// other place a playerCode gets set client-side, which just trusts it) —
+// the one spot player_code isn't a pure self-reported value: claiming an
+// admin code onto a new browser requires ADMIN_PASSWORD, the same secret
+// that already gates the REST /admin panel. See player:claim-identity
+// server-side. A code that isn't admin never touches the password at all —
+// this changes nothing for a normal player restoring their own identity.
+async function recoverProfile({ code, password }) {
+  if (!code) return;
+  try {
+    await ensureConnected();
+    await emitWithAck('player:claim-identity', { code, password });
+    needsAdminPassword.value = false;
+    setPlayerCode(code);
+    saveProfile({ playerCode: code });
+    socket.disconnect();
+    await ensureConnected().catch(() => {});
+    await loadSettings();
+    notify('Identity restored');
+  } catch (e) {
+    if (e.message === 'ADMIN_PASSWORD_REQUIRED') {
+      needsAdminPassword.value = true;
+      notify('Enter the admin password to restore this identity.');
+    } else {
+      needsAdminPassword.value = false;
+      notify(e.message || 'Could not restore identity');
+    }
+  }
+}
 // Every game the switcher lists is one this playerCode has an actual seat
 // in (listPlayerGames() joins on hr_players — a spectated-only game never
 // appears there), so this always goes through the real reconnect path,
