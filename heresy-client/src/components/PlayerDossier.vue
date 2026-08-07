@@ -98,6 +98,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { stampFor } from '../chatSearch.js';
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -155,11 +156,6 @@ function subjectLabelFor(b) {
   return b.subjectCode ? nameFor(b.subjectCode) : 'General';
 }
 
-function stampFor(n) {
-  if (n.phase === 'day') return `D${n.round}`;
-  if (n.phase === 'night') return `N${n.round}`;
-  return '·';
-}
 function isEdited(n) {
   return !!(n.updatedAt && n.createdAt && new Date(n.updatedAt) > new Date(n.createdAt));
 }

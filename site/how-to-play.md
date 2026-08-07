@@ -133,6 +133,14 @@ Browse the **[full role roster](/roles/)** for blurb and quick-reference on each
 
 The game ends immediately when either condition is met.
 
+## Searching the vox
+
+The conclave's transmissions leave a permanent record. To search across channels and days, click the magnifier icon in the channel-tab row, or press **Ctrl+F** / **Cmd+F** to open search. You can also use **Ctrl+K** / **Cmd+K** for a direct shortcut.
+
+Your search scans every channel you are cleared to see — the public Conclave, the private dispatches the Vox sent you alone, the Cabal (Heretics only), and the Graveyard (the dead only) — across *all past days*, including the ones collapsed in the feed. Filter by author, day, channel, or kind of transmission (player speech, engine logs, vote statements), or narrow to only the lines you have bookmarked.
+
+Click a result and the feed jumps to that message, unfolding its day section on the way and flashing the entry so you can find it in context. What was said on Day 1 is still on the record on Day 5.
+
 ## A note on tone
 
 Read this for the rules. Read the **[Drift — the Warp's corruption](/drift)** page for the full mechanic. Read the [role roster](/roles/) for what each operative can actually do at night.

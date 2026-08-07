@@ -37,6 +37,7 @@
         :has-more="hasMoreByChannel[channel]"
         :busy="busy" :now="now" :spectator="spectator" :admin-observer="adminObserver" :voting-enabled="game?.votingEnabled"
         :notes="notes" :bookmarks="bookmarks" :ensure-channel-history="ensureChannelHistory"
+        :messages-by-channel="messagesByChannel" :preload-search="preloadSearchChannels"
         @channel="changeChannel" @send="sendMessage" @send-as="sendMessageAs" @history="loadHistory"
         @vote="submitVote" @retract-vote="retractVote" @vote-as="submitVoteAs" @retract-vote-as="retractVoteAs" @action="submitAction"
         @faction-action="submitFactionAction"
@@ -233,7 +234,7 @@ async function sendMessage(body) { try { await command('chat:send', { code: game
 // (the server derives who you're speaking as from its own live
 // possessed_by record, never from anything the client sends).
 async function sendMessageAs(body) { try { await command('chat:send-as', { code: game.value.code, body }); } catch {} }
-async function loadHistory(before) { try { if (before == null) { let all = []; let cursor; let hasMore = true; while (hasMore) { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before: cursor, limit: 100 }); const batch = data?.messages || []; if (!batch.length) break; all = [...batch, ...all]; hasMore = !!data?.hasMore; cursor = batch[0]?.id; if (!cursor) break; } messagesByChannel.value = { ...messagesByChannel.value, [channel.value]: all }; hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: hasMore }; if (channel.value === 'public') await loadPrivateHistory(); } else { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: channel.value, before, limit: 50 }); mergeMessages(channel.value, data?.messages || [], true); hasMoreByChannel.value = { ...hasMoreByChannel.value, [channel.value]: !!data?.hasMore }; } } catch {} }
+async function loadHistory(before, ch = channel.value) { try { if (before == null) { let all = []; let cursor; let hasMore = true; while (hasMore) { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: ch, before: cursor, limit: 100 }); const batch = data?.messages || []; if (!batch.length) break; all = [...batch, ...all]; hasMore = !!data?.hasMore; cursor = batch[0]?.id; if (!cursor) break; } messagesByChannel.value = { ...messagesByChannel.value, [ch]: all }; hasMoreByChannel.value = { ...hasMoreByChannel.value, [ch]: hasMore }; if (ch === 'public') await loadPrivateHistory(); } else { const data = await command('chat:history', { code: game.value.code, playerCode: profile.value?.playerCode, channel: ch, before, limit: 50 }); mergeMessages(ch, data?.messages || [], true); hasMoreByChannel.value = { ...hasMoreByChannel.value, [ch]: !!data?.hasMore }; } } catch {} }
 // Private notes & bookmarks. Never called for a spectator — the server's
 // notes:*/bookmark:* handlers all require a real seat (requirePlayer) and
 // throw otherwise, and command() would just surface that as a toast for
@@ -271,6 +272,23 @@ function receiveBookmarkAdded(payload) { const b = payload?.bookmark; if (!b) re
 // give up and say the message truly isn't there. Whether the id actually
 // turns up is for the caller (GameView) to check in the DOM afterward.
 async function ensureChannelHistory(ch) { if (!game.value?.code) return; if (channel.value !== ch) channel.value = ch; await loadHistory(); }
+// Search spans every channel the viewer is entitled to, but a bucket is only
+// fetched when its tab is first opened — so a Cabal line from Night 2 would be
+// unfindable until you visited the tab. Fill the rest on demand instead.
+// Nothing new is exposed by this: these are the same chat:history calls
+// changeChannel would make, and the server's authorizeChannel still gates
+// every one of them. Deliberately does NOT touch channel.value — that's the
+// whole difference from ensureChannelHistory, whose tab switch would yank the
+// view out from under someone who just opened search.
+async function preloadSearchChannels() {
+  if (!game.value?.code) return;
+  if (spectator.value || adminObserver.value) return;
+  const chs = ['public', ...(me.value?.faction === 'heretic' ? ['faction'] : []), ...(me.value && !me.value.alive ? ['graveyard'] : [])];
+  for (const ch of chs) {
+    if (messagesByChannel.value[ch]?.length) continue;
+    await loadHistory(undefined, ch);
+  }
+}
 // Engine-authored private lines (role reveal, intel returns, night-action
 // reports) arrive live via receiveMessage, which folds them into the 'public'
 // bucket rather than a bucket of their own. That meant a reload silently wiped

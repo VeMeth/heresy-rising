@@ -59,7 +59,7 @@
       <section class="panel chat-panel" :class="{'mobile-hidden':mobileTab!=='chat'}">
         <span class="panel-frame-corner tl"></span><span class="panel-frame-corner tr"></span>
         <span class="panel-frame-corner bl"></span><span class="panel-frame-corner br"></span>
-        <div class="channel-tabs"><button v-for="c in channels" :key="c.id" :class="{active:channel===c.id}" @click="$emit('channel',c.id)">{{ c.label }}<small>{{ c.note }}</small></button></div>
+        <div class="channel-tabs"><button v-for="c in channels" :key="c.id" :class="{active:channel===c.id}" @click="$emit('channel',c.id)">{{ c.label }}<small>{{ c.note }}</small></button><button type="button" class="search-tab" aria-label="Search the vox" title="Search the vox (Ctrl+F)" @click="openSearch"><svg class="search-glyph" aria-hidden="true"><use href="#hr-search"/></svg></button></div>
         <div ref="feed" class="message-feed">
           <div v-if="!effectiveMessages.length" class="empty-chat"><strong>No transmissions recorded</strong></div>
           <template v-else>
@@ -78,7 +78,7 @@
                   <span class="day-count">{{ day.messages.length }}</span>
                 </header>
                 <div class="day-messages" v-show="day.expanded">
-                  <article :id="'hr-msg-'+m.id" v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',admin:m.kind==='admin',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
+                  <article :id="'hr-msg-'+m.id" v-for="m in day.messages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',admin:m.kind==='admin',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id,'search-hit':searchHitIds.has(m.id)}]">
                     <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @touchstart="onTermTouchStart" @touchend="onTermTouchEnd(seg.term,$event)" @click="onTermClick(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><button v-if="!readOnly" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
                     <template v-else>
                       <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
@@ -92,7 +92,7 @@
                 </div>
               </section>
             </div>
-            <article :id="'hr-msg-'+m.id" v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',admin:m.kind==='admin',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id}]">
+            <article :id="'hr-msg-'+m.id" v-for="m in currentMessages" :key="m.id" :class="['message',{system:m.kind==='system',vote:m.kind==='vote',admin:m.kind==='admin',faction:m.channel==='faction','mentions-me':messageMentionsMe(m),'is-bookmarked':isBookmarked(m.id),'jump-highlight':jumpHighlightId===m.id,'search-hit':searchHitIds.has(m.id)}]">
               <span v-if="m.kind==='system'" class="log-entry" :class="'log-entry--'+classifyEntry(m).type"><svg class="log-glyph" aria-hidden="true"><use :href="classifyEntry(m).glyph"/></svg><span class="log-text"><template v-for="(seg,si) in messageSegments(m)" :key="si"><button v-if="seg.term" type="button" class="glossary-term" @mouseenter="showTip(seg.term,$event)" @mouseleave="hideTip" @focus="showTip(seg.term,$event)" @blur="hideTip" @touchstart="onTermTouchStart" @touchend="onTermTouchEnd(seg.term,$event)" @click="onTermClick(seg.term)">{{ seg.text }}</button><template v-else>{{ seg.text }}</template></template></span><time class="log-time">{{ formatTime(m.createdAt) }}</time><small v-if="adminObserver" class="admin-chan-badge" :title="'channel: '+m.channel+(m.recipientCode?(' · to '+m.recipientCode):'')">{{ m.channel }}<template v-if="m.recipientCode">→{{ m.recipientCode }}</template></small><button v-if="!readOnly" type="button" class="bookmark-btn log-bookmark" :class="{active:isBookmarked(m.id)}" :aria-label="isBookmarked(m.id)?'Remove bookmark':'Bookmark this line'" @click.stop="toggleBookmark(m.id)"><svg class="bookmark-glyph" aria-hidden="true"><use href="#hr-bookmark"/></svg></button></span>
               <template v-else>
                 <span class="avatar mini" v-bind="sealAttrs(m.author)">{{ sealText(m.author) }}</span>
@@ -272,6 +272,15 @@
       @annotate-bookmark="onAnnotateBookmark"
       @jump="onJump"
     />
+    <ChatSearch
+      :open="searchOpen"
+      :index="searchIndex"
+      :bookmarks="bookmarks"
+      :busy="searchBusy"
+      @close="searchOpen=false"
+      @jump="onJump"
+      @hits="ids => searchHitIds = ids"
+    />
     <!-- Hidden dev tool: raw round-by-round actions/votes for every player,
          every round — adminState carries the whole game's allActions/
          allVotes (never trimmed to "this round" like the normal player-
@@ -301,14 +310,16 @@
   </section>
 </template>
 <script setup>
-import { computed,nextTick,onBeforeUnmount,ref,watch } from 'vue';
+import { computed,nextTick,onBeforeUnmount,onMounted,ref,watch } from 'vue';
 import { TERM_PATTERN, lookupTerm } from '../glossary.js';
 import { buildSealMap, fallbackSeal, sealVars } from '../seals.js';
 import { settings } from '../settings.js';
 import { DRIFT, DRIFT_ZONE_ORDER, SCALED_COSTS, resolveScaledCost, formatSigned } from '../driftCosts.js';
 import rules from '@game_data/rules.json';
 import PlayerDossier from './PlayerDossier.vue';
-const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},adminObserver:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true},notes:{type:Array,default:()=>[]},bookmarks:{type:Array,default:()=>[]},ensureChannelHistory:{type:Function,default:null}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','open-manual','leave','notes-add','notes-edit','notes-delete','bookmark-toggle','bookmark-annotate','notify']);
+import ChatSearch from './ChatSearch.vue';
+import { deriveStamps } from '../chatSearch.js';
+const props=defineProps({game:{type:Object,required:true},me:Object,messages:{type:Array,default:()=>[]},channel:String,busy:Boolean,now:Number,hasMore:{type:Boolean,default:true},spectator:{type:Boolean,default:false},adminObserver:{type:Boolean,default:false},votingEnabled:{type:Boolean,default:true},notes:{type:Array,default:()=>[]},bookmarks:{type:Array,default:()=>[]},ensureChannelHistory:{type:Function,default:null},messagesByChannel:{type:Object,default:()=>({})},preloadSearch:{type:Function,default:null}});const emit=defineEmits(['channel','send','send-as','history','vote','retract-vote','vote-as','retract-vote-as','action','retract-action','faction-action','open-manual','leave','notes-add','notes-edit','notes-delete','bookmark-toggle','bookmark-annotate','notify']);
 // Admin full-visibility observer (game:admin-observe) has no `me` at all —
 // same read-only posture as a normal spectator for every interactive game
 // action (voting, dossier notes/bookmarks, composer), just via a different
@@ -326,6 +337,48 @@ const readOnly=computed(()=>props.spectator||props.adminObserver);
 // an admin observer for the same reason. For everyone else this is just
 // props.messages, unchanged.
 const effectiveMessages=computed(()=>props.adminObserver?(props.game.allMessages||[]).filter(m=>(m.channel||'public')===props.channel):props.messages);
+// Search index: every message the viewer is entitled to, across every
+// channel at once — the whole point of a search box is not making someone
+// click through tabs first. Admin observer reuses the same branch and the
+// same reasoning as effectiveMessages just above: their game state carries
+// no hr_players row, chat:history throws for them, and game.allMessages is
+// the only place their messages live at all (already unfiltered by channel,
+// so no union needed there). Everyone else's messages arrive bucketed per
+// channel in messagesByChannel, so the index is the union of every bucket —
+// but a naive union double-counts, because engine-authored private lines
+// (role reveals, night-action reports) are folded into the 'public' bucket
+// on arrival (see App.vue's receiveMessage) while the channel they actually
+// belong to may *also* hold a copy fetched via chat:history. Dedup by id,
+// first-seen wins. deriveStamps runs separately per source array — BEFORE
+// the merge — because day/night markers are per-channel; running it once
+// over an already-interleaved list would attribute a message to the wrong
+// day. Only rows the server never stamped (round==null, pre-migration data)
+// take the derived fallback; anything with a real stamp is left untouched.
+const searchIndex=computed(()=>{
+  const admin=props.adminObserver;
+  const sources=admin?[props.game.allMessages||[]]:Object.values(props.messagesByChannel||{});
+  const byId=new Map();
+  for(const arr of sources){
+    const stamps=deriveStamps(arr);
+    for(const m of arr){
+      if(byId.has(m.id))continue;
+      const fallback=m.round==null?stamps.get(m.id):null;
+      // A normal viewer has no Private tab — engine-authored private lines are
+      // rendered inline in the Conclave feed (App.vue folds them into the
+      // 'public' bucket on arrival). Reporting their true channel here would
+      // offer a filter for a tab that doesn't exist, and every player gets a
+      // private "your role is X" line at game start, so it fired for everyone
+      // from Day 1. Report the channel they're actually DISPLAYED in instead;
+      // onJump already normalizes 'private' to 'public' for the same reason.
+      // Nothing is lost: private lines are always kind==='system', so the Log
+      // chip still isolates them. Admin observers keep the real value —
+      // Private IS a tab for them (see the channels computed).
+      const ch=!admin&&m.channel==='private'?'public':m.channel;
+      byId.set(m.id,(fallback||ch!==m.channel)?{...m,channel:ch,...(fallback?{round:fallback.round,phase:fallback.phase}:{})}:m);
+    }
+  }
+  return[...byId.values()].sort((a,b)=>Number(a.createdAt)-Number(b.createdAt));
+});
 const draft=ref(''),mobileTab=ref('chat'),feed=ref(null),variant=ref(''),forgeAs=ref(''),forgeBody=ref(''),voteJustification=ref(''),speakAsTarget=ref(false);
 // Emergency broadcast: an admin observer's composer stays hidden behind a
 // deliberate click, and re-hides itself after every send — a running game
@@ -583,6 +636,43 @@ function classifyEntry(m){const eventType=messageEventType(m),b=String(m?.body||
 const dossierOpen=ref(false),dossierSubject=ref(null);
 function openDossier(subject){if(readOnly.value)return;if(subject&&isSelf(subject))subject=null;dossierSubject.value=subject||null;dossierOpen.value=true}
 function closeDossier(){dossierOpen.value=false}
+
+// ── Chat search overlay ─────────────────────────────────────────────────
+// Visible to every viewer, spectators and the admin observer included —
+// there's no interactive/mutating action behind it, just reading, so none
+// of the readOnly gating that guards voting/notes/composer applies here.
+// searchOpen is left mounted unconditionally (ChatSearch does its own
+// v-if="open" internally, same as PlayerDossier) so the query/filters
+// survive a close and reopening restores the previous search instead of
+// resetting it.
+const searchOpen=ref(false),searchBusy=ref(false),searchHitIds=ref(new Set());
+async function openSearch(){
+  searchOpen.value=true;
+  if(!props.preloadSearch)return;
+  searchBusy.value=true;
+  // preloadSearchChannels (App.vue) already swallows its own errors via
+  // loadHistory's try/catch, but a defensive catch here means a future
+  // change to that contract can never leave searchBusy stuck true.
+  try{await props.preloadSearch();}catch{}
+  finally{searchBusy.value=false;}
+}
+// Ctrl/Cmd+F and Ctrl/Cmd+K both open search — F for "find" (browser muscle
+// memory, overridden deliberately) and K for the now-common app-search
+// convention. No central shortcut registry in this codebase; every
+// component owns its own window-level listener (see PlayerDossier.vue,
+// SettingsMenu.vue). Must still fire with focus inside the composer
+// textarea — the common case — which it does for free: keydown bubbles from
+// the textarea to window, and onComposerKeydown never stops propagation.
+// Skipped while the dossier is open so the two overlays don't fight.
+function onSearchShortcut(e){
+  if(dossierOpen.value)return;
+  const mod=e.ctrlKey||e.metaKey;
+  if(!mod)return;
+  const k=e.key.toLowerCase();
+  if(k==='f'||k==='k'){e.preventDefault();openSearch();}
+}
+onMounted(()=>window.addEventListener('keydown',onSearchShortcut));
+onBeforeUnmount(()=>window.removeEventListener('keydown',onSearchShortcut));
 function subjectEntryCount(code){let n=0;for(const note of props.notes)if(note.subjectCode===code)n++;for(const bm of props.bookmarks)if(bm.subjectCode===code)n++;return n}
 // The viewer's own row opens the General bucket — notes on yourself are
 // pointless. isSelf is the single check feeding the openDossier redirect and
@@ -645,6 +735,7 @@ let jumpHighlightTimer=null;
 const jumpHighlightId=ref(null);
 async function onJump({messageId,channel:bmChannel}){
   dossierOpen.value=false;
+  searchOpen.value=false;
   const targetChannel=bmChannel==='private'?'public':(bmChannel||'public');
   if(targetChannel!==props.channel&&props.ensureChannelHistory){
     await props.ensureChannelHistory(targetChannel);
@@ -1974,6 +2065,47 @@ button.ghost.wide.stand-down-leading {
 @media (prefers-reduced-motion: reduce) {
   .message.jump-highlight { animation: none; outline: 2px solid var(--gold); outline-offset: 3px; }
 }
+
+/* A search hit is a standing filing mark for the duration of the search —
+   deliberately NOT the jump-highlight treatment above, which is a one-shot
+   flash that clears itself on a timeout. This has to stay lit for every
+   result at once, for as long as the panel is open, so it's a persistent
+   gold left-rule plus a faint wash rather than an animated outline. */
+.message.search-hit p {
+  border-left: 3px solid var(--gold);
+  background-color: rgba(182, 154, 92, 0.08);
+}
+/* System log lines already carry a left border tinted by event type (see
+   .log-entry above) — same rule as .is-bookmarked's log-entry treatment
+   just above: glow only here, never the border, or the hit mark would stomp
+   the colour-coding that says what kind of event this was. */
+.message.search-hit .log-entry {
+  box-shadow: 0 0 13px rgba(182, 154, 92, 0.35);
+}
+
+/* The search trigger rides in .channel-tabs (base rules in style.css)
+   alongside the channel buttons, which are `flex:1` so they always split the
+   row evenly among however many tabs exist. This one is icon-only and must
+   stay a fixed width regardless of channel count, so it needs the extra
+   .channel-tabs specificity to win over the shared `.channel-tabs button`
+   rule rather than inheriting flex:1. Height comes for free — .channel-tabs
+   has no align-items override, so every direct child (this one included)
+   already stretches to fill the row exactly like the channel buttons do. */
+.channel-tabs .search-tab {
+  flex: none;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 0;
+  color: #868980;
+  cursor: pointer;
+}
+.channel-tabs .search-tab:hover,
+.channel-tabs .search-tab:focus-visible {
+  color: var(--gold2);
+}
+.search-glyph { width: 15px; height: 15px; stroke: currentColor; fill: none; }
 
 /* ── Admin full-visibility observer (hidden dev tool) ──────────────────── */
 .admin-chan-badge {

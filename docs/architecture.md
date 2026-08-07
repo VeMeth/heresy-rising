@@ -29,6 +29,8 @@ Active deadlines are stored as absolute timestamps. On startup the server loads 
 - Submitted night actions and unrevealed votes are private.
 - Socket identity is derived from the validated player code, not a payload `playerId`.
 
+Chat search is a client-side view over pre-fetched message history; it has no server query endpoint and inherits the existing channel ACL without new authorization logic.
+
 All command acknowledgements use `{ ok: true, data }` or `{ ok: false, error }`. Expected command families are `game:*`, `chat:*`, `vote:*`, and `action:*`; state changes arrive through `game:state`, `chat:message`, `vote:state`, `phase:updated`, and `game:ended`.
 
 ## Phase lifecycle
