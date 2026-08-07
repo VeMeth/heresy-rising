@@ -99,7 +99,7 @@
         "onCripple": "disable-one"
       },
       "scaledCostKey": "astropath",
-      "abilityTemplate": "Each night, read the warp-residue left on one target: T1 reveals last night's visitors by name ({t1Cost} drift). T2 reveals the last two nights' visitors combined, no per-night attribution ({t2Cost} drift). T3 reveals the last two nights' visitors with exact night-by-night attribution ({t3Cost} drift — this cost never shrinks, even at a full table). Names only — never what a visitor did, never their alignment. Cannot read yourself.",
+      "abilityTemplate": "Each night, read the warp-residue left on one target. T1 surfaces one name from tonight's visitors, picked at random — you cannot choose which ({t1Cost} drift). T2 reveals every visitor from tonight and the night before, pooled with no per-night attribution ({t2Cost} drift). T3 reveals every visitor from tonight and the night before with exact night-by-night attribution ({t3Cost} drift — this cost never shrinks, even at a full table). Names only — never what a visitor did, never their alignment. Cannot read yourself.",
       "objective": "Trace who moved in the dark. Never claim more than the names allow."
     },
     {

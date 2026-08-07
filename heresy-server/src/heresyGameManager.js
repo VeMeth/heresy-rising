@@ -1005,29 +1005,41 @@ reconnect(c,p){this.requirePlayer(c,p);this.db.prepare('UPDATE hr_players SET co
   resolveIntel(c,a,g){const actor=this.player(c,a.actor_code),target=this.player(c,a.target_code),role=this.role(actor.role_id);if(a.kind==='drift-hint'){const targetZone=driftZone(this.config.drift,target.drift);const rate=intelNoiseRate(this.config.drift,this.config.rules,target.drift,role.driftWeight);const truth=targetZone.id;const zones=this.config.drift.zones;const truthIdx=zones.findIndex(z=>z.id===truth);let shown=truth;if(this.random()<rate){const left=truthIdx>0?truthIdx-1:truthIdx+1;const right=truthIdx<zones.length-1?truthIdx+1:truthIdx-1;
       // Unbiased left/right coin — not a tuning knob, so this 0.5 stays literal.
       const adj=this.random()<0.5?left:right;shown=zones[adj].id;}this.privateSystem(c,a.actor_code,this.hints(c)[shown],{intelKind:'drift-hint',action:'scan_drift',target:a.target_code,zone:shown},{ownAction:true});return{};}
-    // L8 Astropath (locked spec, 2026-08-05). Names-only visitor intel, never
-    // what a visitor did or their faction — reads hr_actions (the same
-    // durable per-round action log the Chirurgeon/Interrogator rotation
-    // checks already query, see mechanics/protection.js) via
-    // mechanics/astropath.js's helpers. Resolved from inside resolveNight for
-    // round g.round, so "the last fully-resolved night" (T1) is g.round-1,
-    // and T2/T3's two-night window is [g.round-2, g.round-1] — g.round itself
-    // is the night currently resolving, not history yet.
+    // L8 Astropath (locked spec, 2026-08-07, v1.1.0). Names-only visitor intel,
+    // never what a visitor did or their faction — reads hr_actions (the same
+    // durable per-round action log the Chirurgeon/Interrogator rotation checks
+    // already query, see mechanics/protection.js) via mechanics/astropath.js's
+    // helpers. Resolved from inside resolveNight for round g.round, so N =
+    // g.round is the night currently resolving (and the night the Astropath
+    // submitted on). Per spec v1.1.0:
+    //   T1 = Night N           → one visitor, picked at random, no attribution
+    //   T2 = Night N ∪ N-1     → all names, no per-night attribution
+    //   T3 = Night N ∪ N-1     → all names, attributed per night
+    // The Astropath's own warp-read is excluded from the visitor list by the
+    // helper — see mechanics/astropath.js for the rationale.
     if(a.kind==='warp-read'){
       const intensity=Number(String(a.variant||'T1').replace('T',''))||1;
       const nameFor=code=>this.displayName(g,this.player(c,code));
       const targetName=nameFor(a.target_code);
       let text;
       if(intensity===1){
-        const visitors=getVisitorsForRound(this.db,c,a.target_code,g.round-1).map(nameFor);
-        text=visitors.length?`On the faintest current of the Warp, you taste ${visitors.join(', ')} lingering on ${targetName}'s shadow — recent arrivals.`:`No one crossed ${targetName}'s path last night.`;
+        const visitors=getVisitorsForRound(this.db,c,a.target_code,g.round).map(nameFor);
+        if(visitors.length){
+          // Spec v1.1.0 § Hard rules item 7: uniform sample across the
+          // visitor list. this.random() is the seeded RNG used by every other
+          // random pick in the manager, so replays stay deterministic.
+          const pick=visitors[Math.floor(this.random()*visitors.length)];
+          text=`On the freshest current of the Warp, you taste ${pick} lingering on ${targetName}'s shadow tonight — one trace among recent arrivals, picked at random. You cannot say who else came.`;
+        }else{
+          text=`No one crossed ${targetName}'s path tonight — the Warp finds nothing on the freshest edge.`;
+        }
       }else if(intensity===2){
-        const visitors=getVisitorsUnion(this.db,c,a.target_code,g.round-2,g.round-1).map(nameFor);
+        const visitors=getVisitorsUnion(this.db,c,a.target_code,g.round-1,g.round).map(nameFor);
         text=visitors.length?`Across two nights of memory, the residue on ${targetName} pulls together: ${visitors.join(', ')}. You cannot tell which night each arrived.`:`No one crossed ${targetName}'s path across the last two nights.`;
       }else{
-        const recent=getVisitorsForRound(this.db,c,a.target_code,g.round-1).map(nameFor);
-        const older=getVisitorsForRound(this.db,c,a.target_code,g.round-2).map(nameFor);
-        text=`On the night past, ${recent.length?recent.join(', '):'no one'} moved through ${targetName}. On the night before that, ${older.length?older.join(', '):'no one'} stood where they stood.`;
+        const tonight=getVisitorsForRound(this.db,c,a.target_code,g.round).map(nameFor);
+        const prior=getVisitorsForRound(this.db,c,a.target_code,g.round-1).map(nameFor);
+        text=`Tonight, ${tonight.length?tonight.join(', '):'no one'} moved through ${targetName}. On the night before, ${prior.length?prior.join(', '):'no one'} stood where they stood.`;
       }
       this.privateSystem(c,a.actor_code,text,{intelKind:'warp-read',tier:intensity,target:a.target_code},{ownAction:true});
       return{};
