@@ -102,7 +102,7 @@ function onGameSelect(key, event) {
   <div class="roster-table">
     <section v-if="game" class="game-editor">
       <h2>Game state</h2>
-      <div class="game-grid">
+      <div class="gamestate-grid">
         <label class="prominent">
           Phase
           <select :value="game.phase" :disabled="busy" @change="onGameSelect('phase', $event)">
@@ -359,13 +359,24 @@ function onGameSelect(key, event) {
   gap: 0.9rem;
 }
 
-.game-grid {
+/* NOTE: do not name this (or any playground class) something as generic as
+   the old `.game-grid` — heresy-client's OWN global style.css defines a
+   `.game-grid` for the live game's roster/orders/chat layout (height:
+   calc(100vh - 201px), min-height: 560px, dark background). Vue's scoped
+   styles only raise this rule's own specificity; they don't stop that
+   unscoped global rule from ALSO matching the same class name when this
+   component is embedded at /playground, and since that rule sets height/
+   min-height/background that this rule never declared, those properties
+   applied completely unopposed — swelling this small field grid to fill
+   nearly the whole viewport. Cross-checked against every class this repo's
+   playground components define; `game-grid` was the only collision. */
+.gamestate-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 0.5rem 0.6rem;
 }
 
-.game-grid label {
+.gamestate-grid label {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
@@ -373,13 +384,13 @@ function onGameSelect(key, event) {
   color: var(--text-dim);
 }
 
-.game-grid label.prominent {
+.gamestate-grid label.prominent {
   font-weight: 700;
   color: var(--text);
 }
 
-.game-grid label.prominent select,
-.game-grid label.prominent input {
+.gamestate-grid label.prominent select,
+.gamestate-grid label.prominent input {
   font-size: 14px;
   font-weight: 700;
 }
