@@ -62,6 +62,26 @@ deployment's database**. If you run the server locally **on the host**
 Either override `GAME_DB_PATH` to a temp file, or run the server in the
 container. E2E tests do this correctly with `GAME_DB_PATH=./data/heresy-rising-e2e.db`.
 
+## Playground runtime data — scenarios & exports
+
+The playground writes two gitignored runtime paths the host keeps across
+rebuilds via compose volume mounts (mirroring `./data`):
+
+- `./playground/scenarios` ↔ `/usr/src/playground/scenarios` — every
+  "Save scenario" lands here as `<sanitizedName>.json`.
+- `./playground/exports` ↔ `/usr/src/playground/exports` — every
+  "Export as test" lands here as a runnable `node --test` file.
+
+Both `playground/scenarios/*.json` and `playground/exports/*.js` are
+listed in the root `.gitignore` with a comment explaining they're
+working files, not source to ship — test fixtures worth keeping belong
+in a committed scenario file (drop the ignore for that one), or in the
+playground's `__tests__/` directory.
+
+Without the compose mount, every `docker compose up --build` resets
+these directories to whatever was copied into the image (empty), and
+saved scenarios vanish.
+
 ## Configuration / env
 
 `.env` is gitignored; `.env.example` is the safe-to-commit template.

@@ -25,6 +25,13 @@ services:
     volumes:
       - ./data:/usr/src/app/data
       - ./game_data:/usr/src/app/config:ro
+      # Playground runtime data — user-saved scenarios and exported tests
+      # (both gitignored, see .gitignore) survive container rebuilds when
+      # mounted from the host. /usr/src/playground is the symlinked copy
+      # Dockerfile creates from /usr/src/app/playground (see heresy-server/
+      # Dockerfile comment). Mirrors the ./data pattern above.
+      - ./playground/scenarios:/usr/src/playground/scenarios
+      - ./playground/exports:/usr/src/playground/exports
     restart: unless-stopped
     deploy:
       resources:
