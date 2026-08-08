@@ -35,6 +35,14 @@ COPY playground/server /usr/src/playground/server
 RUN ln -s /usr/src/app /usr/src/heresy-server && \
     ln -s /usr/src/app/node_modules /usr/src/node_modules
 
+# COPY defaults to root:root ownership, but the container runs as nodejs
+# (below). scenarios.js writes to /usr/src/playground/scenarios on demand
+# (playground/server/scenarios.js's SCENARIOS_DIR, created lazily via
+# mkdirSync on first save) — without this chown, nodejs has no write
+# permission on the root-owned /usr/src/playground parent and every save
+# fails with EACCES, exactly like `data/` would without the chown below.
+RUN chown -R nodejs:nodejs /usr/src/playground
+
 RUN mkdir -p data && chown -R nodejs:nodejs data
 
 ENV NODE_ENV=production
