@@ -5,7 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
-import { config, isDefaultAdminPassword, isDefaultAdminApiKey } from './config.js';
+import { config, isDefaultAdminPassword, isDefaultAdminApiKey, isDefaultPlaygroundPassword } from './config.js';
 import { HeresyGameManager } from './heresyGameManager.js';
 import { loadGameConfig } from './gameConfig.js';
 import { normalizeRoomCode, requirePlayerCode, normalizePlayerCode } from './utils.js';
@@ -157,6 +157,23 @@ export function createHeresyServer({ databasePath, now } = {}) {
     message: { error: 'Too many admin login attempts. Try again later.' }
   });
   function requireAdmin(req,res,next){res.set('Cache-Control','no-store');if(adminLocked)return res.status(503).json({error:'Admin access disabled. The admin password must be set to a non-default value.'});if(!constantTimeEquals(req.get('X-Admin-Password'),config.adminPassword))return res.status(401).json({error:'Admin password required'});next();}
+  // ── Playground gate (separate secret from the admin pw) ──────────────────
+  // The playground mutates throwaway sandboxes (separate SQLite DBs from
+  // `gameManager`) and shows omniscient state — dangerous but not on the
+  // live-game panel. It deliberately does NOT share ADMIN_PASSWORD so the
+  // playground can be handed to playtesters without exposing admin. Mirrors
+  // the admin fail-closed-on-default behaviour: in production, an unset or
+  // still-default PLAYGROUND_PASSWORD disables the gate with a clear log line.
+  const playgroundLocked = config.playgroundPassword && process.env.NODE_ENV === 'production' && isDefaultPlaygroundPassword();
+  if (playgroundLocked) {
+    console.error('[SECURITY] Refusing playground access: PLAYGROUND_PASSWORD is unset or still the shipped default. Set a strong PLAYGROUND_PASSWORD before exposing /api/playground.');
+  }
+  function requirePlayground(req,res,next){
+    res.set('Cache-Control','no-store');
+    if(playgroundLocked)return res.status(503).json({error:'Playground access disabled. The playground password must be set to a non-default value.'});
+    if(!constantTimeEquals(req.get('X-Playground-Password'),config.playgroundPassword))return res.status(401).json({error:'Playground password required'});
+    next();
+  }
   app.post('/api/admin/login',adminLoginLimiter,requireAdmin,(_req,res)=>res.json({ok:true}));
   app.get('/api/admin/overview',requireAdmin,(_req,res)=>{try{res.json(gameManager.adminOverview());}catch(e){res.status(500).json({error:e.message});}});
   app.get('/api/admin/games/:code',requireAdmin,(req,res)=>{try{res.json(gameManager.adminGame(normalizeRoomCode(req.params.code)));}catch(e){res.status(404).json({error:e.message});}});
@@ -172,14 +189,15 @@ export function createHeresyServer({ databasePath, now } = {}) {
   // ── Mechanics playground ─────────────────────────────────────────────────
   // Surfaces playground/server's own router (arbitrary board construction,
   // hand-fed actions/votes, station-by-station resolution trace) at
-  // /api/playground/* behind the exact same requireAdmin gate as every route
-  // above — the playground allows unrestricted state mutation and shows
-  // omniscient (un-redacted) game state, so it must be at least as protected
-  // as /api/admin. createPlaygroundRouter() returns a fresh express.Router
-  // wired to its OWN sandboxed HeresyGameManager instances (playground/server/
-  // sandbox.js) — entirely separate SQLite databases from `gameManager`
-  // above, so nothing a playground session does can touch a real game.
-  app.use('/api/playground',requireAdmin,createPlaygroundRouter());
+  // /api/playground/* behind requirePlayground — a SEPARATE gate from
+  // requireAdmin so the playground password can be shared with playtesters
+  // without exposing the live-game admin panel. The playground allows
+  // unrestricted state mutation and shows omniscient (un-redacted) game
+  // state, but only against sandboxed HeresyGameManager instances
+  // (playground/server/sandbox.js) — entirely separate SQLite databases
+  // from `gameManager` above, so nothing a playground session does can
+  // touch a real game.
+  app.use('/api/playground',requirePlayground,createPlaygroundRouter());
   // ── Bot manager ↔ engine auth ────────────────────────────────────────────
   // The bot-manager talks to us with BOT_API_KEY as a bearer token. Both tokens
   // must be set before these endpoints accept anything — fail-closed.

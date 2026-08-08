@@ -13,6 +13,7 @@ function parseNumber(value, defaultValue) {
 }
 
 export const DEFAULT_ADMIN_PASSWORD = 'BD-admin-default-7d2f940c9d0a4b0fa3e61b787c6b21a9-change-me';
+export const DEFAULT_PLAYGROUND_PASSWORD = 'BD-playground-default-9c4f1230ab27e8b04f96a02e1d57cf46-change-me';
 
 function parseOrigins(value) {
   if (!value) {
@@ -39,6 +40,7 @@ function parseCodeList(value) {
 export const config = {
   port: parseNumber(process.env.SERVER_PORT || process.env.PORT, 4100),
   adminPassword: process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD,
+  playgroundPassword: process.env.PLAYGROUND_PASSWORD || DEFAULT_PLAYGROUND_PASSWORD,
   trustProxy: parseBoolean(process.env.TRUST_PROXY, false),
   cors: {
     allowedOrigins: parseOrigins(process.env.ALLOWED_ORIGINS)
@@ -88,4 +90,12 @@ export function isDefaultAdminApiKey() {
 // A never-set or still-default admin password must never grant access in production.
 export function isDefaultAdminPassword() {
   return !process.env.ADMIN_PASSWORD || config.adminPassword === DEFAULT_ADMIN_PASSWORD;
+}
+
+// Same fail-closed rule for the playground password: production must never
+// accept the shipped default. Distinct secret from ADMIN_PASSWORD because
+// the playground is a shared-with-playtesters debug surface — handing out
+// the admin pw to share the playground would expose the live game panel.
+export function isDefaultPlaygroundPassword() {
+  return !process.env.PLAYGROUND_PASSWORD || config.playgroundPassword === DEFAULT_PLAYGROUND_PASSWORD;
 }

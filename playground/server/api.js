@@ -14,6 +14,7 @@
  */
 
 import express from 'express';
+import crypto from 'node:crypto';
 import { createSandbox, getSandbox, listSandboxes, destroySandbox, sweepOrphanLogs } from './sandbox.js';
 import { captureResolution } from './trace.js';
 import { listScenarios, saveScenario, loadScenario, applyScenario } from './scenarios.js';
@@ -531,9 +532,33 @@ export function createPlaygroundRouter() {
  * Standalone entry point's app (playground/server/index.js). Reproduces the
  * exact `/api/...` surface + 2mb body limit this file served before the
  * createPlaygroundRouter() split — behaviour here must never change.
+ *
+ * Optional password gate: when `PLAYGROUND_PASSWORD` is set in the env (and
+ * not the shipped default), every /api/* request must carry the matching
+ * `X-Playground-Password` header. With it unset (or equal to the shipped
+ * default), the gate is a no-op — preserves the historical "127.0.0.1-only,
+ * no auth" dev ergonomics. The embedded deployment (mounted by heresy-server
+ * behind its own requirePlayground) is the authoritative production gate;
+ * this stand-alone gate exists so a developer who sets PLAYGROUND_PASSWORD
+ * for parity with prod gets the same behaviour locally without re-deploying.
  */
 export function createApp() {
   const app = express();
+  const expected = process.env.PLAYGROUND_PASSWORD && process.env.PLAYGROUND_PASSWORD !== 'BD-playground-default-9c4f1230ab27e8b04f96a02e1d57cf46-change-me'
+    ? process.env.PLAYGROUND_PASSWORD
+    : null;
+  if (expected) {
+    app.use('/api', (req, res, next) => {
+      res.set('Cache-Control', 'no-store');
+      const got = String(req.get('X-Playground-Password') || '');
+      const a = Buffer.from(got);
+      const b = Buffer.from(expected);
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return res.status(401).json({ error: 'Playground password required' });
+      }
+      next();
+    });
+  }
   app.use(express.json({ limit: '2mb' }));
   app.use('/api', createPlaygroundRouter());
   return app;

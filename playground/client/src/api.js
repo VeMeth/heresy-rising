@@ -29,9 +29,11 @@ export function setApiBase(base) {
 }
 
 // Extra headers merged into every request. heresy-client uses this to
-// attach X-Admin-Password once (see PlaygroundView.vue) rather than every
-// caller threading it through — standalone mode leaves this empty since the
-// playground server has no auth at all (it only ever binds 127.0.0.1).
+// attach X-Playground-Password once (see PlaygroundView.vue) rather than
+// every caller threading it through. The embedded deployment
+// (mounted by heresy-server behind requirePlayground) requires this header;
+// standalone mode activates it only when PLAYGROUND_PASSWORD is set in the
+// playground server's env, otherwise requests run unauthenticated.
 let authHeaders = {};
 export function setAuthHeaders(headers) {
   authHeaders = headers || {};

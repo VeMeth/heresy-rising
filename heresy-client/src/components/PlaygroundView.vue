@@ -1,23 +1,27 @@
 <script setup>
 // Embeds the mechanics playground (playground/client/src) at /playground on
-// the real site, gated behind the SAME admin password as /admin.
+// the real site, gated behind a SEPARATE password from /admin.
 //
-// This component owns exactly the auth handshake: it reuses AdminView.vue's
-// own sessionStorage key (see STORAGE_KEY below — deliberately the identical
-// string, not a lookalike) so unlocking either /admin or /playground in a
-// browser tab unlocks the other too, and there is only ever one password
-// prompt/storage mechanism in this codebase. Once a password verifies, it
-// configures playground/client/src/api.js (setApiBase + setAuthHeaders) and
-// mounts the playground's own App.vue completely unmodified — this file
-// never reaches into its internals.
+// The playground mutates throwaway sandboxes (separate SQLite DBs from the
+// live gameManager — see playground/server/sandbox.js) and shows omniscient
+// state. It's dangerous, but not on the live-game admin panel — so it gets
+// its own sessionStorage key (heresy-rising:playgroundPassword) and its own
+// header (X-Playground-Password) so the playground password can be shared
+// with playtesters without exposing ADMIN_PASSWORD.
+//
+// This component owns exactly the auth handshake: it configures
+// playground/client/src/api.js (setApiBase + setAuthHeaders) and mounts the
+// playground's own App.vue completely unmodified — this file never reaches
+// into its internals.
 import { onMounted, ref } from 'vue';
 import PlaygroundApp from '@playground/App.vue';
 import { setApiBase, setAuthHeaders } from '@playground/api.js';
 import '@playground/style.css';
 
-// Identical key to AdminView.vue's STORAGE_KEY — see this file's header
-// comment for why that's deliberate, not a coincidence to fix later.
-const STORAGE_KEY = 'heresy-rising:adminPassword';
+// Deliberately a DIFFERENT key from AdminView.vue's `heresy-rising:adminPassword`
+// — the two routes are independent gates (per AGENTS.md / this file's header),
+// and a successful /admin unlock must NOT auto-unlock /playground.
+const STORAGE_KEY = 'heresy-rising:playgroundPassword';
 
 const passwordInput = ref(sessionStorage.getItem(STORAGE_KEY) || '');
 const authenticated = ref(false);
@@ -31,19 +35,19 @@ setApiBase('/api/playground');
 // closed) before ever mounting PlaygroundApp, which starts firing its own
 // requests (GET /roles, GET /scenarios) the instant it's on the page. GET
 // /roles is a harmless, side-effect-free probe for this: any authenticated
-// route mounted under requireAdmin would do exactly as well.
+// route mounted under requirePlayground would do exactly as well.
 async function verify(password) {
   checking.value = true;
   error.value = '';
-  setAuthHeaders({ 'X-Admin-Password': password });
+  setAuthHeaders({ 'X-Playground-Password': password });
   try {
-    const res = await fetch('/api/playground/roles', { headers: { 'X-Admin-Password': password } });
+    const res = await fetch('/api/playground/roles', { headers: { 'X-Playground-Password': password } });
     if (res.status === 503) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || 'Admin access disabled.');
+      throw new Error(body.error || 'Playground access disabled.');
     }
     if (res.status === 401) {
-      throw new Error('Admin password rejected. This is the same password as /admin — if that one works, this is not a password problem.');
+      throw new Error('Playground password rejected.');
     }
     // A 404 here does NOT mean the password is wrong: it means /api/playground
     // isn't mounted at all, i.e. the SERVER is running a build from before the
@@ -74,8 +78,9 @@ function submit() {
 }
 
 onMounted(() => {
-  // Auto-unlock if /admin (or a previous /playground visit, same tab) has
-  // already stashed a password this session — no need to re-prompt.
+  // Auto-unlock if a previous /playground visit in this tab has already
+  // stashed a password — no need to re-prompt. Note: this does NOT consult
+  // /admin's sessionStorage key; the two gates are independent.
   if (passwordInput.value) verify(passwordInput.value);
   else checking.value = false;
 });
@@ -85,11 +90,11 @@ onMounted(() => {
   <div class="playground-app">
     <section v-if="!authenticated" class="playground-gate">
       <div class="playground-gate__panel">
-        <span class="playground-gate__eyebrow">Admin</span>
+        <span class="playground-gate__eyebrow">Playground</span>
         <h1>Mechanics Playground</h1>
-        <p v-if="checking" class="playground-gate__status">Checking admin password&hellip;</p>
+        <p v-if="checking" class="playground-gate__status">Checking playground password&hellip;</p>
         <template v-else>
-          <p class="playground-gate__status">Admin password required.</p>
+          <p class="playground-gate__status">Playground password required.</p>
           <form @submit.prevent="submit">
             <label>
               Password
@@ -115,7 +120,6 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
 }
-
 .playground-gate__panel {
   width: min(360px, 90vw);
   padding: 2rem;
@@ -125,7 +129,6 @@ onMounted(() => {
   box-shadow: 0 24px 80px #0008;
   text-align: center;
 }
-
 .playground-gate__eyebrow {
   font-size: 10px;
   font-weight: 700;
@@ -133,24 +136,20 @@ onMounted(() => {
   text-transform: uppercase;
   color: var(--accent, #b69a5c);
 }
-
 .playground-gate__panel h1 {
   margin: 0.6rem 0 1rem;
   font-size: 20px;
 }
-
 .playground-gate__status {
   color: var(--text-dim, #8f9287);
   font-size: 13px;
   margin-bottom: 1rem;
 }
-
 .playground-gate__panel form {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
-
 .playground-gate__panel label {
   display: flex;
   flex-direction: column;
@@ -159,7 +158,6 @@ onMounted(() => {
   font-size: 12px;
   color: var(--text-dim, #8f9287);
 }
-
 .playground-gate__error {
   margin-top: 1rem;
   color: var(--bad, #b5453c);

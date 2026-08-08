@@ -92,6 +92,16 @@ Meaningful knobs (defaults in compose):
   and every `/api/admin/*` endpoint returns 503 (fail-closed). The
   `/api/admin/login` route additionally has a strict per-IP limit
   (10 attempts / 15 min) on top of the global limiter.
+- `PLAYGROUND_PASSWORD` — separate secret from `ADMIN_PASSWORD`. Gates
+  `/api/playground/*` on the live site (fail-closed on the shipped default
+  in production, same `[SECURITY] Refusing playground access…` log shape)
+  so the playground can be handed to playtesters without exposing the
+  live-game admin panel. The standalone playground server (port 4200)
+  honours it when set; leave unset for the historical "127.0.0.1-only, no
+  auth" local-dev ergonomics. Client sends `X-Playground-Password`;
+  sessionStorage key `heresy-rising:playgroundPassword` is intentionally
+  distinct from `heresy-rising:adminPassword` — unlocking `/admin` does
+  NOT auto-unlock `/playground` or vice versa.
 - `TRUST_PROXY` — must be `true` in this stack. The server is always
   behind the nginx client container, and rate limiting / per-client
   IP accounting depend on trusting `X-Forwarded-*`. With it off, every
