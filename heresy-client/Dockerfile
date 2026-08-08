@@ -19,6 +19,13 @@ RUN cd /docs-deps && npx vitepress build site
 # built docs are still in /docs-deps/site/_site (outside /app/).
 COPY heresy-client .
 COPY game_data /game_data
+# The SPA embeds the mechanics playground at /playground via the `@playground`
+# vite alias, which resolves to `../playground/client/src` — i.e. /playground
+# from WORKDIR /app. Without this the production build fails to resolve those
+# imports even though `npm run build` succeeds locally, where the sibling
+# directory happens to exist. Same trick as game_data above: the alias is
+# relative to heresy-client, so the copy target is one level up from /app.
+COPY playground/client /playground/client
 COPY quotes.txt ../quotes.txt
 RUN mkdir -p ./public/docs && cp -r /docs-deps/site/_site/. ./public/docs/
 RUN npm run build
