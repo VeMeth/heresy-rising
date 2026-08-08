@@ -253,6 +253,13 @@ export const CONFIDENCE = Object.freeze({
  *
  * Spans are line ranges from heresyGameManager.js that were transcribed into
  * this file. computeEngineContractHash() extracts and hashes these spans.
+ *
+ * Hash history:
+ *   622d7506… — initial pin
+ *   aa6bbcef… — changeDrift now reads selfDriftHints directly (was hints()
+ *               via the profile-keyed path). Mechanical reroute, same zone
+ *               lookup; station dispatch unchanged. Re-pinned 2026-08-08
+ *               alongside the hints.json / selfDriftHints.json split.
  */
 export const ENGINE_CONTRACT = Object.freeze({
   file: 'heresy-server/src/heresyGameManager.js',
@@ -262,7 +269,7 @@ export const ENGINE_CONTRACT = Object.freeze({
     { name: 'changeDrift', start: 1268, end: 1286 },
     { name: 'resolveDayVote', start: 1088, end: 1128 },
   ],
-  hash: '622d7506f5be351a5ec3d7c0bb23e1a24347d1fa9238e8bf2c88e753a79dd5e0',
+  hash: 'aa6bbcefd2dddf004ada36aceb6aa843254f0570eb27eef05ef8c2ef339e4609',
 });
 
 /**
