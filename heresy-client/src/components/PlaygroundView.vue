@@ -43,7 +43,17 @@ async function verify(password) {
       throw new Error(body.error || 'Admin access disabled.');
     }
     if (res.status === 401) {
-      throw new Error('Admin password required.');
+      throw new Error('Admin password rejected. This is the same password as /admin — if that one works, this is not a password problem.');
+    }
+    // A 404 here does NOT mean the password is wrong: it means /api/playground
+    // isn't mounted at all, i.e. the SERVER is running a build from before the
+    // playground was added. Reported distinctly because it otherwise reads as
+    // an auth failure and sends people hunting for a password that is fine.
+    if (res.status === 404) {
+      throw new Error('The playground API is not on this server (404). The server build predates /api/playground — rebuild and redeploy heresy-server, not just the client.');
+    }
+    if (res.status === 502 || res.status === 504) {
+      throw new Error(`The server is unreachable through the proxy (${res.status}). Check that heresy-server is up and that nginx proxies /api/ to it.`);
     }
     if (!res.ok) {
       throw new Error(`Request failed (${res.status})`);
