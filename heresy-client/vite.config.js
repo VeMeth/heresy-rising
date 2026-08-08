@@ -88,7 +88,11 @@ export default defineConfig({
   plugins: [vue(), quotesAsset(), docsDevServer()],
   resolve: {
     alias: {
-      '@game_data': path.resolve(__dirname, '../game_data')
+      '@game_data': path.resolve(__dirname, '../game_data'),
+      // Playground UI is embedded at /playground (see App.vue's isPlaygroundRoute
+      // and PlaygroundView.vue) — this alias lets it import the SAME components
+      // playground/client/src ships standalone rather than a copy of them.
+      '@playground': path.resolve(__dirname, '../playground/client/src')
     }
   },
   server: {

@@ -1,0 +1,16 @@
+{
+  "name": "heresy-playground",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mechanics playground — set up arbitrary game states and inspect night/day resolution",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test \"server/__tests__/*.test.js\""
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

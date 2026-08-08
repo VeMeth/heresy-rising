@@ -1,0 +1,349 @@
+/* ------------------------------------------------------------------
+   Heresy Rising — Mechanics Playground
+   Dark, dense, information-first styling for a developer instrument.
+   Deliberately NOT based on heresy-client's theme — this is a
+   separate tool for reading engine internals, not a game UI.
+
+   Everything below is scoped under .playground-app (the mount element
+   carries this class in both contexts — see index.html for standalone,
+   PlaygroundView.vue for embedded). This file is loaded as a genuine
+   global stylesheet when heresy-client embeds the playground at
+   /playground, so nothing here may use a bare element selector (button,
+   input, table, h1, ...) or :root — those would repaint the WHOLE game UI,
+   not just the playground panel. The one exception is `body { margin: 0 }`
+   below: heresy-client's own global stylesheet already sets that exact
+   rule, so it can never visibly change anything there even though it does
+   technically leak.
+   ------------------------------------------------------------------ */
+
+.playground-app {
+  /* Surfaces */
+  --bg: #0b0d10;
+  --bg-panel: #12151a;
+  --bg-panel-alt: #171b21;
+  --bg-raised: #1d2229;
+  --border: #262c34;
+  --border-soft: #1c2128;
+
+  /* Text */
+  --text: #d7dee6;
+  --text-dim: #8e97a3;
+  --text-faint: #565f6b;
+
+  --accent: #5aa9e6;
+  --accent-dim: #3d739c;
+
+  /* Fonts */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', monospace;
+
+  /* Integrity banner / status semantics — used by RosterTable & TracePanel */
+  --ok: #4caf6d;
+  --ok-bg: rgba(76, 175, 109, 0.12);
+  --warn: #dba63f;
+  --warn-bg: rgba(219, 166, 63, 0.12);
+  --bad: #e06258;
+  --bad-bg: rgba(224, 98, 88, 0.14);
+
+  /* ----------------------------------------------------------------
+     Confidence badge colors, for TracePanel's per-line confidence
+     tags. Ordered from most to least certain:
+       observed          — directly witnessed by the engine, solid/confident
+       derived-input      — inferred from a submitted input, fairly confident
+       derived-absence     — inferred from the absence of something, hedged
+       derived-rule        — inferred by applying a rule, hedged
+       unobservable        — cannot be known from this seat's fog, muted
+     Do not rename these — TracePanel (T7/T8/T9) reads them by name.
+     ---------------------------------------------------------------- */
+  --conf-observed: #4caf6d;
+  --conf-derived-input: #5aa9e6;
+  --conf-derived-absence: #cf9a44;
+  --conf-derived-rule: #9b7fd4;
+  --conf-unobservable: #5a6169;
+
+  /* Opts this subtree only into dark-themed native form controls/scrollbars
+     — scoped here (not :root) so the rest of the game UI is unaffected. */
+  color-scheme: dark;
+
+  /* Replaces the old body{...} + #app{height:100vh} combination: this
+     element (the mount point in both standalone and embedded contexts) IS
+     the page surface for everything the playground renders. */
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Zeroing body's default margin only matters for the standalone page (no
+   other stylesheet does it there) — harmless when embedded since
+   heresy-client's own global stylesheet already sets this exact rule. */
+body {
+  margin: 0;
+}
+
+.playground-app,
+.playground-app * {
+  box-sizing: border-box;
+}
+
+/* Tabular numerals wherever numbers need to line up (drift, night/day counters) */
+.playground-app .num,
+.playground-app .tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Player codes, trace lines, and any raw engine tokens */
+.playground-app .mono,
+.playground-app code {
+  font-family: var(--font-mono);
+}
+
+.playground-app button,
+.playground-app input,
+.playground-app select,
+.playground-app textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.playground-app button {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.playground-app button:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+}
+
+.playground-app button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.playground-app input,
+.playground-app select,
+.playground-app textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 0.3rem 0.5rem;
+}
+
+.playground-app input:focus,
+.playground-app select:focus,
+.playground-app textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.playground-app table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+
+.playground-app th,
+.playground-app td {
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+
+.playground-app th {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.playground-app h1,
+.playground-app h2,
+.playground-app h3 {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.playground-app h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 0.35rem;
+}
+
+/* ------------------------------------------------------------------
+   App shell
+   ------------------------------------------------------------------ */
+
+.playground-app .app-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.playground-app .error-banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--bad-bg);
+  border-bottom: 1px solid var(--bad);
+  color: var(--text);
+}
+
+.playground-app .error-banner__text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.playground-app .error-banner__dismiss {
+  flex: none;
+  background: transparent;
+  border: 1px solid var(--bad);
+  color: var(--bad);
+}
+
+.playground-app .error-banner__dismiss:hover {
+  background: var(--bad-bg);
+}
+
+/* Three independently-scrolling columns. Widths flex with the viewport
+   but never shrink below a usable minimum, giving a "resizable-ish"
+   feel without requiring draggable dividers. */
+.playground-app .columns {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns:
+    minmax(240px, 300px)
+    minmax(440px, 1fr)
+    minmax(320px, 460px);
+  gap: 1px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.playground-app .column {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.playground-app .column--setup {
+  background: var(--bg-panel);
+}
+
+.playground-app .column--board {
+  background: var(--bg-panel-alt);
+}
+
+.playground-app .column--trace {
+  background: var(--bg-panel);
+}
+
+.playground-app .column::-webkit-scrollbar {
+  width: 8px;
+}
+
+.playground-app .column::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.playground-app .column::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.playground-app .empty-hint {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.playground-app .resolve-button {
+  align-self: flex-start;
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.playground-app .resolve-button:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ------------------------------------------------------------------
+   Integrity / status badges — shared vocabulary for RosterTable and
+   TracePanel so a "✓ ok / ⚠ warn / ✗ bad" reads the same everywhere.
+   ------------------------------------------------------------------ */
+.playground-app .status-ok {
+  color: var(--ok);
+}
+
+.playground-app .status-warn {
+  color: var(--warn);
+}
+
+.playground-app .status-bad {
+  color: var(--bad);
+}
+
+/* ------------------------------------------------------------------
+   Confidence badges — small pill, colored via the --conf-* tokens
+   defined on .playground-app above. TracePanel is expected to add a
+   class per confidence level, e.g. `.conf-badge.conf-observed`.
+   ------------------------------------------------------------------ */
+.playground-app .conf-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.05rem 0.4rem;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.playground-app .conf-observed {
+  color: var(--conf-observed);
+}
+
+.playground-app .conf-derived-input {
+  color: var(--conf-derived-input);
+}
+
+.playground-app .conf-derived-absence {
+  color: var(--conf-derived-absence);
+}
+
+.playground-app .conf-derived-rule {
+  color: var(--conf-derived-rule);
+}
+
+.playground-app .conf-unobservable {
+  color: var(--conf-unobservable);
+  border-style: dashed;
+}

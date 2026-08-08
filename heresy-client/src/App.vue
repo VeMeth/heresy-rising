@@ -1,5 +1,6 @@
 <template>
   <AdminView v-if="isAdminRoute" />
+  <PlaygroundView v-else-if="isPlaygroundRoute" />
   <div v-else class="app" :class="game ? 'phase-' + game.phase : ''">
     <EmberField />
     <header class="masthead">
@@ -70,6 +71,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ensureConnected, emitWithAck, getPlayerCode, setPlayerCode, socket } from './socket';
 import { settings, loadSettings, setName as setSavedName } from './settings.js';
 import AdminView from './components/AdminView.vue';
+import PlaygroundView from './components/PlaygroundView.vue';
 import AnnouncementOverlay from './components/AnnouncementOverlay.vue';
 import EmberField from './components/EmberField.vue';
 import JoinView from './components/JoinView.vue';
@@ -83,6 +85,10 @@ import newVoteSoundUrl from './assets/new-vote.mp3';
 const game = ref(null); const busy = ref(false); const error = ref(''); const toast = ref(''); const announcement = ref(null); let announcementTimer; const compositionErrors = ref([]); let previousPhase = null;
 const showManual = ref(false); const manualMounted = ref(false); const manualUrl = ref('/docs/how-to-play');
 const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
+// Same pathname-check routing as isAdminRoute above — this codebase has no
+// vue-router, and /playground doesn't warrant introducing one just for a
+// second gated dev route.
+const isPlaygroundRoute = location.pathname.replace(/\/+$/, '') === '/playground';
 const connected = ref(false); const reconnecting = ref(false); const messagesByChannel = ref({ public: [], faction: [], graveyard: [] });
 const notes = ref([]); const bookmarks = ref([]);
 const hasMoreByChannel = ref({ public: true, faction: true, graveyard: true });
@@ -441,8 +447,8 @@ async function maybeAutoJoin() {
   }
   await joinOrSpectate({ name: savedName, roomCode: target });
 }
-onMounted(() => { if (isAdminRoute) return; loadSettings(); clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); socket.on('bookmark:added', receiveBookmarkAdded); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); window.addEventListener('click', unlockAudio, { once: true }); window.addEventListener('keydown', unlockAudio, { once: true }); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
-onBeforeUnmount(() => { if (isAdminRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); socket.off('bookmark:added', receiveBookmarkAdded); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
+onMounted(() => { if (isAdminRoute || isPlaygroundRoute) return; loadSettings(); clock = setInterval(() => now.value = Date.now(), 1000); socket.on('connect', onConnect); socket.on('disconnect', onDisconnect); ['game:state','phase:updated','game:ended'].forEach(e => socket.on(e, receiveState)); socket.on('vote:state',receiveVotes); socket.on('chat:message', receiveMessage); socket.on('game:announcement', receiveAnnouncement); socket.on('game:kicked', receiveKicked); socket.on('bookmark:added', receiveBookmarkAdded); window.addEventListener('keydown', onManualKeydown); window.addEventListener('message', onManualMessage); window.addEventListener('click', unlockAudio, { once: true }); window.addEventListener('keydown', unlockAudio, { once: true }); ensureConnected().then(maybeAutoJoin).catch(() => {}); });
+onBeforeUnmount(() => { if (isAdminRoute || isPlaygroundRoute) return; clearInterval(clock); socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); ['game:state','phase:updated','game:ended'].forEach(e => socket.off(e, receiveState)); socket.off('vote:state',receiveVotes); socket.off('chat:message', receiveMessage); socket.off('game:announcement', receiveAnnouncement); socket.off('game:kicked', receiveKicked); socket.off('bookmark:added', receiveBookmarkAdded); window.removeEventListener('keydown', onManualKeydown); window.removeEventListener('message', onManualMessage); });
 </script>
 
 <style scoped>

@@ -31,3 +31,9 @@ docs/specs/
 site/.vitepress/cache/
 site/_site/
 reasonix.toml
+
+# Playground runtime data — user-saved scenarios and exported tests are
+# working files created by the tool itself (scenarios.js/exportTest.js
+# create these dirs on demand), not source to ship.
+playground/scenarios/*.json
+playground/exports/*.js

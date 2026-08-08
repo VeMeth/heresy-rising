@@ -8,6 +8,7 @@
     "server:start": "npm --prefix heresy-server run start",
     "server:dev": "npm --prefix heresy-server run dev",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "playground": "concurrently \"npm --prefix playground run start\" \"npm --prefix playground/client run dev\"",
     "test:e2e": "node node_modules/playwright/cli.js test -c tests/e2e/playwright.config.js",
     "docker": "docker compose up --build",
     "docker:up": "docker compose up -d",

@@ -12,6 +12,7 @@ import { normalizeRoomCode, requirePlayerCode, normalizePlayerCode } from './uti
 import { SocketRateLimiter } from './socketRateLimiter.js';
 import { deleteGameLog, getGameLog, listGameLogs } from './gameLogs.js';
 import { validateComposition } from './validators/composition.js';
+import { createPlaygroundRouter } from '../../playground/server/api.js';
 
 export function isOriginAllowed(origin, allowed) {
   return !origin || allowed === '*' || allowed.includes(origin);
@@ -125,7 +126,16 @@ function constantTimeEquals(a, b) {
 export function createHeresyServer({ databasePath, now } = {}) {
   const app=express(), server=http.createServer(app), allowed=config.cors.allowedOrigins;
   const corsOptions=(req,cb)=>cb(null,{origin:isRequestOriginAllowed(req,allowed),credentials:false});
-  app.disable('x-powered-by'); app.set('trust proxy',config.trustProxy?1:false); app.use(helmet({crossOriginResourcePolicy:{policy:'same-site'}})); app.use(cors(corsOptions)); app.use(express.json({limit:'32kb'})); app.use(rateLimit({...config.rateLimit,max:config.rateLimit.max||120}));
+  app.disable('x-powered-by'); app.set('trust proxy',config.trustProxy?1:false); app.use(helmet({crossOriginResourcePolicy:{policy:'same-site'}})); app.use(cors(corsOptions));
+  // The playground mutates/reads a full omniscient board (roster + actions + votes + trace)
+  // in single request bodies — bigger than the public API's 32kb cap, which exists to bound
+  // untrusted player input. Scoped to this path only, and registered BEFORE the blanket
+  // express.json below, so it does the actual parsing (up to 2mb, matching the playground's
+  // own standalone limit — see playground/server/api.js's createApp()) for /api/playground/*;
+  // the blanket parser then sees an already-parsed body and no-ops for those requests, so every
+  // other route keeps the tight 32kb ceiling untouched.
+  app.use('/api/playground', express.json({limit:'2mb'}));
+  app.use(express.json({limit:'32kb'})); app.use(rateLimit({...config.rateLimit,max:config.rateLimit.max||120}));
   const gameManager=new HeresyGameManager({databasePath,now,adminPlayerCodes:config.adminPlayerCodes});
   gameManager.onAnnouncement((code,a)=>{broadcastAnnouncement(code,a);});
   gameManager.onBotPrompt((code,payload)=>{broadcastBotPrompt(code,payload);});
@@ -159,6 +169,17 @@ export function createHeresyServer({ databasePath, now } = {}) {
   app.get('/api/admin/game-logs',requireAdmin,(req,res)=>{try{res.json({logs:listGameLogs({limit:String(req.query.limit||'')})});}catch(e){res.status(500).json({error:e.message});}});
   app.get('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{const log=getGameLog(req.params.id);if(!log)return res.status(404).json({error:'Game log not found'});res.json({log});}catch(e){res.status(500).json({error:e.message});}});
   app.delete('/api/admin/game-logs/:id',requireAdmin,(req,res)=>{try{res.json({deleted:deleteGameLog(req.params.id)});}catch(e){res.status(400).json({error:e.message});}});
+  // ── Mechanics playground ─────────────────────────────────────────────────
+  // Surfaces playground/server's own router (arbitrary board construction,
+  // hand-fed actions/votes, station-by-station resolution trace) at
+  // /api/playground/* behind the exact same requireAdmin gate as every route
+  // above — the playground allows unrestricted state mutation and shows
+  // omniscient (un-redacted) game state, so it must be at least as protected
+  // as /api/admin. createPlaygroundRouter() returns a fresh express.Router
+  // wired to its OWN sandboxed HeresyGameManager instances (playground/server/
+  // sandbox.js) — entirely separate SQLite databases from `gameManager`
+  // above, so nothing a playground session does can touch a real game.
+  app.use('/api/playground',requireAdmin,createPlaygroundRouter());
   // ── Bot manager ↔ engine auth ────────────────────────────────────────────
   // The bot-manager talks to us with BOT_API_KEY as a bearer token. Both tokens
   // must be set before these endpoints accept anything — fail-closed.
