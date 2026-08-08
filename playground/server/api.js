@@ -269,6 +269,22 @@ export function createPlaygroundRouter() {
     res.json(cfg.roleList);
   }));
 
+  // -- presets --------------------------------------------------------------
+  //
+  // The composition table from game_data/composition.json — exactly the
+  // presets the live game's lobby picker ships. Returned as a map keyed by
+  // player count ("5".."12"), with the engine-internal fallbackPriority
+  // filtered out (it's the order createSandbox() falls back to when a
+  // player count isn't in the table — playground sandboxes never hit that
+  // branch because MIN_PLAYERS=5/MAX_PLAYERS=12 covers every key here).
+  router.get('/presets', asyncRoute(async (req, res) => {
+    const cfg = loadGameConfig();
+    const presets = Object.fromEntries(
+      Object.entries(cfg.composition).filter(([k]) => /^\d+$/.test(k))
+    );
+    res.json(presets);
+  }));
+
   // -- session lifecycle ----------------------------------------------------
 
   router.post('/session', asyncRoute(async (req, res) => {

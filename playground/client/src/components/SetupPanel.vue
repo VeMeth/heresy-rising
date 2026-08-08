@@ -9,6 +9,10 @@ const props = defineProps({
   roles: { type: Array, default: () => [] },
   busy: { type: Boolean, default: false },
   scenarios: { type: Array, default: () => [] },
+  // { "5": [roleId, ...], "6": [...], ... "12": [...] } — the live game's
+  // composition presets from game_data/composition.json, exposed by
+  // GET /api/presets. Rendered as a "Default setups" quick-start row.
+  presets: { type: Object, default: () => ({}) },
   sessionId: { type: [String, Number], default: null },
 });
 
@@ -135,11 +139,54 @@ function handleSnapshot() {
 function handleRewind() {
   emit('rewind');
 }
+
+// --- default setups (presets) -----------------------------------------
+//
+// One-click entry point that bypasses the manual Roster form entirely:
+// clicking a preset button emits `create` with default names ("P1".."PN")
+// and the preset's roster, so App.vue's existing createSession flow opens
+// a ready-to-play sandbox in a single click. The manual Roster block
+// below stays untouched so a dev can still build a custom composition.
+const presetEntries = computed(() => {
+  return Object.entries(props.presets || {})
+    .filter(([count, roster]) => Array.isArray(roster) && roster.length > 0)
+    .map(([count, roster]) => ({ count: Number(count), roster }))
+    .sort((a, b) => a.count - b.count);
+});
+
+function handleLoadPreset(roster) {
+  const players = roster.map((_, i) => ({ name: defaultName(i) }));
+  emit('create', {
+    players,
+    roster: [...roster],
+    seed: Number(seed.value) || 0,
+    options: { ...options },
+  });
+}
 </script>
 
 <template>
   <div class="setup-panel">
     <h2>Setup</h2>
+
+    <section v-if="presetEntries.length" class="setup-block">
+      <h3>Default setups</h3>
+      <p class="empty-hint">
+        One-click load — opens a sandbox with the live game's roster for that player count.
+      </p>
+      <div class="preset-row">
+        <button
+          v-for="p in presetEntries"
+          :key="p.count"
+          type="button"
+          class="preset-btn"
+          :disabled="busy"
+          @click="handleLoadPreset(p.roster)"
+        >
+          {{ p.count }}p
+        </button>
+      </div>
+    </section>
 
     <section class="setup-block">
       <h3>Roster</h3>
@@ -382,5 +429,17 @@ label select {
 .create-button:hover:not(:disabled) {
   background: var(--accent);
   color: var(--bg);
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.preset-btn {
+  font-size: 11px;
+  padding: 0.3rem 0.7rem;
+  min-width: 2.6rem;
 }
 </style>

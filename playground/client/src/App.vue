@@ -48,6 +48,7 @@ function dismissError() {
 
 const roles = ref([]);       // GET /api/roles -> [{id, name, faction, ...}]
 const scenarios = ref([]);   // GET /api/scenarios -> [{name, ...}]
+const presets = ref({});     // GET /api/presets -> { "5": [roleId,...], ... "12": [...] }
 
 // --- session state --------------------------------------------------
 //
@@ -113,12 +114,14 @@ function handleSelectFogPlayer(playerCode) {
 
 onMounted(() => {
   run(async () => {
-    const [rolesRes, scenariosRes] = await Promise.all([
+    const [rolesRes, scenariosRes, presetsRes] = await Promise.all([
       api.getRoles(),
       api.getScenarios(),
+      api.getPresets(),
     ]);
     roles.value = rolesRes ?? [];
     scenarios.value = scenariosRes ?? [];
+    presets.value = presetsRes ?? {};
   });
 });
 
@@ -274,6 +277,7 @@ function handleResolve() {
           :roles="roles"
           :busy="busy"
           :scenarios="scenarios"
+          :presets="presets"
           :session-id="sessionId"
           @create="handleCreate"
           @save-scenario="handleSaveScenario"

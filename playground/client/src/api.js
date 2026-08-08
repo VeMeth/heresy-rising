@@ -81,6 +81,13 @@ export function getRoles() {
   return get('/roles');
 }
 
+// Default roster presets — { "5": [roleId, ...], "6": [...], ... "12": [...] } —
+// sourced from game_data/composition.json on the server. Used by the
+// playground's "Default setups" quick-start row.
+export function getPresets() {
+  return get('/presets');
+}
+
 export function getScenarios() {
   return get('/scenarios');
 }
