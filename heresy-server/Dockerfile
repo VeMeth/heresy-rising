@@ -20,6 +20,21 @@ RUN npm ci --omit=dev
 COPY heresy-server/src ./src
 COPY game_data ./config
 
+# The engine mounts the mechanics playground at /api/playground, importing
+# ../../playground/server/api.js — i.e. /usr/src/playground from WORKDIR
+# /usr/src/app. Three things have to line up, because this image FLATTENS the
+# repo (heresy-server/ becomes /usr/src/app) while the playground's imports
+# assume the repo's sibling layout:
+#   1. the playground source must be present at /usr/src/playground;
+#   2. playground/server/* imports ../../heresy-server/src/* — which resolves
+#      to /usr/src/heresy-server/src/*, so that name must point at /usr/src/app;
+#   3. bare imports (express) resolve by walking UP from the importing file, and
+#      nothing above /usr/src/playground has node_modules — only /usr/src/app does.
+# Symlinks satisfy 2 and 3 without duplicating either the engine or its deps.
+COPY playground/server /usr/src/playground/server
+RUN ln -s /usr/src/app /usr/src/heresy-server && \
+    ln -s /usr/src/app/node_modules /usr/src/node_modules
+
 RUN mkdir -p data && chown -R nodejs:nodejs data
 
 ENV NODE_ENV=production
