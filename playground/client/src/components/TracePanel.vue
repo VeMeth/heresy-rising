@@ -24,7 +24,7 @@ const props = defineProps({
   players: { type: Array, default: () => [] },
 });
 
-// full playerCode -> shortCode ('p0', 'p3', ...), built once per roster
+// full playerCode -> shortCode ('p1', 'p3', ...), built once per roster
 // change. Falls back to the raw code for anything not found (e.g. a code
 // referenced in trace data that isn't in the current roster snapshot).
 const shortCodeByCode = computed(() => {

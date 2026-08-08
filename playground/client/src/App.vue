@@ -102,7 +102,10 @@ async function refreshFogView() {
 }
 
 function handleSelectFogPlayer(playerCode) {
-  selectedFogPlayer.value = playerCode;
+  // Clicking the already-selected seat deselects — refreshFogView handles
+  // the null case (fogView -> null), so the panel returns to its "select a
+  // seat" hint without any extra branching here.
+  selectedFogPlayer.value = selectedFogPlayer.value === playerCode ? null : playerCode;
   run(refreshFogView);
 }
 
@@ -142,9 +145,19 @@ function handleSaveScenario(name) {
 
 function handleLoadScenario(name) {
   run(async () => {
-    if (sessionId.value) {
-      await api.loadScenario(sessionId.value, name);
-    }
+    // Always open the scenario in a fresh sandbox (POST /session/from-scenario),
+    // regardless of whether one already exists — the playground's "Load"
+    // behaves like "open file" and guarantees the loaded board exactly matches
+    // the saved one (same player count, same codes). Any pre-existing session
+    // is left in the sandbox registry; closing it explicitly would need a
+    // separate UI, and the dev tool doesn't need it.
+    const session = await api.createSessionFromScenario(name);
+    sessionId.value = session.id;
+    trace.value = null;
+    prevTrace.value = null;
+    selectedFogPlayer.value = null;
+    fogView.value = null;
+    silentDrops.value = {};
     await refreshSession();
   });
 }

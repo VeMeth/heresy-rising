@@ -160,6 +160,17 @@ function submitForgery(p) {
 }
 
 function retract(p) {
+  // Clear the form so the target <select> returns to its placeholder —
+  // without this, the previously-chosen target stays selected and the user
+  // can't re-fire submitRoleAction() on the SAME target (v-model/@change
+  // only fire on an actual transition). Resetting lets them re-select any
+  // target to re-submit.
+  const f = formFor(p.code);
+  f.targetCode = '';
+  f.variant = '';
+  f.dataText = '';
+  const br = brFormFor(p.code);
+  br.targetCode = '';
   emit('retract-action', { actorCode: p.code });
 }
 
@@ -199,7 +210,7 @@ const bloodRitualClaim = computed(() => (props.actions || []).find(a => a.factio
             <template v-if="hasNightAction(p)">
               <div class="row-controls">
                 <span class="mono verb">{{ nightActionOf(p).kind }}</span>
-                <select v-model="formFor(p.code).targetCode" :disabled="busy">
+                <select v-model="formFor(p.code).targetCode" :disabled="busy" @change="submitRoleAction(p)">
                   <option value="" disabled>target…</option>
                   <option
                     v-for="t in targetOptions(p, nightActionOf(p).target)"
@@ -213,6 +224,7 @@ const bloodRitualClaim = computed(() => (props.actions || []).find(a => a.factio
                   v-if="nightActionOf(p).variants && nightActionOf(p).variants.length"
                   v-model="formFor(p.code).variant"
                   :disabled="busy"
+                  @change="submitRoleAction(p)"
                 >
                   <option value="" disabled>variant…</option>
                   <option v-for="v in nightActionOf(p).variants" :key="v" :value="v">{{ v }}</option>
@@ -223,14 +235,8 @@ const bloodRitualClaim = computed(() => (props.actions || []).find(a => a.factio
                   :disabled="busy"
                   class="mono data-input"
                   placeholder="data (optional JSON)"
+                  @change="submitRoleAction(p)"
                 />
-                <button
-                  type="button"
-                  :disabled="busy || !formFor(p.code).targetCode"
-                  @click="submitRoleAction(p)"
-                >
-                  Submit
-                </button>
               </div>
             </template>
             <span v-else class="empty-hint">no night action</span>
@@ -241,7 +247,7 @@ const bloodRitualClaim = computed(() => (props.actions || []).find(a => a.factio
             <template v-if="dayActionOf(p)?.kind === 'forgery'">
               <div class="row-controls">
                 <span class="mono verb">forgery</span>
-                <select v-model="forgeFormFor(p.code).targetCode" :disabled="busy">
+                <select v-model="forgeFormFor(p.code).targetCode" :disabled="busy" @change="submitForgery(p)">
                   <option value="" disabled>impersonate…</option>
                   <option v-for="t in livingPlayers" :key="t.code" :value="t.code">
                     {{ t.name }} ({{ t.shortCode ?? t.code }})
@@ -253,13 +259,6 @@ const bloodRitualClaim = computed(() => (props.actions || []).find(a => a.factio
                   class="data-input"
                   placeholder="forged message"
                 />
-                <button
-                  type="button"
-                  :disabled="busy || !forgeFormFor(p.code).targetCode"
-                  @click="submitForgery(p)"
-                >
-                  Submit
-                </button>
               </div>
             </template>
             <span v-else class="empty-hint">no day action</span>
@@ -306,19 +305,12 @@ const bloodRitualClaim = computed(() => (props.actions || []).find(a => a.factio
       <div v-for="p in heretics" :key="p.code" class="row-controls br-row">
         <span class="mono" :title="p.code">{{ p.shortCode ?? p.code }}</span>
         <span>{{ p.name }}</span>
-        <select v-model="brFormFor(p.code).targetCode" :disabled="busy">
+        <select v-model="brFormFor(p.code).targetCode" :disabled="busy" @change="submitBloodRitual(p)">
           <option value="" disabled>target…</option>
           <option v-for="t in targetOptions(p, 'hostile')" :key="t.code" :value="t.code">
             {{ t.name }} ({{ t.shortCode ?? t.code }})
           </option>
         </select>
-        <button
-          type="button"
-          :disabled="busy || !brFormFor(p.code).targetCode"
-          @click="submitBloodRitual(p)"
-        >
-          Claim Blood Ritual
-        </button>
       </div>
     </div>
   </div>

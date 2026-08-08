@@ -250,7 +250,7 @@ function handleRewind() {
             {{ s.name }} ({{ s.playerCount }}p{{ s.savedAt ? ' · ' + s.savedAt : '' }})
           </option>
         </select>
-        <button type="button" :disabled="busy || !hasSession || !selectedScenario" @click="handleLoad">
+        <button type="button" :disabled="busy || !selectedScenario" @click="handleLoad">
           Load
         </button>
       </div>

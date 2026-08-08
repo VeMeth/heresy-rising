@@ -165,6 +165,12 @@ export function loadScenario(sessionId, name) {
   return post(`/session/${sessionId}/load`, { name });
 }
 
+// Opens a saved scenario in a brand-new sandbox — what the Setup column's
+// Load button calls. Returns the same shape createSession() does.
+export function createSessionFromScenario(name) {
+  return post('/session/from-scenario', { name });
+}
+
 export function exportTest(sessionId, name) {
   return post(`/session/${sessionId}/export-test`, { name });
 }

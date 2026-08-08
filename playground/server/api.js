@@ -33,9 +33,11 @@ const notFound = (message) => httpError(404, message);
 
 // ── short codes ─────────────────────────────────────────────────────────
 //
-// Player codes are `${sessionId}-p${seat}` (sandbox.js:371), where
-// sessionId is itself a UUID — so every code is a wall of hex before a
-// short, human-scannable `pN` tail. Every table in the client renders one
+// Player codes are `${sessionId}-p${seat}` (sandbox.js:371, seat 1-indexed),
+// where sessionId is itself a UUID — so every code is a wall of hex before a
+// short, human-scannable `pN` tail (N matches the seat number and the
+// default "P1".."PN" player names, so codes and names align). Every table in
+// the client renders one
 // of these per row/cell, which makes the whole board unscannable at a
 // glance (the tool's entire point). `shortCode` pulls just the trailing
 // seat segment; splitting on '-' and taking the last piece is safe because
@@ -441,6 +443,39 @@ export function createPlaygroundRouter() {
     }
     await sandbox.run(() => applyScenario(sandbox, doc));
     res.json(buildSessionState(sandbox));
+  }));
+
+  // Opens a scenario in a brand-new sandbox — what the playground client's
+  // "Load" button calls. Distinct from POST /session/:id/load (which applies
+  // onto an existing sandbox; the API exposes both so callers can pick):
+  // POST /session/from-scenario is the no-preconditions entry, used when
+  // there's no session yet to load into, which is exactly the playground
+  // client's primary "Load" flow. Creates a fresh sandbox from the scenario's
+  // saved players/roster/seed/options, replays the doc onto it (so flags,
+  // drift, cripple tier, sub-round actions/votes/usage are restored), and
+  // returns the same buildSessionState shape POST /session does.
+  router.post('/session/from-scenario', asyncRoute(async (req, res) => {
+    const { name } = req.body || {};
+    if (!name) throw badRequest('name is required');
+    let doc;
+    try {
+      doc = loadScenario(name);
+    } catch (err) {
+      throw notFound(err.message);
+    }
+    const players = doc.players.map((p) => ({ name: p.name }));
+    const roster = doc.players.map((p) => p.roleId);
+    const sandbox = createSandbox({
+      players,
+      roster,
+      seed: doc.seed,
+      options: {
+        maxDrift: doc.options?.maxDrift,
+      },
+    });
+    await sandbox.run(() => applyScenario(sandbox, doc));
+    const state = buildSessionState(sandbox);
+    res.status(201).json({ ...state, state });
   }));
 
   router.post('/session/:id/export-test', asyncRoute(async (req, res) => {

@@ -368,7 +368,12 @@ export function createSandbox(opts = {}) {
 
   // playerCode generation: sessionId is already a UUID, so `${sessionId}-pN`
   // is guaranteed unique within this process without any extra bookkeeping.
-  const playerCodes = players.map((_, i) => `${sessionId}-p${i}`);
+  // The seat suffix is 1-indexed (p1..pN) so the derived shortCode (api.js's
+  // shortCode() splits on '-' and takes the last segment) lines up with the
+  // 1-indexed seat numbers and default player names ("P1".."PN") the client
+  // shows — previously the code tail was 0-indexed (p0..pN-1) while names
+  // were 1-indexed, so every row showed a mismatched code/name pair.
+  const playerCodes = players.map((_, i) => `${sessionId}-p${i + 1}`);
   const hostCode = playerCodes[0];
   adminPlayerCodes.add(hostCode); // see file header: "Admin gate" — MUST happen before start()
 

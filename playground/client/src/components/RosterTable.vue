@@ -5,7 +5,7 @@
 // re-render from props, since the server clamps drift/crippleTier and
 // hands back the clamped row.
 
-import { computed } from 'vue';
+import { computed, reactive } from 'vue';
 
 const props = defineProps({
   players: { type: Array, default: () => [] },
@@ -96,6 +96,22 @@ function onGameCheckbox(key, event) {
 function onGameSelect(key, event) {
   updateGame(key, event.target.value);
 }
+
+// --- per-player flags disclosure -----------------------------------------
+//
+// Each player has 8 flag fields (tortured_before, mark_public, possessed_by,
+// possession_revealed, plague_carrier, tier1_until_round, skip_next_night,
+// death_cause). Cramming all of them into a single narrow table cell — the
+// last column of the roster — used to render the expanded <details> with
+// every input/select squeezed to the cell's intrinsic width, producing a
+// layout that was hard to read and hard to click. Now each "flags" toggle
+// expands a SECOND <tr> with colspan over the entire table, so the fields
+// lay out in a comfortable grid across the full board width.
+const openFlags = reactive({});
+function toggleFlags(playerCode) {
+  openFlags[playerCode] = !openFlags[playerCode];
+}
+const COL_COUNT = 8; // Code, Name, Role, Faction, Drift, Alive, Cripple, Flags
 </script>
 
 <template>
@@ -199,71 +215,79 @@ function onGameSelect(key, event) {
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="p in players"
-            :key="p.playerCode"
-            :class="{ 'row-dead': !p.alive }"
-          >
-            <td class="mono" :title="p.playerCode">{{ p.shortCode ?? p.playerCode }}</td>
-            <td>{{ p.name }}<span v-if="p.isBot" class="bot-tag">bot</span></td>
-            <td>
-              <select
-                :value="p.role"
-                :disabled="busy"
-                @change="onSelectChange(p.playerCode, 'role', $event)"
-              >
-                <option value="">(none)</option>
-                <option v-for="id in roleIds" :key="id" :value="id">{{ roleName(id) }}</option>
-              </select>
-            </td>
-            <td>
-              <select
-                :value="p.faction"
-                :class="p.faction === 'heretic' ? 'status-bad' : 'status-ok'"
-                :disabled="busy"
-                @change="onSelectChange(p.playerCode, 'faction', $event)"
-              >
-                <option value="loyalist">loyalist</option>
-                <option value="heretic">heretic</option>
-              </select>
-            </td>
-            <td>
-              <input
-                type="number"
-                class="num drift-input"
-                :class="driftClass(p.drift, game?.maxDrift)"
-                min="0"
-                :max="game?.maxDrift ?? 20"
-                :value="p.drift"
-                :disabled="busy"
-                @change="onNumberChange(p.playerCode, 'drift', $event)"
-              />
-            </td>
-            <td>
-              <label class="alive-toggle">
-                <input
-                  type="checkbox"
-                  :checked="p.alive"
+          <template v-for="p in players" :key="p.playerCode">
+            <tr :class="{ 'row-dead': !p.alive }">
+              <td class="mono" :title="p.playerCode">{{ p.shortCode ?? p.playerCode }}</td>
+              <td>{{ p.name }}<span v-if="p.isBot" class="bot-tag">bot</span></td>
+              <td>
+                <select
+                  :value="p.role"
                   :disabled="busy"
-                  @change="onCheckboxChange(p.playerCode, 'alive', $event)"
+                  @change="onSelectChange(p.playerCode, 'role', $event)"
+                >
+                  <option value="">(none)</option>
+                  <option v-for="id in roleIds" :key="id" :value="id">{{ roleName(id) }}</option>
+                </select>
+              </td>
+              <td>
+                <select
+                  :value="p.faction"
+                  :class="p.faction === 'heretic' ? 'status-bad' : 'status-ok'"
+                  :disabled="busy"
+                  @change="onSelectChange(p.playerCode, 'faction', $event)"
+                >
+                  <option value="loyalist">loyalist</option>
+                  <option value="heretic">heretic</option>
+                </select>
+              </td>
+              <td>
+                <input
+                  type="number"
+                  class="num drift-input"
+                  :class="driftClass(p.drift, game?.maxDrift)"
+                  min="0"
+                  :max="game?.maxDrift ?? 20"
+                  :value="p.drift"
+                  :disabled="busy"
+                  @change="onNumberChange(p.playerCode, 'drift', $event)"
                 />
-                <span :class="p.alive ? 'status-ok' : 'status-bad'">{{ p.alive ? 'alive' : 'dead' }}</span>
-              </label>
-            </td>
-            <td>
-              <input
-                type="number"
-                class="num"
-                min="0"
-                max="3"
-                :value="p.crippleTier"
-                :disabled="busy"
-                @change="onNumberChange(p.playerCode, 'crippleTier', $event)"
-              />
-            </td>
-            <td>
-              <details class="flags-disclosure">
-                <summary>flags</summary>
+              </td>
+              <td>
+                <label class="alive-toggle">
+                  <input
+                    type="checkbox"
+                    :checked="p.alive"
+                    :disabled="busy"
+                    @change="onCheckboxChange(p.playerCode, 'alive', $event)"
+                  />
+                  <span :class="p.alive ? 'status-ok' : 'status-bad'">{{ p.alive ? 'alive' : 'dead' }}</span>
+                </label>
+              </td>
+              <td>
+                <input
+                  type="number"
+                  class="num"
+                  min="0"
+                  max="3"
+                  :value="p.crippleTier"
+                  :disabled="busy"
+                  @change="onNumberChange(p.playerCode, 'crippleTier', $event)"
+                />
+              </td>
+              <td>
+                <button
+                  type="button"
+                  class="flags-toggle"
+                  :class="{ 'flags-toggle--open': openFlags[p.playerCode] }"
+                  :disabled="busy"
+                  @click="toggleFlags(p.playerCode)"
+                >
+                  {{ openFlags[p.playerCode] ? '▾ flags' : '▸ flags' }}
+                </button>
+              </td>
+            </tr>
+            <tr v-if="openFlags[p.playerCode]" class="flags-row">
+              <td :colspan="COL_COUNT" class="flags-cell">
                 <div class="flags-body">
                   <label class="checkbox-row">
                     <input
@@ -343,9 +367,9 @@ function onGameSelect(key, event) {
                     />
                   </label>
                 </div>
-              </details>
-            </td>
-          </tr>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </section>
@@ -466,33 +490,58 @@ function onGameSelect(key, event) {
   width: auto;
 }
 
-.flags-disclosure summary {
-  cursor: pointer;
-  color: var(--text-dim);
+.flags-toggle {
   font-size: 10px;
+  padding: 0.2rem 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  color: var(--text-dim);
+}
+
+.flags-toggle--open {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.flags-row > .flags-cell {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 0.8rem;
+  /* The expanded row spans the full table width (colspan=8), so the
+     auto-fit grid below has room to lay the 8 flag fields out in 3-4
+     comfortable columns rather than stacking them into a narrow strip. */
 }
 
 .flags-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.4rem 0;
-  min-width: 180px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.4rem 0.8rem;
 }
 
 .flags-body label {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
   font-size: 10px;
   color: var(--text-dim);
+  min-width: 0;
+}
+
+.flags-body label.checkbox-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.flags-body label.checkbox-row input {
+  width: auto;
+  flex: none;
 }
 
 .flags-body input[type='text'],
 .flags-body input[type='number'],
 .flags-body select {
   width: 100%;
+  min-width: 0;
 }
 </style>

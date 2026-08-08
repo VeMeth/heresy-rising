@@ -238,7 +238,7 @@ export function scenarioFromSandbox(sandbox, meta) {
  * IMPORTANT: The sandbox must already have the same NUMBER of players, one
  * per seat, as the scenario. It does NOT need the same player codes — it
  * can't, structurally: createSandbox() (sandbox.js) stamps every player code
- * with a fresh `${sessionId}-p${i}` on every call, so two independently
+ * with a fresh `${sessionId}-p${i + 1}` on every call, so two independently
  * created sandboxes never share a player code even when built from the exact
  * same players/roster arrays. Seat number is the one thing that stays stable
  * across sandboxes built from the same roster, so every code the scenario
