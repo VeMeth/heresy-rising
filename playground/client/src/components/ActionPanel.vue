@@ -131,8 +131,13 @@ function submitRoleAction(p) {
   if (!action) return;
   const f = formFor(p.code);
   if (!f.targetCode) return;
+  // Variant-gated: if the action requires a variant and the user hasn't
+  // picked one yet, hold off — picking the variant after the target (which
+  // is the natural read order in the row) fires @change on the variant
+  // select, which calls back into here with both fields populated.
+  if (action.variants && action.variants.length && !f.variant) return;
   const payload = { actorCode: p.code, targetCode: f.targetCode };
-  if (action.variants && action.variants.length) payload.variant = f.variant || undefined;
+  if (action.variants && action.variants.length) payload.variant = f.variant;
   if (['drift-hint', 'bodyguard'].includes(action.kind) && f.dataText) {
     try {
       payload.data = JSON.parse(f.dataText);
