@@ -50,6 +50,7 @@ export function loadGameConfig() {
     phases: read('phases.json'),
     rules: read('rules.json'),
     hintProfiles: { default: read('scenarios/default/hints.json') },
+    selfDriftHints: read('scenarios/default/selfDriftHints.json'),
     plagueHints: read('scenarios/default/plagueHints.json'),
     deathFlavor: read('deathFlavor.json')
   };

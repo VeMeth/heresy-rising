@@ -1274,7 +1274,7 @@ if(action.kind==='forgery')return this.forge(c,p,asPlayerCode,body);const target
     // meta is unchanged either way: the client's Warp-taint gauge reads
     // ownZone off it, so dropping it would freeze the gauge for exactly the
     // players who are infected.
-    if(from!==to)this.privateSystem(c,p,(this.isPlagued(g,player)&&this.plagueCue(to))||this.hints(c)[to],{intelKind:'drift_hint',ownZone:to});
+    if(from!==to)this.privateSystem(c,p,(this.isPlagued(g,player)&&this.plagueCue(to))||this.config.selfDriftHints[to],{intelKind:'drift_hint',ownZone:to});
     this.event(c,'drift',{playerCode:p,delta,before,after,reason,zone:to,round:g.round,phase:g.phase});}
   isPlagued(g,player){return !!player&&(g.patient_zero===player.player_code||!!player.plague_carrier);}
   // One cue drawn at random from that zone's pool, the same way deathFlavor
