@@ -178,24 +178,6 @@ const COL_COUNT = 8; // Code, Name, Role, Faction, Drift, Alive, Cripple, Flags
             <option v-for="code in playerCodes" :key="code" :value="code">{{ shortFor(code) }}</option>
           </select>
         </label>
-        <label class="checkbox-row">
-          <input
-            type="checkbox"
-            :checked="game.anonymized"
-            :disabled="busy"
-            @change="onGameCheckbox('anonymized', $event)"
-          />
-          Anonymized
-        </label>
-        <label class="checkbox-row">
-          <input
-            type="checkbox"
-            :checked="game.warpTaintVisible"
-            :disabled="busy"
-            @change="onGameCheckbox('warpTaintVisible', $event)"
-          />
-          Warp taint visible
-        </label>
       </div>
     </section>
 
