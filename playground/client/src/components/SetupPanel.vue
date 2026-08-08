@@ -86,8 +86,6 @@ const seed = ref(1234);
 const options = reactive({
   maxDrift: 20,
   deathReveal: 'alignment',
-  anonymized: false,
-  warpTaintVisible: false,
 });
 
 const canCreate = computed(() => !props.busy && rosterComplete.value);
@@ -224,15 +222,6 @@ function handleRewind() {
             <option value="alignment">alignment</option>
             <option value="role">role</option>
           </select>
-        </label>
-        <label class="checkbox-row" title="Shuffles codenames for determinism-costing anonymity. Leave off to keep runs reproducible.">
-          <input type="checkbox" v-model="options.anonymized" :disabled="busy" />
-          Anonymized
-          <span class="hint">(breaks determinism)</span>
-        </label>
-        <label class="checkbox-row">
-          <input type="checkbox" v-model="options.warpTaintVisible" :disabled="busy" />
-          Warp taint visible
         </label>
       </div>
 
