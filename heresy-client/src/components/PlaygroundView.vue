@@ -119,9 +119,10 @@ onMounted(() => {
 .playground-gate__panel {
   width: min(360px, 90vw);
   padding: 2rem;
-  border: 1px solid var(--border, #262c34);
-  border-radius: 6px;
-  background: var(--bg-panel, #12151a);
+  border: 1px solid var(--border, #34372f);
+  border-radius: 2px;
+  background: var(--bg-panel, #121411);
+  box-shadow: 0 24px 80px #0008;
   text-align: center;
 }
 
@@ -130,7 +131,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.25em;
   text-transform: uppercase;
-  color: var(--accent, #5aa9e6);
+  color: var(--accent, #b69a5c);
 }
 
 .playground-gate__panel h1 {
@@ -139,7 +140,7 @@ onMounted(() => {
 }
 
 .playground-gate__status {
-  color: var(--text-dim, #8e97a3);
+  color: var(--text-dim, #8f9287);
   font-size: 13px;
   margin-bottom: 1rem;
 }
@@ -156,12 +157,12 @@ onMounted(() => {
   gap: 0.35rem;
   text-align: left;
   font-size: 12px;
-  color: var(--text-dim, #8e97a3);
+  color: var(--text-dim, #8f9287);
 }
 
 .playground-gate__error {
   margin-top: 1rem;
-  color: var(--bad, #e06258);
+  color: var(--bad, #b5453c);
   font-size: 12px;
 }
 </style>

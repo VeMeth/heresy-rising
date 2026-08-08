@@ -1,8 +1,14 @@
 /* ------------------------------------------------------------------
    Heresy Rising — Mechanics Playground
-   Dark, dense, information-first styling for a developer instrument.
-   Deliberately NOT based on heresy-client's theme — this is a
-   separate tool for reading engine internals, not a game UI.
+   Dark, dense, information-first styling for a developer instrument —
+   but built from the SAME gothic-Inquisition vocabulary as the main
+   game client (heresy-client/src/style.css): near-black ground, gold
+   accent, Cinzel display type over Inter body/UI type, hairline gold
+   dividers. This is a debug tool, not the game itself, so the dense
+   tables/inputs stay plain and the decorative flourishes (parchment
+   texture, animated glows, corner brackets) are deliberately left out
+   — but the palette and type should read as unmistakably the same
+   product family.
 
    Everything below is scoped under .playground-app (the mount element
    carries this class in both contexts — see index.html for standalone,
@@ -16,34 +22,43 @@
    technically leak.
    ------------------------------------------------------------------ */
 
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
 .playground-app {
-  /* Surfaces */
-  --bg: #0b0d10;
-  --bg-panel: #12151a;
-  --bg-panel-alt: #171b21;
-  --bg-raised: #1d2229;
-  --border: #262c34;
-  --border-soft: #1c2128;
+  /* Surfaces — same near-black + panel tones as heresy-client's --panel/--panel2 */
+  --bg: #0a0b09;
+  --bg-panel: #121411;
+  --bg-panel-alt: #181a16;
+  --bg-raised: #20231c;
+  --border: #34372f;
+  --border-soft: #262920;
 
-  /* Text */
-  --text: #d7dee6;
-  --text-dim: #8e97a3;
-  --text-faint: #565f6b;
+  /* Text — heresy-client's --pale/--muted */
+  --text: #e4e0d2;
+  --text-dim: #8f9287;
+  --text-faint: #5f625a;
 
-  --accent: #5aa9e6;
-  --accent-dim: #3d739c;
+  /* Accent — heresy-client's --gold/--gold2 */
+  --accent: #b69a5c;
+  --accent2: #dfc27c;
+  --accent-dim: #8a744a;
 
-  /* Fonts */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* Fonts — Cinzel for headings (set on h1-h3 below), Inter for UI/body,
+     mono kept as its own utility face for codes/data (the main site has
+     no equivalent — this tool is denser and reads raw engine tokens). */
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', monospace;
 
-  /* Integrity banner / status semantics — used by RosterTable & TracePanel */
-  --ok: #4caf6d;
-  --ok-bg: rgba(76, 175, 109, 0.12);
-  --warn: #dba63f;
-  --warn-bg: rgba(219, 166, 63, 0.12);
-  --bad: #e06258;
-  --bad-bg: rgba(224, 98, 88, 0.14);
+  /* Integrity banner / status semantics — used by RosterTable & TracePanel.
+     Warmed toward the site's own reds/greens (its win/loss colors, its
+     connection-dot states) instead of the previous neon coral/emerald. */
+  --ok: #6f9e5c;
+  --ok-bg: rgba(111, 158, 92, 0.12);
+  --warn: #cf9a44;
+  --warn-bg: rgba(207, 154, 68, 0.12);
+  --bad: #b5453c;
+  --bad-bg: rgba(181, 69, 60, 0.14);
 
   /* ----------------------------------------------------------------
      Confidence badge colors, for TracePanel's per-line confidence
@@ -55,11 +70,11 @@
        unobservable        — cannot be known from this seat's fog, muted
      Do not rename these — TracePanel (T7/T8/T9) reads them by name.
      ---------------------------------------------------------------- */
-  --conf-observed: #4caf6d;
-  --conf-derived-input: #5aa9e6;
-  --conf-derived-absence: #cf9a44;
-  --conf-derived-rule: #9b7fd4;
-  --conf-unobservable: #5a6169;
+  --conf-observed: #6f9e5c;
+  --conf-derived-input: #b69a5c;
+  --conf-derived-absence: #c9945a;
+  --conf-derived-rule: #9b7fc9;
+  --conf-unobservable: #5f625a;
 
   /* Opts this subtree only into dark-themed native form controls/scrollbars
      — scoped here (not :root) so the rest of the game UI is unaffected. */
@@ -115,13 +130,18 @@ body {
   background: var(--bg-raised);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 3px;
+  border-radius: 2px;
   padding: 0.35rem 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
 
 .playground-app button:hover:not(:disabled) {
-  border-color: var(--accent-dim);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(182, 154, 92, 0.15);
 }
 
 .playground-app button:disabled {
@@ -135,7 +155,7 @@ body {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 3px;
+  border-radius: 2px;
   padding: 0.3rem 0.5rem;
 }
 
@@ -144,6 +164,7 @@ body {
 .playground-app textarea:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(182, 154, 92, 0.15);
 }
 
 .playground-app table {
@@ -172,15 +193,17 @@ body {
 .playground-app h2,
 .playground-app h3 {
   margin: 0 0 0.5rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 .playground-app h2 {
-  font-size: 12px;
+  font-size: 13px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--text-dim);
   border-bottom: 1px solid var(--border-soft);
+  box-shadow: 0 1px 0 0 rgba(182, 154, 92, 0.12);
   padding-bottom: 0.35rem;
 }
 
@@ -246,10 +269,17 @@ body {
   min-height: 0;
   overflow-y: auto;
   background: var(--bg-panel);
+  /* Inquisition document-frame echo (heresy-client's .panel::after inset
+     border), painted as an inset box-shadow rather than a pseudo-element
+     so it stays put on the padding edge instead of scrolling away with
+     .column's own content. */
+  box-shadow: inset 0 0 0 1px var(--border-soft);
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+  scrollbar-color: var(--accent) rgba(255, 255, 255, 0.04);
+  scrollbar-width: thin;
 }
 
 .playground-app .column--setup {
@@ -265,12 +295,16 @@ body {
 }
 
 .playground-app .column::-webkit-scrollbar {
-  width: 8px;
+  width: 9px;
 }
 
 .playground-app .column::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: linear-gradient(var(--accent-dim), #4a432e);
   border-radius: 4px;
+}
+
+.playground-app .column::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(var(--accent), var(--accent-dim));
 }
 
 .playground-app .column::-webkit-scrollbar-track {
